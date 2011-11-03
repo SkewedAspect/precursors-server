@@ -1,8 +1,13 @@
 class Client(object):
+    host = None
+
+    # AES Keys
     aeskey = None
     oldkey = None
+
+    # Channel vars
     channels = dict()
-    host = None
+    control = None
 
     def __init__(self):
         pass
@@ -16,17 +21,18 @@ class Client(object):
             self.host = host
 
             self.channels['Control'] = control
+            self.control = control
 
             return True
 
         return False
 
 class Channel(object):
-    def __init__(self, name):
+    def __init__(self, name, host=None, port=None, reliable=False):
         self.encryption = None
         self.name = name
-        self.host = None
-        self.port = None
+        self.host = host
+        self.port = port
         self.reliable = False
 
     def connect(self, host, port, reliable=False, encryption=None):
