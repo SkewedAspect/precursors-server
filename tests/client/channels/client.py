@@ -1,3 +1,13 @@
+# Get Dispatcher
+try:
+    import dispatch
+except:
+    try:
+        import django.dispatch
+    except:
+        import channels.dispatch
+
+
 # Global dictionary of outstanding requests
 requests = dict()
 
