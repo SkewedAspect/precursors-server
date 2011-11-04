@@ -27,3 +27,25 @@ message Logout {
   // Allow extensions to this message
   extensions 100 to 199;
 }
+
+message CreateNewChannel {
+  required string channel_name = 1;
+
+  // These are only used Server -> Client
+  optional bool reliable = 2;
+  optional bool ordered = 3;
+
+  enum EncryptionType {
+    SSL = 1;
+    AES = 2;
+    NONE = 3;
+  }
+
+  optional EncryptionType encryption = 4;
+
+  // Optional extra parameters
+  repeated .precursors.common.KeyValuePair properties = 5;
+
+  // Allow extensions to this message
+  extensions 100 to 199;
+}

@@ -12,3 +12,8 @@ message Message {
   // Allow extensions to this message
   extensions 100 to 199;
 }
+
+message NewChannel {
+  required string channel_name = 1;
+  required int32 port = 2;
+}

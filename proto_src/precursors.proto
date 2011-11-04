@@ -18,6 +18,7 @@ message Request {
   optional requests.Ping login = 3;
   optional requests.Login login = 4;
   optional requests.Logout logout = 5;
+  optional requests.CreateNewChannel newchannel = 5;
 
   // Allow extensions to this message
   extensions 100 to 199;
