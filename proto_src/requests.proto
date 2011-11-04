@@ -1,0 +1,29 @@
+package precursors.requests;
+
+option java_package = "com.skewedaspect.precursors.requests";
+option java_outer_classname = "PreRequestsProtos";
+
+
+import "common.proto";
+
+// No op. Just sends a request, and gets a reply.
+message Ping {
+}
+
+message Login {
+  required string user_id = 1;
+  required string password = 2;
+  required .precursors.common.Version client_version = 4;
+
+  optional string client_name = 6;
+
+  // Allow extensions to this message
+  extensions 100 to 199;
+}
+
+message Logout {
+  required string user_id = 1;
+
+  // Allow extensions to this message
+  extensions 100 to 199;
+}

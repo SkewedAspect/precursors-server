@@ -1,0 +1,16 @@
+package precursors.common;
+
+option java_package = "com.skewedaspect.precursors.common";
+option java_outer_classname = "PreCommonProtos";
+
+message Version {
+  required uint32 major = 1;
+  optional uint32 minor = 2 [default = 0];
+  optional uint32 micro = 3 [default = 0];
+  optional string build = 4;
+}
+
+message KeyValuePair {
+  required string key = 1;
+  required string value = 2;
+}

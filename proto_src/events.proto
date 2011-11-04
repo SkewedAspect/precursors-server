@@ -1,0 +1,14 @@
+package precursors.events;
+
+option java_package = "com.skewedaspect.precursors.events";
+option java_outer_classname = "PreEventsProtos";
+
+
+import "common.proto";
+
+message Message {
+    required string message = 1;
+
+  // Allow extensions to this message
+  extensions 100 to 199;
+}
