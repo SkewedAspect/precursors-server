@@ -1,0 +1,12 @@
+{application, precursors_server,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { precursors_server_app, []}},
+  {env, []}
+ ]}.
