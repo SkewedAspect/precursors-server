@@ -3,6 +3,10 @@ syntax: glob
 # build artifacts
 ebin/*
 deps/*
+include/commit_ver.hrl
+include/*_pb.hrl
+precursors_server
+src/*.proto
 
 # vim artifacts
 *.swp
