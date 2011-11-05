@@ -50,7 +50,7 @@ function pre_compile {
 }
 
 function post_compile {
-	cat succes_message
+	cat success_message
 }
 
 case $1 in

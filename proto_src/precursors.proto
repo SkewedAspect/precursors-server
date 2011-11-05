@@ -4,7 +4,6 @@ option java_package = "com.skewedaspect.precursors";
 option java_outer_classname = "PreProtos";
 
 
-import "common.proto";
 import "requests.proto";
 import "events.proto";
 
@@ -12,13 +11,13 @@ import "events.proto";
 /// Request message. Requests always generate a Response.
 message Request {
   required int32 id = 1;
-  repeated .precursors.common.KeyValuePair properties = 2;
+  repeated KeyValuePair properties = 2;
 
   // Request types - ONLY ONE of these should be present.
-  optional requests.Ping login = 3;
-  optional requests.Login login = 4;
-  optional requests.Logout logout = 5;
-  optional requests.CreateNewChannel newchannel = 5;
+  optional Ping ping = 3;
+  optional Login login = 4;
+  optional Logout logout = 5;
+  optional CreateNewChannel newchannel = 5;
 
   // Allow extensions to this message
   extensions 100 to 199;
@@ -42,10 +41,10 @@ message Event {
   required int32 id = 1;
   required string eventString = 2;
 
-  repeated .precursors.common.KeyValuePair properties = 3;
+  repeated KeyValuePair properties = 3;
 
   // Event types - ONLY ONE of these should be present.
-  optional events.Message message = 4;
+  optional MessageEvent message = 4;
 
   // Allow extensions to this message
   extensions 100 to 199;

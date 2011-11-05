@@ -1,4 +1,4 @@
-package precursors.common;
+package precursors;
 
 option java_package = "com.skewedaspect.precursors.common";
 option java_outer_classname = "PreCommonProtos";

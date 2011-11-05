@@ -1,19 +1,17 @@
-package precursors.events;
+package precursors;
 
 option java_package = "com.skewedaspect.precursors.events";
 option java_outer_classname = "PreEventsProtos";
 
 
-import "common.proto";
-
-message Message {
+message MessageEvent {
     required string message = 1;
 
   // Allow extensions to this message
   extensions 100 to 199;
 }
 
-message NewChannel {
+message NewChannelEvent {
   required string channel_name = 1;
   required int32 port = 2;
 }

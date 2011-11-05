@@ -1,5 +1,5 @@
 
--module(precursors_server_sup).
+-module(pre_server_sup).
 
 -behaviour(supervisor).
 

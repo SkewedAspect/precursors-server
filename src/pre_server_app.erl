@@ -1,4 +1,4 @@
--module(precursors_server_app).
+-module(pre_server_app).
 
 -behaviour(application).
 
