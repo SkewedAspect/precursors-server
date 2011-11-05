@@ -1,0 +1,9 @@
+syntax: glob
+
+# build artifacts
+ebin/*
+deps/*
+
+# vim artifacts
+*.swp
+*.swo
