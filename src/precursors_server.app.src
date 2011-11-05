@@ -5,7 +5,8 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib
+                  stdlib,
+                  mnesia
                  ]},
   {mod, { precursors_server_app, []}},
   {env, []}
