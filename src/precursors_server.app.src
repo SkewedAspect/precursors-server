@@ -8,6 +8,6 @@
                   stdlib,
                   mnesia
                  ]},
-  {mod, { precursors_server_app, []}},
+  {mod, { pre_server_app, []}},
   {env, []}
  ]}.

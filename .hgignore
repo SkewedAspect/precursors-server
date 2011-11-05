@@ -7,6 +7,12 @@ include/commit_ver.hrl
 include/*_pb.hrl
 precursors_server
 src/*.proto
+key
+key.pub
+*.config
+
+# debug artifacts
+*.dump
 
 # vim artifacts
 *.swp
