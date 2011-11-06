@@ -42,7 +42,7 @@ done
 if [ ! -f "rel/precursors_server/releases/1/precursors_server.boot" ]
 then
     echo "Generating default boot file..."
-    `./rebar generate`
+    ./rebar generate
 fi
 
 args=("$@")
