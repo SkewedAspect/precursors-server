@@ -3,6 +3,8 @@
 
 -behaviour(supervisor).
 
+-include("log.hrl").
+
 %% API
 -export([start_link/0]).
 
