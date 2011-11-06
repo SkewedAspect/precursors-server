@@ -1,5 +1,8 @@
 syntax: glob
 
+# pycharm artifacts
+.idea/*
+
 # build artifacts
 ebin/*
 deps/*
