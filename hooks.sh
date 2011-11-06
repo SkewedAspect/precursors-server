@@ -1,4 +1,4 @@
-#! /bin/sh
+#!/bin/bash
 
 function pre_compile {
 	if [ ! -d ebin ]; then
