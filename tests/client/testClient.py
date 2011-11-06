@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from channels import sendRequest, sendEvent
 
 class TestClient(object):
