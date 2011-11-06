@@ -25,7 +25,7 @@ function pre_compile {
 		ln -sf ../deps precursors_server/deps
 	fi
 	
-	# record what commit/version openacd is at
+	# record what commit/version the repository is at
 	PRECURSORS_COMMIT=""
 	if [ -d ".hg" ]
 	then
@@ -60,5 +60,5 @@ case $1 in
 		post_compile;;
 	"pre_clean")
 		rm -rf precursors_server
-		rm include/commit_ver.hrl;;
+		rm -f include/commit_ver.hrl;;
 esac
