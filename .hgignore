@@ -17,3 +17,7 @@ key.pub
 # vim artifacts
 *.swp
 *.swo
+
+# python bytecode artifacts
+tests/client/**.pyc
+tests/client/**.pyo
