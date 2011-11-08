@@ -94,28 +94,31 @@ class Channel(object):
         return self.connectReliableOrdered(remoteHost, remotePort, encryption, key)
 
     def connectSSL(self, remoteHost, remotePort):
-        logger.debug("Connecting using TCP with SSL.")
+        logger.warn("Unimplemented in base class!")
+        #logger.debug("Connecting using TCP with SSL.")
         pass
 
     def connectTCP(self, remoteHost, remotePort, key=None):
-        logger.debug("Connecting using raw TCP.")
+        logger.warn("Unimplemented in base class!")
+        #logger.debug("Connecting using raw TCP.")
         pass
 
     def connectUDP(self, remoteHost, remotePort, key=None):
-        logger.debug("Connecting using raw UDP.")
+        logger.warn("Unimplemented in base class!")
+        #logger.debug("Connecting using raw UDP.")
         pass
 
     def sendRequest(self, request):
         """Send an request over the channel.
 
         """
-        pass
+        self._send(request)
 
     def sendEvent(self, event):
         """Send an event over the channel.
 
         """
-        pass
+        self._send(event)
 
     def receiveRequest(self, request):
         """Receive a request over the channel.
@@ -128,3 +131,10 @@ class Channel(object):
 
         """
         pass
+
+    def _send(self, data):
+        """Sends data over the channel, encrypting if required.
+
+        """
+        logger.warn("Unimplemented in base class!")
+
