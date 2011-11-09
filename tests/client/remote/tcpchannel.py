@@ -7,14 +7,14 @@ class TCPChannel(Channel):
         self.reliable = True
         self.ordered = True
 
-    def connectTCP(self, remoteHost, remotePort, key=None):
-        logger.debug("Connecting using raw TCP.")
+    def connect(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
+        logger.debug("Connecting using TCP.")
 
-        if key is not None:
-            self.encryption = EncryptionType.AES
-            self.key = key
+        # Do TCP Stuff.
+
+        super(TCPChannel, self).connect(remoteHost, remotePort, encryption, key)
 
     def _send(self, data):
-        logger.debug("Sending data.")
+        logger.debug("Sending data over TCP.")
 
 

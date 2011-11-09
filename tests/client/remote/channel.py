@@ -48,72 +48,28 @@ class Channel(object):
         elif remoteHost is not None or remotePort is not None:
             raise ValueError("Both remoteHost and remotePort must be specified in order to connect!")
 
-    def connect(self, remoteHost, remotePort, reliable=False, ordered=True, encryption=EncryptionType.NONE, key=None):
-        succeeded = False
+    def connect(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
+        """Connect to the remote host, possibly using encryption.
 
-        # Call the appropriate connect handler.
-        handler = {
-                (True, True): self._connectReliableOrdered,
-                (True, False): self._connectReliableUnordered,
-                (False, True): self._connectUnreliableOrdered,
-                (False, False): self._connectUnreliableUnordered,
-                }[reliable, ordered]
-        succeeded = handler(remoteHost, remotePort, encryption, key)
+        remoteHost - The remote host to connect to.
+        remotePOrt - The port on the remote host to connect to.
+        encryption - What type of encryption to use on this channel.
+        key        - A tuple, consisting of a 128bit key, and a 128bit initialization vector.
 
-        if succeeded:
-            # Successfully connected. Now set variables:
-            self.encryption = encryption
-            self.reliable = reliable
-            self.ordered = ordered
-            self.key = key
-            self.remoteHost = remoteHost
-            self.remotePort = remotePort
+        """
 
-            # Set our send function
-            if self.key is not None:
-                logger.debug("Encrypting data.")
-                self._sendFunc = lambda data: self._send(encrypt(data, *self.key))
-            else:
-                self._sendFunc = self._send
+        # Successfully connected. Now set variables:
+        self.key = key
+        self.encryption = encryption
+        self.remoteHost = remoteHost
+        self.remotePort = remotePort
 
-            return True
-
-        return False
-
-    def _connectReliableOrdered(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
-        # We're doing one of the TCP connections.
-        if encryption == EncryptionType.SSL:
-            return self.connectSSL(remoteHost, remotePort)
-
+        # Set our send function
+        if self.key is not None:
+            logger.debug("Encrypting data.")
+            self._sendFunc = lambda data: self._send(encrypt(data, *self.key))
         else:
-            return self.connectTCP(remoteHost, remotePort, key)
-
-    def _connectUnreliableUnordered(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
-        # We're doing UDP.
-        return self.connectUDP(remoteHost, remotePort, key)
-
-    def _connectReliableUnordered(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
-        logger.warn("Reliable/unordered channels not yet implemented; using reliable/ordered instead.")
-        return self.connectReliableOrdered(remoteHost, remotePort, encryption, key)
-
-    def _connectUnreliableOrdered(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
-        logger.warn("Unreliable/ordered channels not yet implemented; using reliable/ordered instead.")
-        return self.connectReliableOrdered(remoteHost, remotePort, encryption, key)
-
-    def connectSSL(self, remoteHost, remotePort):
-        logger.warn("Unimplemented in base class!")
-        #logger.debug("Connecting using TCP with SSL.")
-        pass
-
-    def connectTCP(self, remoteHost, remotePort, key=None):
-        logger.warn("Unimplemented in base class!")
-        #logger.debug("Connecting using raw TCP.")
-        pass
-
-    def connectUDP(self, remoteHost, remotePort, key=None):
-        logger.warn("Unimplemented in base class!")
-        #logger.debug("Connecting using raw UDP.")
-        pass
+            self._sendFunc = self._send
 
     def sendRequest(self, request):
         """Send an request over the channel.

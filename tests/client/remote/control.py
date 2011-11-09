@@ -26,6 +26,18 @@ class Control(object):
             controlChannel = self.createChannel('Control', reliable=True, ordered=True,
                     encryption=channel.EncryptionType.SSL)
 
+        # Former logic from channel's connect method
+
+        ## Call the appropriate connect handler.
+        #handler = {
+        #        (True, True): self._connectReliableOrdered,
+        #        (True, False): self._connectReliableUnordered,
+        #        (False, True): self._connectUnreliableOrdered,
+        #        (False, False): self._connectUnreliableUnordered,
+        #        }[reliable, ordered]
+        #succeeded = handler(remoteHost, remotePort, encryption, key)
+
+
         except Exception, ex:
             logger.exception("Error connecting controlChannel channel!", ex)
             return False
