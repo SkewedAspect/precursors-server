@@ -17,7 +17,4 @@ class TCPChannel(Channel):
     def _send(self, data):
         logger.debug("Sending data.")
 
-        if self.key is not None:
-            logger.debug("Encrypting data.")
-        pass
 

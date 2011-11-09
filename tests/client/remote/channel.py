@@ -60,7 +60,7 @@ class Channel(object):
                 }[reliable, ordered]
         succeeded = handler(remoteHost, remotePort, encryption, key)
 
-        if succeeded is not None and succeeded:
+        if succeeded:
             # Successfully connected. Now set variables:
             self.encryption = encryption
             self.reliable = reliable
@@ -68,6 +68,13 @@ class Channel(object):
             self.key = key
             self.remoteHost = remoteHost
             self.remotePort = remotePort
+
+            # Set our send function
+            if self.key is not None:
+                logger.debug("Encrypting data.")
+                self._sendFunc = lambda data: self._send(encrypt(data, *self.key))
+            else:
+                self._sendFunc = self._send
 
             return True
 
@@ -112,13 +119,13 @@ class Channel(object):
         """Send an request over the channel.
 
         """
-        self._send(request)
+        self._sendFunc(request)
 
     def sendEvent(self, event):
         """Send an event over the channel.
 
         """
-        self._send(event)
+        self._sendFunc(event)
 
     def receiveRequest(self, request):
         """Receive a request over the channel.
