@@ -17,7 +17,7 @@ protoSourceDir = os.path.join(
         )
 
 # Determine the directory we should write the generated .py files to.
-protoDestDir = os.path.join(scriptDir, "protos")
+protoDestDir = os.path.join(scriptDir, "remote/protos")
 
 # Find all matching source files.
 sourceProtos = filter(

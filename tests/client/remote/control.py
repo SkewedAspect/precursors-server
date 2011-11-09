@@ -62,8 +62,6 @@ class Control(object):
         """Creates a channel from the given parameters, and stores it with the given name.
 
         """
-        #TODO: Negotiate with the server first to get the port and cookie we should use, and then create the channel!
-
         if encryption == channel.EncryptionType.SSL:
             channel = SSLChannel
 
@@ -76,5 +74,7 @@ class Control(object):
                     (False, False): UDPChannel,
                     }[reliable, ordered]
 
+        #TODO: Negotiate with the server first to get the port and cookie we should use, and then create the channel!
         self.channels[name] = channel(self.remoteHost, remotePort)
+
         return self.channels[name]
