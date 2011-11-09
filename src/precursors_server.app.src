@@ -6,7 +6,8 @@
   {applications, [
                   kernel,
                   stdlib,
-                  mnesia
+                  mnesia,
+                  lager
                  ]},
   {mod, { pre_server_app, []}},
   {env, []}

@@ -31,7 +31,7 @@ init(Args) ->
 	Port = proplists:get_value(port, Args, 6007),
 	SimpleOpts = [list, {packet, line}, {reuseaddr, true},
 		{keepalive, true}, {backlog, 30}, {active, false}],
-	case gen_tcp:listenr(Port, SimpleOpts) of
+	case gen_tcp:listen(Port, SimpleOpts) of
 		{ok, Listen_socket} ->
 			%%Create first accepting process
 			{ok, Ref} = prim_inet:async_accept(Listen_socket, -1),
@@ -66,8 +66,7 @@ handle_info({inet_async, ListSock, Ref, {ok, CliSocket}}, #state{listener=ListSo
 	try inet:setopts(State#state.listener, [{active, once}]) of
 		ok  ->
 			%% New client connected
-			?info("new client connection.~n", []),
-			{ok, Pid} = pre_tcp_connection:start([{socket, CliSocket}]),
+			{ok, Pid} = pre_client_manager:start_client(CliSocket),
 			gen_tcp:controlling_process(CliSocket, Pid),
 			case prim_inet:async_accept(ListSock, -1) of
 				{ok, NewRef} ->
