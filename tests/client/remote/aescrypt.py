@@ -11,35 +11,38 @@ def _build_cipher( key, iv, algorithm=NONE, operation=ENCODE):
     """
     if algorithm is None:
         algorithm = 'aes_128_cbc'
+
     return Cipher(alg=algorithm, key=key, iv=iv, op=operation)
 
-def encrypt(key, iv=None):
+def _cryptoOperation(data, algorithm, key, iv, operation):
+    """Encrypts or decrypts data with the given key and initialization vector.
+
+    This function performs an encryption if operation is ENCODE, or a decryption
+    if operation is DECODE.
     """
-    """
+    # If a iv is None, then we simply use a null IV. This is insecure,
+    # however, since it is trivial to gain insight into the data stored
+    # in each message through statistical analysis. However, it is still
+    # valid, technically.
     if iv is None:
         iv = '\0' * 16
 
-   # Return the encryption function
-    def _encrypt(data):
-        cipher = _build_cipher(key, iv, ENCODE)
-        v = cipher.update(data)
-        v = v + cipher.final()
-        del cipher
-        return v
-    return _encrypt
+    # Use M2Crypto's Cipher object. Odd work flow, but whatever.
+    cipher = _build_cipher(key, iv, operation)
+    result = cipher.update(data)
+    result = result + cipher.final()
+    del cipher
 
-def decrypt(key, iv=None):
-    """
-    """
-    # Decode the key and iv
-    if iv is None:
-        iv = '\0' * 16
+    return result
 
-   # Return the decryption function
-    def _decrypt(data):
-        cipher = _build_cipher(key, iv, DECODE)
-        v = cipher.update(data)
-        v = v + cipher.final()
-        del cipher
-        return v
-    return _decrypt
+def encrypt(plaintext, key, algorithm=None, iv=None):
+    """Encrypts plaintext with key and iv.
+
+    """
+    return _cryptoOperation(plaintext, algorithm, key, iv, ENCODE)
+
+def decrypt(cyphertext, key, algorithm=None, iv=None):
+    """Decrypts plaintext with key and iv.
+
+    """
+    return _cryptoOperation(plaintext, algorithm, key, iv, DECODE)
