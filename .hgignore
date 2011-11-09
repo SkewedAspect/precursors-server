@@ -21,6 +21,9 @@ key.pub
 *.swp
 *.swo
 
+# run artifacts
+*.log
+
 # python bytecode artifacts
 tests/client/**.pyc
 tests/client/**.pyo
