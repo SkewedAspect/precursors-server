@@ -5,7 +5,7 @@ __all__ = ['encrypt', 'decrypt']
 ENCODE=1
 DECODE=0
 
-def _build_cipher( key, iv, algorithm=NONE, operation=ENCODE):
+def _build_cipher( key, iv, operation=ENCODE, algorithm=None):
     """Returns a Cipher with the given parameters
 
     """
@@ -28,21 +28,21 @@ def _cryptoOperation(data, algorithm, key, iv, operation):
         iv = '\0' * 16
 
     # Use M2Crypto's Cipher object. Odd work flow, but whatever.
-    cipher = _build_cipher(key, iv, operation)
+    cipher = _build_cipher(key, iv, operation, algorithm)
     result = cipher.update(data)
     result = result + cipher.final()
     del cipher
 
     return result
 
-def encrypt(plaintext, key, algorithm=None, iv=None):
+def encrypt(plaintext, key, iv=None, algorithm=None):
     """Encrypts plaintext with key and iv.
 
     """
     return _cryptoOperation(plaintext, algorithm, key, iv, ENCODE)
 
-def decrypt(cyphertext, key, algorithm=None, iv=None):
+def decrypt(ciphertext, key, iv=None, algorithm=None):
     """Decrypts plaintext with key and iv.
 
     """
-    return _cryptoOperation(plaintext, algorithm, key, iv, DECODE)
+    return _cryptoOperation(ciphertext, algorithm, key, iv, DECODE)
