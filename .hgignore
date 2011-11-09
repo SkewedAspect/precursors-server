@@ -1,6 +1,7 @@
 syntax: glob
 
 # pycharm artifacts
+.idea*
 .idea/*
 
 # build artifacts
@@ -24,3 +25,4 @@ key.pub
 # python bytecode artifacts
 tests/client/**.pyc
 tests/client/**.pyo
+tests/client/remote/tests/build/*
