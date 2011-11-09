@@ -6,7 +6,7 @@ import channel
 logger = logging.getLogger("channels.client")
 
 
-class Client(object):
+class Control(object):
     def __init__(self, remoteHost=None, remotePort=2695):
         self.remoteHost = remoteHost
 
