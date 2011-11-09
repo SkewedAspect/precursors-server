@@ -38,7 +38,7 @@
 -define(info(Message, Args), lager:info(Message, Args)).
 
 -define(notice(Message), lager:notice(Message)).
--define(notice(Message, Args), lager:notice(Message, Args).
+-define(notice(Message, Args), lager:notice(Message, Args)).
 
 -define(warning(Message), lager:warning(Message)).
 -define(warning(Message, Args), lager:warning(Message, Args)).
