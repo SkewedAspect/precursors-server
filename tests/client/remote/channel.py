@@ -149,10 +149,3 @@ class Channel(object):
 
         """
         logger.warn("Unimplemented in base class!")
-
-class NotImplementedChannel(channel):
-    def __init__(self, name, remoteHost=None, remotePort=None, **kwargs):
-        super(NotImplementedChannel, self).__init__(name, remoteHost, remotePort, **kwargs)
-
-        logger.warn("Channel type not yet implemented.")
-        raise NotImplemented("Channel type not yet implemented.")
