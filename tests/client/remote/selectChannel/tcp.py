@@ -49,8 +49,10 @@ class SSLChannel(TCPChannel):
         self.socket = ssl.wrap_socket(
                 self.socket,
                 ca_certs="/etc/ca_certs_file",
-                cert_reqs=ssl.CERT_REQUIRED
+                cert_reqs=ssl.CERT_REQUIRED,
+                ssl_version=ssl.PROTOCOL_TLSv1,
                 )
+        self.socket.settimeout(0.0)
         self.target = self.socket
 
     @classmethod
