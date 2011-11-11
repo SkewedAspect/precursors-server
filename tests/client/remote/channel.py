@@ -1,18 +1,22 @@
+from abc import ABCMeta, abstractmethod
 import logging
 
 # Import Dispatcher
 try:
+    #FIXME: This will __always__ import the 'dispatch' package in 'remote',
+    # since it's in the same package as this module; we will never import one
+    # from the system.
     import dispatch
 except:
     try:
         import django.dispatch
         globals()['dispatch'] = django.dispatch
     except:
-        import channels.dispatch
-        globals()['dispatch'] = channels.dispatch
+        import remote.dispatch
+        globals()['dispatch'] = remote.dispatch
 
 
-logger = logging.getLogger("channels.channel")
+logger = logging.getLogger("remote.channel")
 
 
 class EncryptionType(object):
@@ -21,10 +25,36 @@ class EncryptionType(object):
     AES = 2
 
 
+defaultChannelKwargs = {
+        'reliable': False,
+        'ordered': False,
+        'encryption': EncryptionType.NONE,
+        }
+
+
+def createChannel(channelTypes, **kwargs):
+    for key, val in defaultChannelKwargs.iteritems():
+        kwargs.setdefault(key, val)
+
+    for chanType in channelTypes:
+        chan = chanType.tryCreate(**kwargs)
+        if chan is not None and chan is not NotImplemented:
+            return chan
+
+
 class Channel(object):
+    __metaclass__ = ABCMeta
+
     incomingPacket = dispatch.Signal(["remoteHost", "remotePort", "message"])
 
     def __init__(self, name, remoteHost=None, remotePort=None, **kwargs):
+        """Create a Channel, optionally connecting to the given remote host and
+        port immediately.
+
+        Additional keyword arguments are passed on to connect; see its
+        documentation for more options.
+
+        """
         self.name = name
 
         self.remoteHost = None
@@ -42,22 +72,41 @@ class Channel(object):
         self.requests = dict()
 
         if remoteHost is not None and remotePort is not None:
-            if not self.connect(remoteHost=remoteHost, remotePort=remotePort, **kwargs):
+            if not self.connect(
+                    remoteHost=remoteHost,
+                    remotePort=remotePort,
+                    **kwargs
+                    ):
                 raise RuntimeError("Error auto-connecting!")
 
         elif remoteHost is not None or remotePort is not None:
             raise ValueError("Both remoteHost and remotePort must be specified in order to connect!")
 
+    @abstractmethod
+    @classmethod
+    def supportsArgs(cls, **kwargs):
+        return NotImplemented
+
+    @classmethod
+    def tryCreate(cls, **kwargs):
+        if cls.supportsArgs(**kwargs):
+            return cls(**kwargs)
+
+    @abstractmethod
     def connect(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
+        #TODO: Remove 'encryption' and 'key' in favor of cipher objects, which
+        # conform to the stream protocol (providing read() and write()) and
+        # provide setSocket(sock) to set the underlying socket object to work
+        # with. This allows us to pass in whatever data is needed by the
+        # encryption algorithm, without Channel caring what data is needed.
         """Connect to the remote host, possibly using encryption.
 
-        remoteHost - The remote host to connect to.
-        remotePOrt - The port on the remote host to connect to.
-        encryption - What type of encryption to use on this channel.
-        key        - A tuple, consisting of a 128bit key, and a 128bit initialization vector.
+        remoteHost: The remote host to connect to.
+        remotePort: The port on the remote host to connect to.
+        encryption: What type of encryption to use on this channel.
+        key: A tuple containing a 128-bit key and a 128-bit initialization vector.
 
         """
-
         # Successfully connected. Now set variables:
         self.key = key
         self.encryption = encryption

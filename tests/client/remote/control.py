@@ -1,12 +1,10 @@
 import logging
 
 import channel
-from channel import NotImplementedChannel
-from tcpchannel import TCPChannel, SSLChannel
-from udpchannel import UDPChannel
+import selectChannel
 
 
-logger = logging.getLogger("channels.client")
+logger = logging.getLogger("remote.client")
 
 
 class Control(object):
@@ -57,24 +55,18 @@ class Control(object):
         except KeyError:
             pass
 
-    def createChannel(self, name, reliable=False, ordered=False, encryption=channel.EncryptionType.NONE,
-            remotePort=None):
+    def createChannel(self, name, remotePort=None, **kwargs):
         """Creates a channel from the given parameters, and stores it with the given name.
 
-        """
-        if encryption == channel.EncryptionType.SSL:
-            channel = SSLChannel
+        Common keyword arguments:
+         - reliable (default: False)
+         - ordered (default: False)
+         - encryption (default: channel.EncryptionType.NONE)
 
-        else:
-            # Create the appropriate channel type
-            channel = {
-                    (True, True): TCPChannel,
-                    (True, False): NotImplementedChannel,
-                    (False, True): NotImplementedChannel,
-                    (False, False): UDPChannel,
-                    }[reliable, ordered]
+        """
+        channelType = channel.createChannel(selectChannel.channelTypes, **kwargs)
 
         #TODO: Negotiate with the server first to get the port and cookie we should use, and then create the channel!
-        self.channels[name] = channel(self.remoteHost, remotePort)
+        self.channels[name] = channelType(self.remoteHost, remotePort)
 
         return self.channels[name]
