@@ -3,60 +3,44 @@
 import sys
 import os
 
-
-# Check the python version for 2.7, and import appropriate unittest
-# module as required.
-if sys.version_info < (2, 3):
-    print "WARNING: unittest2 not compatible with python < 2.3!"
-    print "Attempting to continue, but tests may be broken."
-
-if sys.version_info < (2, 7):
-    try:
-        import unittest2
-        globals()['unittest'] = unittest2
-
-    except ImportError:
-        print "WARNING: Could not find unittest2 on python < 2.7!"
-        print "Attempting to continue, but tests may be broken."
-
-if 'unittest' not in globals():
-    import unittest
-
-
 # Add the parent directory of the tests dir to the path.
 sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))]
 
+# Get unittest from our wrapper that imports the right version.
+from unittestwrapper import unittest
 
-from aescrypt import encrypt, decrypt
+from cryptors.m2cipher import M2CipherCryptor
 
 
-# TODO: Generate a key and an iv, as well as encrypting the plaintext, store in the test.
-class TestAESCrypt(unittest.TestCase):
+class TestM2CypherCryptor(unittest.TestCase):
     def setUp(self):
 
+        #TODO: This just tests aes_128_cbc. Test others.
         self.key = '\xae\xc4V\xa7\x9c\x14\x04=\xc0\x17\xf4\x15>,$8'
         self.iv = '\x85\x82\x80 _\xcbANf\x1f\xd3oR\xd5\x15\x95'
+
+        self.cryptor = M2CipherCryptor(key=self.key, iv=self.iv)
 
         # 5000 bytes of Lorem ipsum
         self.plaintext = lorem
         self.ciphertext = cypher
 
     def test_encrypt(self):
-        ciphertext = encrypt(self.plaintext, self.key, self.iv)
+        ciphertext = self.cryptor.encrypt(self.plaintext)
 
-        self.assertTrue(ciphertext == self.ciphertext)
+        self.assertEqual(ciphertext, self.ciphertext)
 
     def test_decrypt(self):
-        plaintext = decrypt(self.ciphertext, self.key, self.iv)
+        plaintext = self.cryptor.decrypt(self.ciphertext)
 
-        self.assertTrue(plaintext == self.plaintext)
+        self.assertEqual(plaintext, self.plaintext)
 
     def test_roundtrip(self):
-        ciphertext = encrypt(self.plaintext, self.key, self.iv)
-        plaintext = decrypt(ciphertext, self.key, self.iv)
+        ciphertext = self.cryptor.encrypt(self.plaintext)
+        plaintext = self.cryptor.decrypt(ciphertext)
 
         # This is really the only test we care about. If it works, we're good.
-        self.assertTrue(plaintext == self.plaintext)
+        self.assertEqual(plaintext, self.plaintext)
 
 
 lorem = """Lorem ipsum dolor sit amet, consectetur adipiscing elit. Mauris congue, lorem vitae dictum interdum, ligula nunc semper sem, at malesuada lacus justo vel nunc. Etiam id ante quam, ac mattis tortor. Maecenas varius volutpat fringilla. Proin nec massa metus, quis mattis eros. Curabitur in augue dui. Maecenas at purus vitae nibh vulputate volutpat. Sed non lorem a elit sagittis condimentum ac ut sapien. Mauris rutrum, leo non vestibulum condimentum, lectus augue congue lectus, a egestas nisl elit posuere ipsum. Curabitur dolor sem, semper vitae placerat non, molestie sit amet quam.
@@ -82,7 +66,7 @@ cypher = """\x8c\xb8s\xb9f?\x90H\xc2\xea\xce\nEvl8M\x13\\#\x85V\xe71\x08\xb7|\xb
 
 if __name__ == '__main__':
     # Build the suite of tests
-    suite = unittest.TestLoader().loadTestsFromTestCase(TestAESCrypt)
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestM2CypherCryptor)
 
     # Run the tests
     unittest.TextTestRunner(verbosity=2).run(suite)

@@ -1,4 +1,4 @@
-from remote.cryptor import Cryptor
+from cryptor import Cryptor
 from M2Crypto.EVP import Cipher
 import os
 import logging
@@ -42,7 +42,7 @@ class M2CipherCryptor(Cryptor):
         Returns ciphertext as a string.
 
         """
-        return _cryptoOperation(plaintext, self.algorithm, self.key, self.iv, ENCODE)
+        return self._cryptoOperation(plaintext, self.algorithm, self.key, self.iv, ENCODE)
 
     def decrypt(self, ciphertext):
         """Decrypts ciphertext with key and iv.
@@ -50,7 +50,7 @@ class M2CipherCryptor(Cryptor):
         Returns plaintext as a string.
 
         """
-        return _cryptoOperation(plaintext, self.algorithm, self.key, self.iv, ENCODE)
+        return self._cryptoOperation(ciphertext, self.algorithm, self.key, self.iv, DECODE)
 
     @staticmethod
     def _cryptoOperation(data, algorithm, key, iv, operation):
