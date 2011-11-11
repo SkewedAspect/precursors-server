@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-from channels import sendRequest, sendEvent
+from remote import sendRequest, sendEvent
 
 class TestClient(object):
-    """Test client for channels module
+    """Test client for remote module
 
     """
     def __init__(self):
