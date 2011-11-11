@@ -7,30 +7,28 @@ from channel import SelectChannel
 class UDPChannel(SelectChannel):
     logger = logging.getLogger("remote.selectChannel.udp.UDPChannel")
 
-    def __init__(self, name, remoteHost=None, remotePort=None, **kwargs):
-        super(UDPChannel, self).__init__(name, remoteHost, remotePort, **kwargs)
+    reliable = False
+    ordered = False
 
-        self.reliable = False
-        self.ordered = False
+    def __init__(self, *args, **kwargs):
+        super(UDPChannel, self).__init__(*args, **kwargs)
 
-        # Ensure this is the right type of socket.
-        assert(kwargs['reliable'] == self.reliable)
-        assert(kwargs['ordered'] == self.ordered)
+        # Set up our socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self.socket.settimeout(0.0)
+
+        self.protocolName = "UDP"
 
     @classmethod
     def supportsArgs(cls, **kwargs):
-        return not (kwargs['reliable'] or kwargs['ordered'])
+        return not (kwargs['TLS'] or kwargs['reliable'] or kwargs['ordered'])
 
     def connect(self, remoteHost, remotePort, **kwargs):
         self.logger.debug("Connecting using UDP.")
 
-        # Setup our socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        # Connect.
+        self.socket.connect((remoteHost, remotePort))
 
         # Successfully connected. Now call super to set variables and enable
         # encryption if requested.
         super(UDPChannel, self).connect(remoteHost, remotePort, **kwargs)
-
-    def _send(self, data):
-        self.logger.debug("Sending data over UDP.")
-

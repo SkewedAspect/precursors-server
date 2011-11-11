@@ -1,5 +1,6 @@
 import logging
 import socket
+import ssl
 
 from channel import SelectChannel
 
@@ -7,50 +8,61 @@ from channel import SelectChannel
 class TCPChannel(SelectChannel):
     logger = logging.getLogger("remote.selectChannel.tcp.TCPChannel")
 
-    def __init__(self, name, remoteHost=None, remotePort=None, **kwargs):
-        super(TCPChannel, self).__init__(name, remoteHost, remotePort, **kwargs)
+    reliable = True
+    ordered = True
 
-        self.reliable = True
-        self.ordered = True
+    def __init__(self, *args, **kwargs):
+        super(TCPChannel, self).__init__(*args, **kwargs)
+
+        # Set up our socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(0.0)
+
+        self.protocolName = "TCP"
 
     @classmethod
     def supportsArgs(cls, **kwargs):
-        return kwargs['reliable'] or kwargs['ordered']
+        return not kwargs['TLS'] and (kwargs['reliable'] or kwargs['ordered'])
 
     def connect(self, remoteHost, remotePort, **kwargs):
-        self.logger.debug("Connecting using TCP.")
+        self.logger.debug("Connecting using %s.", self.protocolName)
 
-        # Setup our socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        # Connect.
+        self.socket.connect((remoteHost, remotePort))
 
         # Successfully connected. Now call super to set variables and enable
         # encryption if requested.
         super(TCPChannel, self).connect(remoteHost, remotePort, **kwargs)
 
-    def _send(self, data):
-        self.logger.debug("Sending data over TCP.")
-
 
 class SSLChannel(TCPChannel):
     logger = logging.getLogger("remote.selectChannel.tcp.SSLChannel")
 
-    def __init__(self, name, remoteHost=None, remotePort=None, **kwargs):
-        super(SSLChannel, self).__init__(name, remoteHost, remotePort, **kwargs)
+    def __init__(self, *args, **kwargs):
+        super(SSLChannel, self).__init__(*args, **kwargs)
 
-        self.reliable = True
-        self.ordered = True
+        self.protocolName = "TLS"
 
-        # Setup our socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.ssl_socket = socket.ssl(self.socket)
+        self.originalSocket = self.socket
 
-    def connect(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
-        self.logger.debug("Connecting using SSL.")
+        # Set up TLS on our socket.
+        self.socket = ssl.wrap_socket(
+                self.socket,
+                ca_certs="/etc/ca_certs_file",
+                cert_reqs=ssl.CERT_REQUIRED
+                )
+        self.target = self.socket
 
-        # Do SSL Stuff.
+    @classmethod
+    def supportsArgs(cls, **kwargs):
+        return kwargs['TLS'] and (kwargs['reliable'] or kwargs['ordered'])
 
-        super(SSLChannel, self).connect(remoteHost, remotePort, encryption, key)
+    def connect(self, remoteHost, remotePort, **kwargs):
+        # Connect.
+        super(SSLChannel, self).connect(remoteHost, remotePort, **kwargs)
 
-    def _send(self, data):
-        self.logger.debug("Sending data over SSL.")
-
+        # Print out some info about our TLS connection.
+        print repr(self.socket.getpeername())
+        print self.socket.cipher()
+        import pprint
+        print pprint.pformat(self.socket.getpeercert())
