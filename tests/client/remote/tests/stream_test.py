@@ -10,7 +10,7 @@ sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))]
 # Get unittest from our wrapper that imports the right version.
 from unittestwrapper import unittest
 
-from stream import Stream
+from stream import Stream, OutgoingQueuedStream, IncomingQueuedStream, IOQueuedStream
 
 
 class TestStream(unittest.TestCase):
@@ -33,13 +33,41 @@ class TestStream(unittest.TestCase):
         self.assertEqual(target.getvalue(), self.text)
 
     def test_OutgoingQueuedStream_write(self):
-        pass
+        target = StringIO()
+
+        stream = OutgoingQueuedStream(target)
+        stream.write(self.text)
+
+        stream.handleWrite()
+
+        self.assertEqual(target.getvalue(), self.text)
 
     def test_IncomingQueuedStream_read(self):
-        pass
+        target = StringIO(self.text)
+
+        stream = IncomingQueuedStream(target)
+
+        stream.handleRead()
+
+        text = stream.read()
+
+        self.assertEqual(text, self.text)
 
     def test_IOQueuedStream_roundtrip(self):
-        pass
+        target = StringIO()
+
+        stream = IOQueuedStream(target)
+        stream.write(self.text)
+
+        stream.handleWrite()
+
+        target.seek(0)
+
+        stream.handleRead()
+
+        text = stream.read()
+
+        self.assertEqual(text, self.text)
 
 
 if __name__ == '__main__':
