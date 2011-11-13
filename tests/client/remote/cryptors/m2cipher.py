@@ -15,7 +15,7 @@ class M2CipherCryptor(Cryptor):
     """Implementation of an AES based cryptor.
 
     """
-    def __init__(self, key=None, iv=None, algorithm=None):
+    def __init__(self, targetStream, key=None, iv=None, algorithm=None, *args, **kwargs):
         """Instantiate an M2CipherCryptor object.
 
         key - The 128bit random cipher key.
@@ -35,6 +35,8 @@ class M2CipherCryptor(Cryptor):
 
         if self.algorithm is None:
             self.algorithm = 'aes_128_cbc'
+
+        super(M2CipherCryptor, self).__init__(*args, **kwargs)
 
     def encrypt(self, plaintext):
         """Encrypts plaintext with key and iv.
