@@ -75,12 +75,12 @@ class OutgoingQueuedStream(Stream):
 
         outgoingMessage = self._outgoingMessages.popleft()
 
-        bytesWritten = self.target.write(outgoingMessage)
+        bytesWritten = self.targetStream.write(outgoingMessage)
 
         if bytesWritten < len(outgoingMessage):
             logger.debug("Wrote first %d bytes of %r; re-queuing rest.",
                     bytesWritten, outgoingMessage)
-            self._outgoingMessages.appendleft()
+            self._outgoingMessages.appendleft(outgoingMessage[bytesWritten:])
         else:
             logger.debug("Wrote all %d bytes of %r",
                     bytesWritten, outgoingMessage)
@@ -98,7 +98,7 @@ class IncomingQueuedStream(Stream):
 
         super(IncomingQueuedStream, self).__init__(*args, **kwargs)
 
-    def read(self, message):
+    def read(self, requestedBytes=-1):
         """Read message from the incoming queue.
 
         """
@@ -107,6 +107,7 @@ class IncomingQueuedStream(Stream):
             return None
 
         try:
+            #TODO: Implement requestedBytes support
             incomingMessage = self._incomingMessages.popleft()
 
         except IndexError:
@@ -123,7 +124,7 @@ class IncomingQueuedStream(Stream):
         This should be called by a ready-polling class like Select.
 
         """
-        incomingMessage = self.target.read()
+        incomingMessage = self.targetStream.read()
         logger.debug("Read %d bytes: %r", len(incomingMessage),
                 incomingMessage)
 
