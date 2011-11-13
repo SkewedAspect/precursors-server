@@ -108,6 +108,8 @@ class IncomingQueuedStream(Stream):
 
         try:
             #TODO: Implement requestedBytes support
+            if requestedBytes != -1:
+                logger.warn("requestedBytes support not currently implemented.")
             incomingMessage = self._incomingMessages.popleft()
 
         except IndexError:
