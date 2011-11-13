@@ -8,6 +8,9 @@ logger = logging.getLogger("remote.communication")
 
 
 class Communicator(object):
+    """Core class that handles the oversight of doing the network IO.
+
+    """
     __metaclass__ = ABCMeta
 
     autoApplyStreamWrappers = []
