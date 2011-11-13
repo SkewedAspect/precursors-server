@@ -1,6 +1,7 @@
 import collections
 import logging
 import io
+import warnings
 
 
 logger = logging.getLogger("remote.stream")
@@ -109,7 +110,7 @@ class IncomingQueuedStream(Stream):
         try:
             #TODO: Implement requestedBytes support
             if requestedBytes != -1:
-                logger.warn("requestedBytes support not currently implemented.")
+                warnings.warn("requestedBytes support not currently implemented.", FutureWarning)
             incomingMessage = self._incomingMessages.popleft()
 
         except IndexError:
