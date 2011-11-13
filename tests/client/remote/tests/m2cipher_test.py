@@ -2,6 +2,7 @@
 
 import sys
 import os
+from StringIO import StringIO
 
 # Add the parent directory of the tests dir to the path.
 sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))]
@@ -40,6 +41,34 @@ class TestM2CypherCryptor(unittest.TestCase):
         plaintext = self.cryptor.decrypt(ciphertext)
 
         # This is really the only test we care about. If it works, we're good.
+        self.assertEqual(plaintext, self.plaintext)
+
+    def test_stream_read(self):
+        target = StringIO(self.ciphertext)
+
+        plaintext = M2CipherCryptor(targetStream=target, key=self.key, iv=self.iv).read()
+
+        self.assertEqual(plaintext, self.plaintext)
+
+    def test_stream_write(self):
+        target = StringIO()
+
+        cryptor = M2CipherCryptor(targetStream=target, key=self.key, iv=self.iv)
+        cryptor.write(self.plaintext)
+
+        self.assertEqual(target.getvalue(), self.ciphertext)
+
+    def test_stream_roundtrip(self):
+        target = StringIO()
+
+        cryptor = M2CipherCryptor(targetStream=target, key=self.key, iv=self.iv)
+        cryptor.write(self.plaintext)
+
+        # Resets the current position in the stream to the begining.
+        target.seek(0)
+
+        plaintext = cryptor.read()
+
         self.assertEqual(plaintext, self.plaintext)
 
 

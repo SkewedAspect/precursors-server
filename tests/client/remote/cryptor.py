@@ -13,6 +13,9 @@ class Cryptor(Stream):
     """
     __metaclass__ = ABCMeta
 
+    def __init__(self, targetStream=None, *args, **kwargs):
+        super(Cryptor, self).__init__(targetStream, *args, **kwargs)
+
     @abstractmethod
     def encrypt(self, plaintext):
         """Encrypts string plaintext, returning a ciphertext.
