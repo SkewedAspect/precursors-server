@@ -2,7 +2,7 @@ import logging
 import select
 
 from remote.communication import QueuedCommunicator
-from remote.stream import IOQueuedNetstringStream
+from remote.netstring import IOQueuedNetstringStream
 
 
 class Select(QueuedCommunicator):
