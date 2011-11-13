@@ -28,7 +28,7 @@ class Stream(io.RawIOBase):
         """Read incoming data from the target stream.
 
         """
-        dataRead = self.target.read(requestedBytes)
+        dataRead = self.targetStream.read(requestedBytes)
 
         self._emit(self.onReadFinished, "read finished", requestedBytes=requestedBytes, dataRead=dataRead)
 
@@ -38,7 +38,7 @@ class Stream(io.RawIOBase):
         """Write outgoing data to the target stream.
 
         """
-        bytesWritten = self.target.write(data)
+        bytesWritten = self.targetStream.write(data)
 
         self._emit(self.onWriteFinished, "write finished", bytesWritten=bytesWritten, data=data)
 
