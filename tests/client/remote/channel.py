@@ -59,14 +59,8 @@ class Channel(object):
 
         self.remoteHost = None
         self.remotePort = None
-        self.key = None
         self.reliable = None
         self.ordered = None
-        self.encryption = None
-
-        # AES Keys
-        self.encryptionKey = None
-        self.oldEncryptionKey = None
 
         # Dictionary of outstanding requests
         self.requests = dict()
@@ -93,59 +87,15 @@ class Channel(object):
             return cls(**kwargs)
 
     @abstractmethod
-    def connect(self, remoteHost, remotePort, encryption=EncryptionType.NONE, key=None):
-        #TODO: Remove 'encryption' and 'key' in favor of cipher objects, which
-        # conform to the stream protocol (providing read() and write()) and
-        # provide setSocket(sock) to set the underlying socket object to work
-        # with. This allows us to pass in whatever data is needed by the
-        # encryption algorithm, without Channel caring what data is needed.
+    def connect(self, remoteHost, remotePort):
         """Connect to the remote host, possibly using encryption.
 
-        remoteHost: The remote host to connect to.
-        remotePort: The port on the remote host to connect to.
-        encryption: What type of encryption to use on this channel.
-        key: A tuple containing a 128-bit key and a 128-bit initialization vector.
-
-        """
-        # Successfully connected. Now set variables:
-        self.key = key
-        self.encryption = encryption
-        self.remoteHost = remoteHost
-        self.remotePort = remotePort
-
-        # Set our send function
-        if self.key is not None:
-            logger.debug("Encrypting data.")
-            self._sendFunc = lambda data: self._send(encrypt(data, *self.key))
-        else:
-            self._sendFunc = self._send
-
-    def sendRequest(self, request):
-        """Send an request over the channel.
-
-        """
-        self._sendFunc(request)
-
-    def sendEvent(self, event):
-        """Send an event over the channel.
-
-        """
-        self._sendFunc(event)
-
-    def receiveRequest(self, request):
-        """Receive a request over the channel.
-
         """
         pass
 
-    def receiveEvent(self, event):
-        """Receive an event over the channel.
+    @abstractmethod
+    def send(self, data):
+        """Sends data over the channel.
 
         """
         pass
-
-    def _send(self, data):
-        """Sends data over the channel, encrypting if required.
-
-        """
-        logger.warn("Unimplemented in base class!")
