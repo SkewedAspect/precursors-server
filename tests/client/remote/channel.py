@@ -19,16 +19,9 @@ except:
 logger = logging.getLogger("remote.channel")
 
 
-class EncryptionType(object):
-    NONE = 0
-    SSL = 1
-    AES = 2
-
-
 defaultChannelKwargs = {
         'reliable': False,
         'ordered': False,
-        'encryption': EncryptionType.NONE,
         }
 
 
