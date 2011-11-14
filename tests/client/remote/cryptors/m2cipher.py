@@ -1,7 +1,9 @@
-from cryptor import Cryptor
-from M2Crypto.EVP import Cipher
 import os
 import logging
+
+from M2Crypto.EVP import Cipher
+
+from remote.cryptor import Cryptor
 
 
 logger = logging.getLogger("remote.cryptors.m2cipher")

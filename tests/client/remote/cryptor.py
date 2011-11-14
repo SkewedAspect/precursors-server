@@ -1,9 +1,10 @@
 from abc import ABCMeta, abstractmethod
-from stream import Stream
 import logging
 
+from remote.stream import Stream
 
-logger = logging.getLogger("remote.crypt")
+
+logger = logging.getLogger("remote.crypto")
 
 
 class Cryptor(Stream):
