@@ -48,7 +48,8 @@ class Communicator(object):
         Call `exitLoop` to exit the run loop.
 
         On a given iteration, if no Channels are ready and timeout is:
-        - 0: loop again immediately (YOU PROBABLY DON'T WANT THIS!)
+        - 0: loop again immediately (YOU PROBABLY DON'T WANT THIS! Passing None is preferable when looping, since
+            othewise you end up doing a rather CPU-heavy spinlock)
         - None or not specified: block indefinitely until a Channel becomes ready, then loop
         - Any positive number: wait `timeout` seconds or until a Channel becomes ready, then loop
 
