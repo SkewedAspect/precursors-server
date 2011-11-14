@@ -5,7 +5,7 @@ import re
 from remote.stream import IncomingQueuedStream, OutgoingQueuedStream
 
 
-logger = logging.getLogger("remote.stream")
+logger = logging.getLogger("remote.netstring")
 
 
 NETSTRING_MAX_LENGTH_BYTES = 9

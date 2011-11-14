@@ -4,7 +4,7 @@ import logging
 from remote.stream import Stream
 
 
-logger = logging.getLogger("remote.crypto")
+logger = logging.getLogger("remote.cryptor")
 
 
 class Cryptor(Stream):

@@ -4,7 +4,7 @@ import channel
 import selectChannel
 
 
-logger = logging.getLogger("remote.client")
+logger = logging.getLogger("remote.control")
 
 
 class Control(object):
