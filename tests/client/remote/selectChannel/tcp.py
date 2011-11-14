@@ -1,6 +1,5 @@
 import logging
 import socket
-import ssl
 
 from channel import SelectChannel
 
@@ -33,43 +32,3 @@ class TCPChannel(SelectChannel):
         # Successfully connected. Now call super to set variables and enable
         # encryption if requested.
         super(TCPChannel, self).connect(remoteHost, remotePort, **kwargs)
-
-
-class SSLChannel(TCPChannel):
-    logger = logging.getLogger("remote.selectChannel.tcp.SSLChannel")
-
-    def __init__(self, *args, **kwargs):
-        super(SSLChannel, self).__init__(*args, **kwargs)
-
-        self.protocolName = "TLS"
-
-        self.originalSocket = self.socket
-
-        # Set up TLS on our socket.
-        self.socket = ssl.wrap_socket(
-                self.socket,
-                ca_certs="/etc/ca_certs_file",
-                cert_reqs=ssl.CERT_REQUIRED,
-                ssl_version=ssl.PROTOCOL_TLSv1,
-
-                # Allow all ciphers except ECDSA, since its implementation in OpenSSL was broken.
-                # (see https://secure.wikimedia.org/wikipedia/en/wiki/ECDSA)
-                #TODO: We probably should exclude a few more, but the @STRENGTH sort should help.
-                ciphers='DEFAULT !ECDSA @STRENGTH',
-                )
-        self.socket.settimeout(0.0)
-        self.target = self.socket
-
-    @classmethod
-    def supportsArgs(cls, **kwargs):
-        return kwargs['TLS'] and (kwargs['reliable'] or kwargs['ordered'])
-
-    def connect(self, remoteHost, remotePort, **kwargs):
-        # Connect.
-        super(SSLChannel, self).connect(remoteHost, remotePort, **kwargs)
-
-        # Print out some info about our TLS connection.
-        print repr(self.socket.getpeername())
-        print self.socket.cipher()
-        import pprint
-        print pprint.pformat(self.socket.getpeercert())
