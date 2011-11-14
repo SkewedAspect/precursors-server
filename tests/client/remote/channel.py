@@ -2,18 +2,7 @@ from abc import ABCMeta, abstractmethod
 import logging
 
 # Import Dispatcher
-try:
-    #FIXME: This will __always__ import the 'dispatch' package in 'remote',
-    # since it's in the same package as this module; we will never import one
-    # from the system.
-    import dispatch
-except:
-    try:
-        import django.dispatch
-        globals()['dispatch'] = django.dispatch
-    except:
-        import remote.dispatch
-        globals()['dispatch'] = remote.dispatch
+import dispatch
 
 
 logger = logging.getLogger("remote.channel")
