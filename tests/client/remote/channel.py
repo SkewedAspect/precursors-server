@@ -57,8 +57,8 @@ class Channel(object):
         elif remoteHost is not None or remotePort is not None:
             raise ValueError("Both remoteHost and remotePort must be specified in order to connect!")
 
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def supportsArgs(cls, **kwargs):
         return NotImplemented
 
