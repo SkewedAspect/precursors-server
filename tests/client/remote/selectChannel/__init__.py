@@ -1,9 +1,8 @@
-from tcp import TCPChannel, SSLChannel
+from tcp import TCPChannel
 from udp import UDPChannel
 
 
 channelTypes = [
-        SSLChannel,
         TCPChannel,
         UDPChannel,
         ]
