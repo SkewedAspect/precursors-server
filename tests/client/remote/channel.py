@@ -60,7 +60,7 @@ class Channel(object):
     @classmethod
     @abstractmethod
     def supportsArgs(cls, **kwargs):
-        return NotImplemented
+        pass
 
     @classmethod
     def tryCreate(cls, **kwargs):

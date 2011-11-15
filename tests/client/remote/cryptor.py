@@ -45,4 +45,3 @@ class Cryptor(Stream):
         """
         data = self.encrypt(data)
         return super(Cryptor, self).write(data)
-

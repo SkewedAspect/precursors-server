@@ -71,5 +71,3 @@ class M2CipherCryptor(Cryptor):
         del cipher
 
         return result
-
-
