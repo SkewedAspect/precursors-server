@@ -1,3 +1,6 @@
+"""Import the appropriate version of unittest.
+
+"""
 import sys
 
 # Check the python version for 2.7, and import appropriate unittest
@@ -17,4 +20,4 @@ if sys.version_info < (2, 7):
 
 if 'unittest' not in globals():
     import unittest
-
+    unittest

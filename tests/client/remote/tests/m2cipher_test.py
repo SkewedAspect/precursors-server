@@ -1,16 +1,15 @@
 #!/usr/bin/env python
 
-import sys
-import os
+# Set up the path so we can import `remote`.
+from _path import setPath
+setPath(__file__)
+
+
 from StringIO import StringIO
 
-# Add the parent directory of the tests dir to the path.
-sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))]
-
-# Get unittest from our wrapper that imports the right version.
 from unittestwrapper import unittest
 
-from cryptors.m2cipher import M2CipherCryptor
+from remote.cryptors.m2cipher import M2CipherCryptor
 
 
 class TestM2CypherCryptor(unittest.TestCase):

@@ -1,39 +1,98 @@
 #!/usr/bin/env python
 
-import sys
+# Set up the path so we can import `remote`.
+from _path import setPath
+setPath(__file__)
+
+from decimal import Decimal
+
+from numScale import prefixNum
+
+
+bytes_ = lambda num: prefixNum(num, 'B', precision=1, binary=True)
+seconds = lambda num: prefixNum(num, 'sec', precision=3)
+
+
+def doTimings(plaintextBytes, iterations=1000, repetitions=5, useTimeit=True,
+        indent=''):
+    if useTimeit:
+        # Use timeit.
+        setup = '''
 import os
-
-
-# Add the parent directory of the tests dir to the path.
-sys.path += [os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[0])))]
-
-
-import os
-import datetime
-from aescrypt import encrypt
-
-
-plaintextBytes = 150000  # 150K bytes of plaintext
-iterations = 10000
-
+from remote.cryptors.m2cipher import M2CipherCryptor
 key = os.urandom(16)
 iv = os.urandom(16)
-text = os.urandom(plaintextBytes)
+cryptor = M2CipherCryptor(key=key, iv=iv)
+text = os.urandom(%(plaintextBytes)d)
+''' % {
+            'plaintextBytes': plaintextBytes,
+            }
+
+        test = '''
+text = cryptor.encrypt(text)
+'''
+
+        from timeit import Timer
+        t = Timer(test, setup)
+        times = [Decimal(time) for time in
+                t.repeat(repeat=repetitions, number=iterations)]
+        print indent + "%d sets of %d iterations:" % (
+                repetitions,
+                iterations,
+                ),
+        print ", ".join(
+                seconds(time) for time in times
+                )
+        print indent + "    Average time per set:", \
+                seconds(sum(times) / repetitions)
+        print indent + "    Average time per iteration:", \
+                seconds(sum(times) / repetitions / iterations)
+        print indent + "    Total iterations: %d" % (
+                len(times),
+                )
+        print indent + "    Total time:", \
+                seconds(sum(times))
+
+    else:
+        import os
+        import datetime
+
+        from remote.cryptors.m2cipher import M2CipherCryptor
+
+        key = os.urandom(16)
+        iv = os.urandom(16)
+        cryptor = M2CipherCryptor(key=key, iv=iv)
+        text = os.urandom(plaintextBytes)
+
+        print indent + 'Starting benchmark...'
+
+        for r in range(repetitions):
+            totalTime = datetime.timedelta()
+
+            for i in range(iterations):
+                starttime = datetime.datetime.now()
+                text = cryptor.encrypt(text)
+                endtime = datetime.datetime.now()
+
+                totalTime += endtime - starttime
+
+            print
+            print indent + 'Repetition %d:' % (r, )
+            print indent + '    Total time:', totalTime
+            print indent + '    Average time: %0.6f ms over %d iterations.' % (
+                    totalTime.total_seconds() * 1000 / iterations,
+                    iterations
+                    )
 
 
-totalTime = datetime.timedelta()
+plaintextBytes = [
+        1.5 * 1024,         # 1.5 KiB of plaintext
+        15 * 1024,          # 15 KiB of plaintext
+        150 * 1024,         # 150 KiB of plaintext
+        1.5 * 1024 * 1024,  # 1.5 MiB of plaintext
+        ]
 
-print 'Starting benchmark...'
 
-for i in range(iterations):
-    starttime = datetime.datetime.now()
-    text = encrypt(text, key, iv)
-    endtime = datetime.datetime.now()
-
-    totalTime += endtime - starttime
-
-print 'Total time:', totalTime
-print 'Average time: %0.6f ms over %d iterations.' % (
-        totalTime.total_seconds() * 1000 / iterations,
-        iterations
-        )
+for ptb in plaintextBytes:
+    print "Encrypting %s of plaintext:" % (bytes_(ptb), )
+    doTimings(ptb, indent='    ')
