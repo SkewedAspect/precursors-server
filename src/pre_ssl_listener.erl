@@ -59,7 +59,7 @@ init(Args) ->
 	Port = proplists:get_value(port, Args, 6006),
 	PrivDir = pre_server_app:priv_dir(),
 	DefaultCertfile = filename:join(PrivDir, "precursors.crt"),
-	DefaultKeyfile = filename:join(PrivDir, "key.pub"),
+	DefaultKeyfile = filename:join(PrivDir, "key"),
 	Certfile = proplists:get_value(certfile, Args, DefaultCertfile),
 	Keyfile = proplists:get_value(keyfile, Args, DefaultKeyfile),
 	SimpleOpts = [list, {packet, line}, {reuseaddr, true},
