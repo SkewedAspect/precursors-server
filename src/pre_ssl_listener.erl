@@ -1,3 +1,6 @@
+%% @doc Ssl Socket listening server.  Clients are expected to first contact
+%% this listeer before attempting to reach the others.  Uses an accept 
+%% pool for extra awesome.
 -module(pre_ssl_listener).
 -behavior(gen_server).
 
@@ -11,18 +14,40 @@
 
 -record(state, {
 	listener,
-	acceptor
+	acceptors,
+	poolsize = 5
 }).
+
+%% =====
+%% Types
+%% =====
+
+-type(port_opt() :: {port, pos_integer()}).
+-type(certfile_opt() :: {certfile, string()}).
+-type(keyfile_opt() :: {keyfile, string()}).
+-type(poolsize_opt() :: {poolsize, pos_integer()}).
+-type(start_opt() :: port_opt() | certfile_opt() | keyfile_opt() |
+		poolsize_opt()).
+-type(start_opts() :: [start_opt()]).
 
 %% =====
 %% API
 %% =====
+
+%% @doc Starts an unlinked ssl listener with default options.
+-spec(start/0 :: () -> {'ok', pid()}).
 start() -> start([]).
 
+%% @doc Starts an unlinked ssl listener with the given options.
+-spec(start/1 :: (Args :: start_opts()) -> {'ok', pid()}).
 start(Args) -> gen_server:start(?MODULE, Args, []).
 
+%% @doc Starts an ssl listener with default options.
+-spec(start_link/0 :: () -> {'ok', pid()}).
 start_link() -> start_link([]).
 
+%% @doc Starts an ssl listener with the given options.
+-spec(start_link/1 :: (Args :: start_opts()) -> {'ok', pid()}).
 start_link(Args) -> gen_server:start_link(?MODULE, Args, []).
 
 %% =====
@@ -32,14 +57,22 @@ start_link(Args) -> gen_server:start_link(?MODULE, Args, []).
 init(Args) ->
 	process_flag(trap_exit, true),
 	Port = proplists:get_value(port, Args, 6006),
+	PrivDir = pre_server_app:priv_dir(),
+	DefaultCertfile = filename:join(PrivDir, "precursors.crt"),
+	DefaultKeyfile = filename:join(PrivDir, "key.pub"),
+	Certfile = proplists:get_value(certfile, Args, DefaultCertfile),
+	Keyfile = proplists:get_value(keyfile, Args, DefaultKeyfile),
 	SimpleOpts = [list, {packet, line}, {reuseaddr, true},
-		{keepalive, true}, {backlog, 30}, {active, false}],
+		{certfile, Certfile}, {keyfile, Keyfile}, {keepalive, true},
+		{backlog, 30}, {active, false}],
+	Poolsize = proplists:get_value(poolsize, Args, 5),
 	case ssl:listen(Port, SimpleOpts) of
 		{ok, Listen_socket} ->
+			Acceptors = spawn_acceptors(Listen_socket, Poolsize),
 			%%Create first accepting process
-			Acceptor = spawn_link(?MODULE, spawn_acceptor, [Listen_socket]),
+			%Acceptor = spawn_link(?MODULE, spawn_acceptor, [Listen_socket]),
 			?info("Started on port ~p", [Port]),
-			{ok, #state{listener = Listen_socket, acceptor = Acceptor}};
+			{ok, #state{poolsize = Poolsize, listener = Listen_socket, acceptors= Acceptors}};
 		{error, Reason} ->
 			?warning("Could not start ssl:  ~p", [Reason]),
 			{stop, Reason}
@@ -65,9 +98,14 @@ handle_cast(Req, State) ->
 %% handle_info
 %% =====
 
-handle_info({'EXIT', Pid, Cause}, #state{acceptor = Pid} = State) ->
-	Acceptor = spawn_link(?MODULE, spawn_acceptor, [State#state.listener]),
-	{noreply, State#state{acceptor = Acceptor}};
+handle_info({'EXIT', Pid, Cause}, #state{acceptors = Acceptors} = State) ->
+	case Cause of
+		Normies when Normies =:= normal; Normies =:= shutdown -> ok;
+		_ -> ?info("Acceptor ~p died due to ~p", [Pid, Cause])
+	end,
+	CleanAcceptors = lists:delete(Pid, Acceptors),
+	NewAcceptors = spawn_acceptors(State#state.listener, State#state.poolsize, CleanAcceptors),
+	{noreply, State#state{acceptors = NewAcceptors}};
 
 handle_info(Req, State) ->
 	?debug("Unhandled info:  ~p", [Req]),
@@ -94,16 +132,28 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal 
 %% =====
 
+spawn_acceptors(ListSock, Size) ->
+	spawn_acceptors(ListSock, Size, []).
+
+spawn_acceptors(_ListSock, Size, Acc) when Size =:= length(Acc) ->
+	Acc;
+spawn_acceptors(ListSock, Size, Acc) ->
+	Pid = spawn_link(?MODULE, spawn_acceptor, [ListSock]),
+	spawn_acceptors(ListSock, Size, [Pid | Acc]).
+
 spawn_acceptor(Socket) ->
 	case ssl:transport_accept(Socket) of
 		{ok, NewSocket} ->
 			case ssl:ssl_accept(NewSocket, 3000) of
 				ok ->
 					{ok, Pid} = pre_client_manager:start_client(NewSocket),
-					ssl:controlling_process(NewSocket, Pid);
+					ssl:controlling_process(NewSocket, Pid),
+					exit(normal);
 				{error, Reason} ->
-					?notice("Ssl connect did not cmplete:  ~p", [Reason])
+					?notice("Ssl connect did not cmplete:  ~p", [Reason]),
+					exit(Reason)
 			end;
 		{error, Reason} ->
-			?notice("ssl transport accept errored:  ~p", [Reason])
+			?notice("ssl transport accept errored:  ~p", [Reason]),
+			exit(Reason)
 	end.
