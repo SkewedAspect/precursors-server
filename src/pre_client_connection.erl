@@ -38,7 +38,7 @@ start(Socket, Cookie) ->
 
 init({Socket, Cookie}) ->
 	?info("new client connection"),
-	inet:setopts(Socket, [{active, once}]),
+	ssl:setopts(Socket, [{active, once}]),
 	State = #state{
 		ssl_socket = Socket,
 		cookie = Cookie
@@ -63,22 +63,24 @@ handle_cast(_Msg, State) ->
 %% handle_info
 %% ------------------------------------------------------------------
 
-handle_info({tcp, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
-	?debug("got ssl socket packet while in tcp:  ~p", [Packet]),
-	inet:setopts(Socket, [{active, once}]),
-	{noreply, State};
-
-handle_info({tcp_closed, Socket}, #state{ssl_socket = Socket} = State) ->
-	?info("got ssl socket closed while in tcp, Imma die"),
-	{stop, ssl_closed, State};
+%handle_info({tcp, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
+%	?debug("got ssl socket packet while in tcp:  ~p", [Packet]),
+%	inet:setopts(Socket, [{active, once}]),
+%	{noreply, State};
+%
+%handle_info({tcp_closed, Socket}, #state{ssl_socket = Socket} = State) ->
+%	?info("got ssl socket closed while in tcp, Imma die"),
+%	{stop, ssl_closed, State};
 
 handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
 	?debug("got ssl packet:  ~p", [Packet]),
+	ssl:send(Socket, Packet),
+	ssl:setopts(Socket, [{active, once}]),
 	{noreply, State};
 
 handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
 	?info("got ssl socket closed; Imma die"),
-	{stop, ssl_closed, State};
+	{stop, normal, State};
 
 handle_info(Info, State) ->
 	?debug("unhandled info:  ~p", [Info]),
