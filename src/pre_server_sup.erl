@@ -1,4 +1,4 @@
-
+%% @doc Top level supervisor for precursors server.
 -module(pre_server_sup).
 
 -behaviour(supervisor).
@@ -18,8 +18,13 @@
 %% API functions
 %% ===================================================================
 
+%% @doc Starts the server with all default options.
+%% @see start_link/1
+-spec(start_link/0 :: () -> {'ok', pid()}).
 start_link() -> start_link([]).
 
+%% @doc Starts the server with the given options.
+-spec(start_link/1 :: (Args :: [any()]) -> {'ok', pid()}).
 start_link(Args) ->
     supervisor:start_link({local, ?MODULE}, ?MODULE, Args).
 
