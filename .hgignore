@@ -13,6 +13,8 @@ src/*.proto
 key
 key.pub
 *.config
+precursors.crt
+precursors.csr
 
 # debug artifacts
 *.dump
