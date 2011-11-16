@@ -1,6 +1,7 @@
 syntax: glob
 
 # pycharm artifacts
+.idea*
 .idea/*
 
 # build artifacts
@@ -29,3 +30,7 @@ precursors.csr
 # python bytecode artifacts
 tests/client/**.pyc
 tests/client/**.pyo
+tests/client/remote/tests/build/*
+
+# auto-generated protobuf implementation files
+tests/client/protos/*_pb2.py
