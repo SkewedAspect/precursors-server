@@ -58,25 +58,27 @@ class Channel(object):
             raise ValueError("Both remoteHost and remotePort must be specified in order to connect!")
 
     @classmethod
-    @abstractmethod
-    def supportsArgs(cls, **kwargs):
-        pass
-
-    @classmethod
     def tryCreate(cls, **kwargs):
         if cls.supportsArgs(**kwargs):
             return cls(**kwargs)
+
+    ## Channel Implementation Methods ##
+    # Implement all of these in each subclass.
+    @classmethod
+    @abstractmethod
+    def supportsArgs(cls, **kwargs):
+        """Test whether this Channel class supports the given keyword arguments.
+
+        """
 
     @abstractmethod
     def connect(self, remoteHost, remotePort):
         """Connect to the remote host, possibly using encryption.
 
         """
-        pass
 
     @abstractmethod
     def send(self, data):
         """Sends data over the channel.
 
         """
-        pass

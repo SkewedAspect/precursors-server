@@ -8,7 +8,10 @@ logger = logging.getLogger("remote.communication")
 
 
 class Communicator(object):
-    """Core class that handles the oversight of doing the network IO.
+    """Base class for Communicators, which handle communication management.
+
+    There should generally only be one Communicator instance at a time; it is responsible for managing communication
+    on all open Channels.
 
     """
     __metaclass__ = ABCMeta
@@ -73,6 +76,12 @@ class Communicator(object):
 
 
 class QueuedCommunicator(object):
+    """Base class for Communicators which support using queued Channel classes.
+
+    This automatically applies the OutgoingQueuedStream stream wrapper to queue outgoing messages.
+
+    """
+    #FIXME: Why is this not IOQueuedStream? Is there a reason?
     autoApplyStreamWrappers = [OutgoingQueuedStream]
 
     def __init__(self, *args, **kwargs):

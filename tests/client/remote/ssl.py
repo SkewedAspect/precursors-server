@@ -5,6 +5,12 @@ from remote.stream import Stream
 
 
 class SSLStream(Stream):
+    """Stream wrapper which starts an SSL or TLS session on the target stream.
+
+    The target stream probably has to actually be a socket, or this may explode in new and interesting ways. Basically,
+    make sure this is the first stream wrapper applied to a Channel, and you should be good.
+
+    """
     logger = logging.getLogger("remote.cryptors.ssl.SSLStream")
 
     connInfoFormat = """SSL connection info:

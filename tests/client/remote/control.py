@@ -65,13 +65,11 @@ class Control(object):
 
         #TODO: Negotiate with the server first to get the port and cookie we should use, and then create the channel!
 
-        # TODO: Dummy Channel idea:
-        # We have a class that just queues requests. Control then gets the result of the
-        # auto-negotiation with the server, and creates the _actual_ channel, replacing
-        # it's internal reference, as well as notifying the dummy channel. The dummy channel
-        # then passes it's queue to the channel (calling send in a loop, basically) and
-        # deletes it's queue. It then forever acts as a passthrough to the channel, as long
-        # as its reference lasts.
+        #TODO: Dummy Channel idea:
+        # We have a class that just queues requests. Control then gets the result of the auto-negotiation with the
+        # server, and creates the _actual_ channel, replacing its internal reference, as well as notifying the dummy
+        # channel. The dummy channel then passes its queue to the channel (calling send in a loop, basically) and
+        # deletes its queue. It then forever acts as a passthrough to the channel, as long as its reference lasts.
 
         self.channels[name] = channelType(self.remoteHost, remotePort)
 

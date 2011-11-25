@@ -8,6 +8,9 @@ logger = logging.getLogger("remote.stream")
 
 
 class Stream(io.RawIOBase):
+    """Base class for stream wrappers: streams which wrap other streams, adding functionality.
+
+    """
     def __init__(self, targetStream, *args, **kwargs):
         self.targetStream = targetStream
 
@@ -46,6 +49,9 @@ class Stream(io.RawIOBase):
 
 
 class OutgoingQueuedStream(Stream):
+    """Stream wrapper which queues all outgoing messages instead of writing them instantly.
+
+    """
     def __init__(self, *args, **kwargs):
         self._outgoingMessages = collections.deque()
 
@@ -91,6 +97,10 @@ class OutgoingQueuedStream(Stream):
 
 
 class IncomingQueuedStream(Stream):
+    """Stream wrapper which can read incoming messages into a queue, instead of waiting for a read() call to read from
+    the target stream.
+
+    """
     def __init__(self, *args, **kwargs):
         self._incomingMessages = collections.deque()
 
@@ -137,4 +147,9 @@ class IncomingQueuedStream(Stream):
 
 
 class IOQueuedStream(IncomingQueuedStream, OutgoingQueuedStream):
-    pass
+    """Stream wrapper which queues both incoming and outgoing messages.
+
+    This allows messages to be read and written without blocking, provided handleRead() and handleWrite() are called at
+    appropriate times.
+
+    """

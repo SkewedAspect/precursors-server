@@ -13,6 +13,9 @@ NETSTRING_READ_BUFFER_SIZE = 8192
 
 
 class IncomingQueuedNetstringStream(IncomingQueuedStream):
+    """Stream wrapper which splits the target stream's data into messages using netstrings, and enqueues each message.
+
+    """
     netstringLengthPattern = re.compile(
             r'^([0-9]{1,%d}):' % (NETSTRING_MAX_LENGTH_BYTES, ))
 
@@ -71,6 +74,9 @@ class IncomingQueuedNetstringStream(IncomingQueuedStream):
 
 
 class OutgoingQueuedNetstringStream(OutgoingQueuedStream):
+    """Stream wrapper which formats outgoing binary (str) messages as netstrings.
+
+    """
     def write(self, message):
         if len(str(len(message))) > NETSTRING_MAX_LENGTH_BYTES:
             raise ValueError("Message is too big! Length is %d, but should be less than or equal to %d.",
