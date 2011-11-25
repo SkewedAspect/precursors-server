@@ -21,7 +21,7 @@ class UDPChannel(SelectChannel):
 
     @classmethod
     def supportsArgs(cls, **kwargs):
-        return not (kwargs['TLS'] or kwargs['reliable'] or kwargs['ordered'])
+        return kwargs['reliable'] == False and kwargs['ordered'] == False
 
     def connect(self, remoteHost, remotePort, **kwargs):
         self.logger.debug("Connecting using UDP.")

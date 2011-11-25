@@ -21,7 +21,7 @@ class TCPChannel(SelectChannel):
 
     @classmethod
     def supportsArgs(cls, **kwargs):
-        return not kwargs['TLS'] and (kwargs['reliable'] or kwargs['ordered'])
+        return kwargs['reliable'] == True or kwargs['ordered'] == True
 
     def connect(self, remoteHost, remotePort, **kwargs):
         self.logger.debug("Connecting using %s.", self.protocolName)
