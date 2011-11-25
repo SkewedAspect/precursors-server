@@ -13,6 +13,12 @@ class SSLStream(Stream):
     """
     logger = logging.getLogger("remote.cryptors.ssl.SSLStream")
 
+    supportedProtocols = dict(
+            (name[len('PROTOCOL_'):], getattr(ssl, name))
+            for name in dir(ssl)
+            if name.startswith('PROTOCOL_')
+            )
+
     connInfoFormat = """SSL connection info:
     Peer name: %s
     Cipher chosen: %s
@@ -24,7 +30,7 @@ class SSLStream(Stream):
 
         self._targetStream = None
 
-        self.protocolName = "TLS"
+        self.protocol = kwargs.get('protocol', self.supportedProtocols["TLSv1"])
 
     def get_targetStream(self):
         return self._targetStream
@@ -41,7 +47,7 @@ class SSLStream(Stream):
                     self._wrappedTarget,
                     ca_certs="/etc/ca_certs_file",
                     cert_reqs=ssl.CERT_REQUIRED,
-                    ssl_version=ssl.PROTOCOL_TLSv1,
+                    ssl_version=self.protocol,
 
                     # Allow all ciphers except ECDSA, since its implementation in OpenSSL was broken.
                     # (see https://secure.wikimedia.org/wikipedia/en/wiki/ECDSA)
@@ -67,7 +73,5 @@ class SSLStream(Stream):
                 self.connInfoFormat,
                 repr(self.socket.getpeername()),
                 self.socket.cipher(),
-                pprint.pformat(
-                    self.socket.getpeercert()
-                    ).replace('\n', '\n        ')
+                pprint.pformat(self.socket.getpeercert()).replace('\n', '\n        ')
                 )
