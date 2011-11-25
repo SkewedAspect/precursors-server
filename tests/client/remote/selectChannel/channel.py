@@ -7,6 +7,9 @@ logger = logging.getLogger("remote.selectChannel.channel")
 
 
 class SelectChannel(Channel):
+    """A Channel implementation using select to perform asynchronous communication.
+
+    """
     def __init__(self, *args, **kwargs):
         if not hasattr(self, 'target'):
             self.target = None
@@ -14,8 +17,7 @@ class SelectChannel(Channel):
         assert(hasattr(self, 'protocolName'))
 
         # Ensure this is the right type of socket.
-        assert(kwargs['reliable'] == self.reliable)
-        assert(kwargs['ordered'] == self.ordered)
+        assert(self.supportsArgs(**kwargs))
 
         super(SelectChannel, self).__init__(*args, **kwargs)
 
