@@ -1,4 +1,6 @@
+from abc import ABCMeta, abstractmethod
 import logging
+import socket
 
 from remote.channel import Channel
 
@@ -10,6 +12,8 @@ class SelectChannel(Channel):
     """A Channel implementation using select to perform asynchronous communication.
 
     """
+    __metaclass__ = ABCMeta
+
     def __init__(self, *args, **kwargs):
         if not hasattr(self, 'target'):
             self.target = None
@@ -19,8 +23,13 @@ class SelectChannel(Channel):
         # Ensure this is the right type of socket.
         assert(self.supportsArgs(**kwargs))
 
+        # Set up our socket
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.settimeout(0.0)
+
         super(SelectChannel, self).__init__(*args, **kwargs)
 
+    @abstractmethod
     def connect(self, remoteHost, remotePort, **kwargs):
         """Connect to the remote host, possibly using encryption.
 
@@ -40,38 +49,6 @@ class SelectChannel(Channel):
 
     def set_socket(self, sock):
         self._socket = sock
-        self.target = sock
         self.fileno = sock.fileno
 
     socket = property(get_socket, set_socket, doc="The underlying socket object for this Channel.")
-
-    def sendRequest(self, request):
-        """Send an request over the channel.
-
-        """
-        self._sendFunc(request)
-
-    def sendEvent(self, event):
-        """Send an event over the channel.
-
-        """
-        self._sendFunc(event)
-
-    def receiveRequest(self, request):
-        """Receive a request over the channel.
-
-        """
-        raise NotImplementedError("receiveRequest not yet implemented!")
-
-    def receiveEvent(self, event):
-        """Receive an event over the channel.
-
-        """
-        raise NotImplementedError("receiveEvent not yet implemented!")
-
-    def _send(self, data):
-        """Sends data over the channel, encrypting if required.
-
-        """
-        self.logger.debug("Sending data over %s.", self.protocolName)
-        self.target.write(data)

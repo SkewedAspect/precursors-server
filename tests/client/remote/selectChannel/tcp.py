@@ -1,5 +1,4 @@
 import logging
-import socket
 
 from channel import SelectChannel
 
@@ -12,10 +11,6 @@ class TCPChannel(SelectChannel):
 
     def __init__(self, *args, **kwargs):
         super(TCPChannel, self).__init__(*args, **kwargs)
-
-        # Set up our socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(0.0)
 
         self.protocolName = "TCP"
 
@@ -32,3 +27,11 @@ class TCPChannel(SelectChannel):
         # Successfully connected. Now call super to set variables and enable
         # encryption if requested.
         super(TCPChannel, self).connect(remoteHost, remotePort, **kwargs)
+
+    def _readStream(self, requestedBytes=-1, **kwargs):
+        assert(len(kwargs) == 0)
+        return self.socket.recv(requestedBytes)
+
+    def _writeStream(self, message, **kwargs):
+        assert(len(kwargs) == 0)
+        return self.socket.send(message)

@@ -1,5 +1,4 @@
 import logging
-import socket
 
 from channel import SelectChannel
 
@@ -12,10 +11,6 @@ class UDPChannel(SelectChannel):
 
     def __init__(self, *args, **kwargs):
         super(UDPChannel, self).__init__(*args, **kwargs)
-
-        # Set up our socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.socket.settimeout(0.0)
 
         self.protocolName = "UDP"
 
@@ -32,3 +27,11 @@ class UDPChannel(SelectChannel):
         # Successfully connected. Now call super to set variables and enable
         # encryption if requested.
         super(UDPChannel, self).connect(remoteHost, remotePort, **kwargs)
+
+    def _readStream(self, requestedBytes=-1, **kwargs):
+        assert(len(kwargs) == 0)
+        self.socket.recvfrom(requestedBytes)
+
+    def _writeStream(self, message, **kwargs):
+        remoteAddress = kwargs.pop('address', self.defaultTargetAddress)
+        assert(len(kwargs) == 0)

@@ -23,6 +23,17 @@ def createChannel(channelTypes, **kwargs):
             return chan
 
 
+class ChannelStream(object):
+    def __init__(self, channel):
+        self.channel = channel
+
+    def read(self, requestedBytes=-1, **kwargs):
+        return self.channel._readStream(requestedBytes, **kwargs)
+
+    def write(self, message, **kwargs):
+        return self.channel._writeStream(message, **kwargs)
+
+
 class Channel(object):
     __metaclass__ = ABCMeta
 
@@ -43,6 +54,9 @@ class Channel(object):
         self.reliable = None
         self.ordered = None
 
+        # The stream hierarchy.
+        self.target = ChannelStream(self)
+
         # Dictionary of outstanding requests
         self.requests = dict()
 
@@ -62,6 +76,13 @@ class Channel(object):
         if cls.supportsArgs(**kwargs):
             return cls(**kwargs)
 
+    def send(self, data):
+        """Sends data over the channel, encrypting if required.
+
+        """
+        self.logger.debug("Sending data over %s.", self.protocolName)
+        self.target.write(data)
+
     ## Channel Implementation Methods ##
     # Implement all of these in each subclass.
     @classmethod
@@ -78,7 +99,25 @@ class Channel(object):
         """
 
     @abstractmethod
-    def send(self, data):
-        """Sends data over the channel.
+    def _readStream(self, requestedBytes=-1, **kwargs):
+        """Low-level read - this is called by the innermost stream in the self.target hierarchy.
+
+        @param requestedBytes the number of bytes to attempt to read from the network
+
+        @return the bytes read from the network
+
+        Implement this by reading from the underlying socket or network stream.
+
+        """
+
+    @abstractmethod
+    def _writeStream(self, message, **kwargs):
+        """Low-level write - this is called by the innermost stream in the self.target hierarchy.
+
+        @param message the bytes to write to the network
+
+        @return the number of bytes successfully written
+
+        Implement this by writing to the underlying socket or network stream.
 
         """
