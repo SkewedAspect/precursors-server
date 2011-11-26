@@ -11,13 +11,16 @@ class SSLStream(Stream):
     make sure this is the first stream wrapper applied to a Channel, and you should be good.
 
     """
-    logger = logging.getLogger("remote.cryptors.ssl.SSLStream")
+    logger = logging.getLogger("remote.cryptors.sslStream.SSLStream")
 
-    supportedProtocols = dict(
-            (name[len('PROTOCOL_'):], getattr(ssl, name))
-            for name in dir(ssl)
-            if name.startswith('PROTOCOL_')
-            )
+    supportedProtocols = dict()
+
+    for name in dir(ssl):
+        if name.startswith('PROTOCOL_'):
+            key = name[len('PROTOCOL_'):]
+            val = getattr(ssl, name)
+            supportedProtocols[key] = val
+            locals()[name] = val
 
     connInfoFormat = """SSL connection info:
     Peer name: %s
