@@ -86,5 +86,5 @@ class OutgoingQueuedNetstringStream(OutgoingQueuedStream):
         super(OutgoingQueuedStream, self).write(encoded)
 
 
-class IOQueuedNetstringStream(IncomingQueuedStream, OutgoingQueuedStream):
+class IOQueuedNetstringStream(IncomingQueuedNetstringStream, OutgoingQueuedNetstringStream):
     pass
