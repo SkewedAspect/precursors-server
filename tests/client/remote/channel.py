@@ -2,6 +2,7 @@ from abc import ABCMeta, abstractmethod
 import logging
 
 import dispatch
+from stream import IOQueuedStream
 
 
 logger = logging.getLogger("remote.channel")
@@ -54,8 +55,8 @@ class Channel(object):
         self.reliable = None
         self.ordered = None
 
-        # The stream hierarchy.
-        self.target = ChannelStream(self)
+        # Build the StreamWrapper stack.
+        self.buildStreamWrapperStack()
 
         # Dictionary of outstanding requests
         self.requests = dict()
@@ -70,6 +71,10 @@ class Channel(object):
 
         elif remoteHost is not None or remotePort is not None:
             raise ValueError("Both remoteHost and remotePort must be specified in order to connect!")
+
+    def buildStreamWrapperStack(self):
+        # The base of the StreamWrapper stack.
+        self.target = ChannelStream(self)
 
     @classmethod
     def tryCreate(cls, **kwargs):
@@ -121,3 +126,20 @@ class Channel(object):
         Implement this by writing to the underlying socket or network stream.
 
         """
+
+
+class QueuedChannel(Channel):
+    queuedStreamWrapperType = IOQueuedStream
+
+    def buildStreamWrapperStack(self):
+        super(QueuedChannel, self).buildStreamWrapperStack()
+
+        # Add our queued StreamWrapper to the stack, and keep track of it separately so we can call handle*.
+        self.queuedStreamWrapper = self.queuedStreamWrapperType(self.target)
+        self.target = self.queuedStreamWrapper
+
+    def handleRead(self):
+        self.queuedStreamWrapper.handleRead()
+
+    def handleWrite(self):
+        self.queuedStreamWrapper.handleWrite()
