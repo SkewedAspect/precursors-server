@@ -27,6 +27,15 @@ class Stream(io.RawIOBase):
             except:
                 logger.exception("Exception encountered when calling %r handler!", eventName)
 
+    @classmethod
+    def factory(cls, **kwargs):
+        def fact(*args, **kwargsOverrides):
+            kwa = kwargs.copy()
+            kwa.update(kwargsOverrides)
+            return cls(*args, **kwa)
+
+        return fact
+
     def read(self, requestedBytes=-1):
         """Read incoming data from the target stream.
 
