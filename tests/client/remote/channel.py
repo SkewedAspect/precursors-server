@@ -38,7 +38,8 @@ class ChannelStream(object):
 class Channel(object):
     __metaclass__ = ABCMeta
 
-    incomingPacket = dispatch.Signal(["remoteHost", "remotePort", "message"])
+    disconnected = dispatch.Signal(["remoteAddress"])
+    incomingPacket = dispatch.Signal(["remoteAddress", "message", "metadata"])
 
     def __init__(self, name, remoteHost=None, remotePort=None, **kwargs):
         """Create a Channel, optionally connecting to the given remote host and
@@ -87,6 +88,33 @@ class Channel(object):
         """
         self.logger.debug("Sending data over %s.", self.protocolName)
         self.target.write(data)
+
+    def receive(self):
+        """Checks for incoming data, and raises an incomingPacket signal if a message is received.
+
+        If this isn't an asynchronous Channel of some sort, this method will block until data is received.
+
+        """
+        try:
+            incoming, metadata = self.target.read()
+        except TypeError:
+            # Ignore TypeError; if we got a TypeError, that probably means we got None back, which just means there's
+            # nothing to send yet.
+            pass
+        else:
+            self.logger.debug("Received message from %s.", self.protocolName)
+
+            kwargs = {
+                    'sender': self,
+                    'message': incoming,
+                    }
+
+            if 'remoteAddress' in metadata:
+                kwargs['remoteAddress'] = metadata.pop('remoteAddress')
+
+            kwargs['metadata'] = metadata
+
+            self.incomingPacket.send_robust(**kwargs)
 
     ## Channel Implementation Methods ##
     # Implement all of these in each subclass.
