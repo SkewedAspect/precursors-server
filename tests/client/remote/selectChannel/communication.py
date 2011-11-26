@@ -36,34 +36,34 @@ class SelectCommunicator(QueuedCommunicator):
             chan.handleRead()
 
 
-class EPoll(QueuedCommunicator):
-    logger = logging.getLogger("remote.selectChannel.communication.EPoll")
+class EPollCommunicator(QueuedCommunicator):
+    logger = logging.getLogger("remote.selectChannel.communication.EPollCommunicator")
 
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("EPoll support not yet implemented!")
         self.epoll = select.epoll()
-        super(EPoll, self).__init__(*args, **kwargs)
+        super(EPollCommunicator, self).__init__(*args, **kwargs)
 
 
-class KQueue(QueuedCommunicator):
-    logger = logging.getLogger("remote.selectChannel.communication.KQueue")
+class KQueueCommunicator(QueuedCommunicator):
+    logger = logging.getLogger("remote.selectChannel.communication.KQueueCommunicator")
 
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("KQueue support not yet implemented!")
-        super(KQueue, self).__init__(*args, **kwargs)
+        super(KQueueCommunicator, self).__init__(*args, **kwargs)
 
 
-class KEvent(QueuedCommunicator):
-    logger = logging.getLogger("remote.selectChannel.communication.KEvent")
+class KEventCommunicator(QueuedCommunicator):
+    logger = logging.getLogger("remote.selectChannel.communication.KEventCommunicator")
 
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("KEvent support not yet implemented!")
-        super(KEvent, self).__init__(*args, **kwargs)
+        super(KEventCommunicator, self).__init__(*args, **kwargs)
 
 
-class Poll(QueuedCommunicator):
-    logger = logging.getLogger("remote.selectChannel.communication.Poll")
+class PollCommunicator(QueuedCommunicator):
+    logger = logging.getLogger("remote.selectChannel.communication.PollCommunicator")
 
     def __init__(self, *args, **kwargs):
         raise NotImplementedError("Poll support not yet implemented!")
-        super(Poll, self).__init__(*args, **kwargs)
+        super(PollCommunicator, self).__init__(*args, **kwargs)
