@@ -167,7 +167,11 @@ class QueuedChannel(Channel):
         self.target = self.queuedStreamWrapper
 
     def handleRead(self):
+        # Read all currently-available data into the incoming queue.
         self.queuedStreamWrapper.handleRead()
+
+        # Now, see if we got a full message in the queue, and raise incomingPacket if we did.
+        self.receive()
 
     def handleWrite(self):
         self.queuedStreamWrapper.handleWrite()
