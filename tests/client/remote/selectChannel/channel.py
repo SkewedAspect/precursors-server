@@ -2,13 +2,13 @@ from abc import ABCMeta, abstractmethod
 import logging
 import socket
 
-from remote.channel import Channel
+from remote.netstring import QueuedNetstringChannel
 
 
 logger = logging.getLogger("remote.selectChannel.channel")
 
 
-class SelectChannel(Channel):
+class SelectChannel(QueuedNetstringChannel):
     """A Channel implementation using select to perform asynchronous communication.
 
     """
