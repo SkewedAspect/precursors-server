@@ -82,7 +82,7 @@ class OutgoingQueuedStream(Stream):
     def handleWrite(self):
         """Write the next outgoing message to the socket.
 
-        This should be called by a ready-polling class like Select.
+        This should be called by a ready-polling class like SelectCommunicator.
 
         """
         if len(self._outgoingMessages) == 0:
@@ -143,7 +143,7 @@ class IncomingQueuedStream(Stream):
     def handleRead(self):
         """Read an incoming message from the socket, and queue it for reading.
 
-        This should be called by a ready-polling class like Select.
+        This should be called by a ready-polling class like SelectCommunicator.
 
         """
         incomingMessage = self.targetStream.read()

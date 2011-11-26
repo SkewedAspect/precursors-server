@@ -4,11 +4,11 @@ import select
 from remote.communication import QueuedCommunicator
 
 
-class Select(QueuedCommunicator):
-    logger = logging.getLogger("remote.selectChannel.communication.Select")
+class SelectCommunicator(QueuedCommunicator):
+    logger = logging.getLogger("remote.selectChannel.communication.SelectCommunicator")
 
     def __init__(self, *args, **kwargs):
-        super(Select, self).__init__(*args, **kwargs)
+        super(SelectCommunicator, self).__init__(*args, **kwargs)
 
     def checkIO(self, timeout=None):
         """Checks all registered Channels for ones which are ready for I/O, and calls their handlers.

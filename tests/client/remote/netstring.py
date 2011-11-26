@@ -30,7 +30,7 @@ class IncomingQueuedNetstringStream(IncomingQueuedStream):
         """Read an incoming netstring message from the socket, and queue its
         contents for reading.
 
-        This should be called by a ready-polling class like Select.
+        This should be called by a ready-polling class like SelectCommunicator.
 
         """
         try:
