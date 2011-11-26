@@ -3,6 +3,8 @@ import logging
 import channel
 import selectChannel
 
+from sslStream import SSLStream
+
 
 logger = logging.getLogger("remote.control")
 
@@ -24,8 +26,10 @@ class Control(object):
 
         """
         try:
-            controlChannel = self.createChannel('Control', reliable=True, ordered=True,
-                    encryption=channel.EncryptionType.SSL)
+            streamWrappers = [
+                    SSLStream.factory(protocol=SSLStream.PROTOCOL_SSLv3),
+                    ]
+            controlChannel = self.createChannel('Control', reliable=True, ordered=True, streamWrappers=streamWrappers)
 
         except Exception, ex:
             logger.exception("Error connecting controlChannel channel!", ex)
