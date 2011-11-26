@@ -63,11 +63,7 @@ class Channel(object):
         self.requests = dict()
 
         if remoteHost is not None and remotePort is not None:
-            if not self.connect(
-                    remoteHost=remoteHost,
-                    remotePort=remotePort,
-                    **kwargs
-                    ):
+            if not self.connect(remoteHost=remoteHost, remotePort=remotePort, **kwargs):
                 raise RuntimeError("Error auto-connecting!")
 
         elif remoteHost is not None or remotePort is not None:
@@ -97,10 +93,12 @@ class Channel(object):
         """
         try:
             incoming, metadata = self.target.read()
+
         except TypeError:
-            # Ignore TypeError; if we got a TypeError, that probably means we got None back, which just means there's
-            # nothing to send yet.
+            # Ignore TypeError; if we got this, it probably means we got None back, which just means there's nothing to
+            # send yet.
             pass
+
         else:
             self.logger.debug("Received message from %s.", self.protocolName)
 
