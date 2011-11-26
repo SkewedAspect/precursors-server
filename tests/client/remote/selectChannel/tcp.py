@@ -14,6 +14,8 @@ class TCPChannel(SelectChannel):
 
         self.protocolName = "TCP"
 
+        self.metadata = {}
+
     @classmethod
     def supportsArgs(cls, **kwargs):
         return kwargs['reliable'] == True or kwargs['ordered'] == True
@@ -28,10 +30,18 @@ class TCPChannel(SelectChannel):
         # encryption if requested.
         super(TCPChannel, self).connect(remoteHost, remotePort, **kwargs)
 
+        self.metadata = {
+                'remoteAddress': (remoteHost, remotePort),
+                }
+
     def _readStream(self, requestedBytes=-1, **kwargs):
+        # We don't support any keyword arguments.
         assert(len(kwargs) == 0)
-        return self.socket.recv(requestedBytes)
+
+        return self.socket.recv(requestedBytes), self.metadata
 
     def _writeStream(self, message, **kwargs):
+        # We don't support any keyword arguments.
         assert(len(kwargs) == 0)
+
         return self.socket.send(message)

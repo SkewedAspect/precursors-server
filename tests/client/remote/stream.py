@@ -40,11 +40,11 @@ class Stream(io.RawIOBase):
         """Read incoming data from the target stream.
 
         """
-        dataRead = self.targetStream.read(requestedBytes)
+        dataRead, metadata = self.targetStream.read(requestedBytes)
 
         self._emit(self.onReadFinished, "read finished", requestedBytes=requestedBytes, dataRead=dataRead)
 
-        return dataRead
+        return dataRead, metadata
 
     def write(self, data):
         """Write outgoing data to the target stream.

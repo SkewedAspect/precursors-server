@@ -35,9 +35,9 @@ class Cryptor(Stream):
         """Read incoming data from the target stream and decrypt it.
 
         """
-        ciphertext = super(Cryptor, self).read(requestedBytes)
+        ciphertext, metadata = super(Cryptor, self).read(requestedBytes)
 
-        return self.decrypt(ciphertext)
+        return self.decrypt(ciphertext), metadata
 
     def write(self, data):
         """Encrypt outgoing data and then write it to the target stream.
