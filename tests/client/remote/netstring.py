@@ -23,8 +23,7 @@ class IncomingQueuedNetstringStream(IncomingQueuedStream):
     def __init__(self, *args, **kwargs):
         super(IncomingQueuedNetstringStream, self).__init__(*args, **kwargs)
 
-        self._incomingData = io.BufferedReader(self.target,
-                buffer_size=NETSTRING_READ_BUFFER_SIZE)
+        self._incomingData = io.BufferedReader(self.target, buffer_size=NETSTRING_READ_BUFFER_SIZE)
 
     def handleRead(self):
         """Read an incoming netstring message from the socket, and queue its
@@ -40,8 +39,7 @@ class IncomingQueuedNetstringStream(IncomingQueuedStream):
                 if len(lenString) >= NETSTRING_MAX_LENGTH_BYTES + 1:
                     # Incorrectly-formatted length.
                     logger.warn("Incoming message doesn't have a valid netstring length specifier! Discarding.")
-                    logger.debug("Discarding message: %r",
-                            self._incomingData.read1())
+                    logger.debug("Discarding message: %r", self._incomingData.read1())
                     return
 
                 # Otherwise, we don't have enough data yet, so just wait.
@@ -58,15 +56,13 @@ class IncomingQueuedNetstringStream(IncomingQueuedStream):
             # Check for message end marker. (comma)
             if self._incomingData.read(1) != ',':
                 logger.warn("Incoming netstring message doesn't have a trailing comma! Discarding.")
-                logger.debug("Discarding message: %r",
-                        self._incomingData.read1())
+                logger.debug("Discarding message: %r", self._incomingData.read1())
 
         except io.BlockingIOError:
             # Not enough data yet.
             return
 
-        logger.debug("Read %d bytes: %r", len(incomingMessage),
-                incomingMessage)
+        logger.debug("Read %d bytes: %r", len(incomingMessage), incomingMessage)
 
         # Enqueue message.
         self._incomingMessages.append(incomingMessage)
