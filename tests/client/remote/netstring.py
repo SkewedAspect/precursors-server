@@ -3,6 +3,7 @@ import io
 import re
 
 from remote.stream import IncomingQueuedStream, OutgoingQueuedStream
+from remote.channel import QueuedChannel
 
 
 logger = logging.getLogger("remote.netstring")
@@ -88,3 +89,10 @@ class OutgoingQueuedNetstringStream(OutgoingQueuedStream):
 
 class IOQueuedNetstringStream(IncomingQueuedNetstringStream, OutgoingQueuedNetstringStream):
     pass
+
+
+class QueuedNetstringChannel(QueuedChannel):
+    """Queued Channel subclass which implements netstring encoding and decoding using IOQueuedNetstringStream.
+
+    """
+    queuedStreamWrapperType = IOQueuedNetstringStream
