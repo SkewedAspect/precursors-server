@@ -15,17 +15,18 @@ class SelectChannel(Channel):
     __metaclass__ = ABCMeta
 
     def __init__(self, *args, **kwargs):
-        if not hasattr(self, 'target'):
-            self.target = None
-
         assert(hasattr(self, 'protocolName'))
 
         # Ensure this is the right type of socket.
         assert(self.supportsArgs(**kwargs))
 
-        # Set up our socket
-        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.socket.settimeout(0.0)
+        # If an existing socket was specified, use it.
+        self.socket = kwargs.get('socket', None)
+
+        if self.socket is None:
+            # Set up a new socket
+            self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            self.socket.settimeout(0.0)
 
         super(SelectChannel, self).__init__(*args, **kwargs)
 
