@@ -2,13 +2,10 @@ import logging
 import select
 
 from remote.communication import QueuedCommunicator
-from remote.netstring import IOQueuedNetstringStream
 
 
 class Select(QueuedCommunicator):
     logger = logging.getLogger("remote.selectChannel.communication.Select")
-
-    autoApplyStreamWrappers = [IOQueuedNetstringStream]
 
     def __init__(self, *args, **kwargs):
         super(Select, self).__init__(*args, **kwargs)
@@ -26,7 +23,7 @@ class Select(QueuedCommunicator):
             return
 
         readReady, writeReady, _ = select.select(
-                rlist=self.sockets,
+                rlist=self.channels,
                 wlist=self.awaitingWrite,
                 xlist=[],
                 timeout=0
