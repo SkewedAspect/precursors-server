@@ -14,7 +14,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2]).
+-export([start_link/2,start/2,udp/2]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -32,7 +32,7 @@ start_link(Socket, Cookie) ->
 start(Socket, Cookie) ->
 	gen_server:start(?MODULE, {Socket, Cookie}, {}).
 
-upd(Pid, Msg) ->
+udp(Pid, Msg) ->
 	gen_server:cast(Pid, Msg).
 
 %% ------------------------------------------------------------------

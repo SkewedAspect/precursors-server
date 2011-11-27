@@ -3,6 +3,7 @@
 -define(SERVER, ?MODULE).
 
 -include("log.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 
 -record(state, {
 	ets
