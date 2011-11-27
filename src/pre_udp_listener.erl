@@ -1,20 +1,17 @@
--module(pre_client_connection).
+%% @doc A simple listener for upd.  Forwards packets to client manager,
+%% which sends them onwards to the appropriate client.
+-module(pre_udp_listener).
 -behaviour(gen_server).
-
--include("log.hrl").
-
+-define(SERVER, ?MODULE).
 -record(state, {
-	cookie :: binary(),
-	ssl_socket,
-	tcp_socket,
-	udp_socket
+	socket
 }).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2]).
+-export([start/0,start/1,start_link/0,start_link/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -26,27 +23,30 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
-start_link(Socket, Cookie) ->
-  gen_server:start_link(?MODULE, {Socket, Cookie}, []).
+start_link() ->
+	start_link([]).
 
-start(Socket, Cookie) ->
-	gen_server:start(?MODULE, {Socket, Cookie}, {}).
+start_link(Args) ->
+  gen_server:start_link(?MODULE, Args, []).
 
-upd(Pid, Msg) ->
-	gen_server:cast(Pid, Msg).
+start() ->
+	start([]).
+
+start(Args) ->
+	gen_server:start(?MODULE, Args, []).
 
 %% ------------------------------------------------------------------
-%% gen_server Function Definitions
+%% init
 %% ------------------------------------------------------------------
 
-init({Socket, Cookie}) ->
-	?info("new client connection"),
-	ssl:setopts(Socket, [{active, once}]),
-	State = #state{
-		ssl_socket = Socket,
-		cookie = Cookie
-	},
-  {ok, State}.
+init(Args) ->
+	Port = proplists:get_value(port, Args, 1338),
+	case gen_udp:open(Port, [{active, once}]) of
+		{ok, Socket} ->
+			{ok, #state{socket = Socket}};
+		Else ->
+			{error, Else}
+	end.
 
 %% ------------------------------------------------------------------
 %% handle_call
@@ -66,31 +66,15 @@ handle_cast(_Msg, State) ->
 %% handle_info
 %% ------------------------------------------------------------------
 
-%handle_info({tcp, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
-%	?debug("got ssl socket packet while in tcp:  ~p", [Packet]),
-%	inet:setopts(Socket, [{active, once}]),
-%	{noreply, State};
-%
-%handle_info({tcp_closed, Socket}, #state{ssl_socket = Socket} = State) ->
-%	?info("got ssl socket closed while in tcp, Imma die"),
-%	{stop, ssl_closed, State};
-
-handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
-	?debug("got ssl packet:  ~p", [Packet]),
-	ssl:send(Socket, Packet),
-	ssl:setopts(Socket, [{active, once}]),
+handle_info({udp, Socket, _Ip, _InPort, _Packet} = Msg, #state{socket = Socket} = State) ->
+	pre_client_manager:upd(Msg),
 	{noreply, State};
 
-handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
-	?info("got ssl socket closed; Imma die"),
-	{stop, normal, State};
-
-handle_info(Info, State) ->
-	?debug("unhandled info:  ~p", [Info]),
+handle_info(_Info, State) ->
   {noreply, State}.
 
 %% ------------------------------------------------------------------
-%% terminate
+%% terminataion
 %% ------------------------------------------------------------------
 
 terminate(_Reason, _State) ->
