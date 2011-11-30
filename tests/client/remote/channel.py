@@ -28,6 +28,9 @@ class ChannelStream(object):
     def __init__(self, channel):
         self.channel = channel
 
+    def readable(self):
+        return self.channel._readable()
+
     def read(self, requestedBytes=-1, **kwargs):
         return self.channel._readStream(requestedBytes, **kwargs)
 
@@ -113,6 +116,12 @@ class Channel(object):
             kwargs['metadata'] = metadata
 
             self.incomingPacket.send_robust(**kwargs)
+
+    def _readable(self):
+        """Check whether this channel's stream is currently readable.
+
+        """
+        return True
 
     ## Channel Implementation Methods ##
     # Implement all of these in each subclass.
