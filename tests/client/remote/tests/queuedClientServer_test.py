@@ -50,11 +50,15 @@ class TestQueuedClientServer(unittest.TestCase):
         # Shut down the server forcefully.
         self.server.terminate()
 
-        del self.channel
-        del self.control
+        if hasattr(self, 'channel'):
+            del self.channel
+
+        if hasattr(self, 'control'):
+            del self.control
 
         #TODO: Control should be doing this!
-        del self.comm
+        if hasattr(self, 'comm'):
+            del self.comm
 
     def test_for_echo(self):
         def receiveResponse(sender, **kwargs):
