@@ -19,7 +19,7 @@ class Communicator(object):
     autoApplyStreamWrappers = []
 
     def __init__(self, *args, **kwargs):
-        self.looping = False
+        self._looping = False
         self._continue = False
 
         self.channels = set()
