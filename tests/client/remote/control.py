@@ -26,8 +26,8 @@ class Control(object):
         try:
             controlChannel = self.createChannel('Control', remoteAddr, reliable=True, ordered=True)
 
-        except Exception, ex:
-            logger.exception("Error connecting controlChannel channel!", ex)
+        except:
+            logger.exception("Error connecting controlChannel channel!")
             return False
 
         # We've successfully connected
