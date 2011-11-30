@@ -8,6 +8,8 @@ setPath(__file__)
 from multiprocessing import Process
 import logging
 import SocketServer
+import string
+import sys
 
 from unittestwrapper import unittest
 
@@ -20,11 +22,42 @@ logger = logging.getLogger("remote.tests.queuedClientServer_test")
 
 
 class TestQueuedClientServer(unittest.TestCase):
+    colorLogFmtTemplate = string.Template(
+            '%(levelname)s'
+            ':'
+            '${location}'
+            ':'
+            '%(name)s'
+            ':'
+            '%(message)s'
+            )
+    consoleLogFmtTemplate = string.Template(
+            '\033[38;5;16;48;5;${color}m${location}'
+            '\033[0;1;38;5;59m:'
+            '\033[0;1m%(levelname)s'
+            '\033[38;5;59m:'
+            '\033[38;5;${color}m%(name)s'
+            '\033[38;5;59m: '
+            '\033[0;38;5;${color}m%(message)s'
+            '\033[m'
+            )
+    clientLogFmt = consoleLogFmtTemplate.safe_substitute(location='client')
+    serverLogFmt = consoleLogFmtTemplate.safe_substitute(location='server')
+    clientColorLogFmt = consoleLogFmtTemplate.safe_substitute(location='client', color=70)
+    serverColorLogFmt = consoleLogFmtTemplate.safe_substitute(location='server', color=75)
+
     def setUp(self):
         self.serverAddr = '127.0.0.1', 2695
         self.text = "This is my text. Isn't it beautiful?"
 
         def runServer():
+            # Configure server logging.
+            for handler in logging.getLogger().handlers:
+                if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stderr:
+                    handler.setFormatter(logging.Formatter(self.serverColorLogFmt))
+                else:
+                    handler.setFormatter(logging.Formatter(self.serverLogFmt))
+
             server = SocketServer.TCPServer(self.serverAddr, TCPHandler)
             server.serve_forever()
 
@@ -38,6 +71,13 @@ class TestQueuedClientServer(unittest.TestCase):
         import time
         time.sleep(0.2)
         #XXX: /HACK!
+
+        # Configure client logging.
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stderr:
+                handler.setFormatter(logging.Formatter(self.clientColorLogFmt))
+            else:
+                handler.setFormatter(logging.Formatter(self.clientLogFmt))
 
         try:
             # Connect to the server.
