@@ -19,7 +19,7 @@ class Communicator(object):
     autoApplyStreamWrappers = []
 
     def __init__(self, *args, **kwargs):
-        self.looping = False
+        self._looping = False
         self._continue = False
 
         self.channels = set()
@@ -75,7 +75,7 @@ class Communicator(object):
         self._continue = False
 
 
-class QueuedCommunicator(object):
+class QueuedCommunicator(Communicator):
     """Base class for Communicators which support using queued Channel classes.
 
     This automatically applies the OutgoingQueuedStream stream wrapper to queue outgoing messages.

@@ -1,5 +1,7 @@
 import logging
 
+from remote.channel import withDefChannelKwargs
+
 from channel import SelectChannel
 
 
@@ -9,28 +11,30 @@ class UDPChannel(SelectChannel):
     reliable = False
     ordered = False
 
+    @withDefChannelKwargs
     def __init__(self, *args, **kwargs):
-        super(UDPChannel, self).__init__(*args, **kwargs)
-
         self.protocolName = "UDP"
 
         self.defaultTargetAddress = None
 
+        super(UDPChannel, self).__init__(*args, **kwargs)
+
     @classmethod
+    @withDefChannelKwargs
     def supportsArgs(cls, **kwargs):
         return kwargs['reliable'] == False and kwargs['ordered'] == False
 
-    def connect(self, remoteHost, remotePort, **kwargs):
+    def connect(self, remoteAddr, **kwargs):
         self.logger.debug("Connecting using UDP.")
 
-        self.defaultTargetAddress = (remoteHost, remotePort)
+        self.defaultTargetAddress = remoteAddr
 
         # Bind to the local address and port.
         self.socket.bind()
 
         # Successfully connected. Now call super to set variables and enable
         # encryption if requested.
-        super(UDPChannel, self).connect(remoteHost, remotePort, **kwargs)
+        return super(UDPChannel, self).connect(remoteAddr, **kwargs)
 
     def _readStream(self, requestedBytes=-1, **kwargs):
         # We don't support any keyword arguments.

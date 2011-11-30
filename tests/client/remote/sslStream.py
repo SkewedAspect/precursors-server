@@ -69,7 +69,7 @@ class SSLStream(Stream):
 
     targetStream = property(get_targetStream, set_targetStream)
 
-    def logConnectionInfo(self, remoteHost, remotePort, **kwargs):
+    def logConnectionInfo(self):
         # Print out some info about our TLS connection.
         import pprint
         self.logger.debug(

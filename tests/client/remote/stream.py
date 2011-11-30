@@ -36,6 +36,9 @@ class Stream(io.RawIOBase):
 
         return fact
 
+    def readable(self):
+        return self.targetStream.readable()
+
     def read(self, requestedBytes=-1):
         """Read incoming data from the target stream.
 
