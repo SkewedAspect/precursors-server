@@ -32,6 +32,13 @@ class TestQueuedClientServer(unittest.TestCase):
         self.server = Process(target=runServer)
         self.server.start()
 
+        #XXX: HACK!
+        # Wait a bit to hopefully ensure that the server has started and is listening. (we should probably replace this
+        # with a queue or something, since that would also allow us to signal a graceful shutdown in the server.)
+        import time
+        time.sleep(0.2)
+        #XXX: /HACK!
+
         try:
             # Connect to the server.
             self.control = Control(self.serverAddr)
