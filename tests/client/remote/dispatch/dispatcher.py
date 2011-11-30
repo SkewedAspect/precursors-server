@@ -1,7 +1,7 @@
 import weakref
 import threading
 
-from django.dispatch import saferef
+from remote.dispatch import saferef
 
 WEAKREF_TYPES = (weakref.ReferenceType, saferef.BoundMethodWeakref)
 
@@ -21,6 +21,7 @@ class Signal(object):
         receivers
             { receiverkey (id) : weakref(receiver) }
     """
+    DEBUG = False
 
     def __init__(self, providing_args=None):
         """
@@ -70,10 +71,9 @@ class Signal(object):
                 a receiver. This will usually be a string, though it may be
                 anything hashable.
         """
-        from django.conf import settings
 
         # If DEBUG is on, check that we got a good receiver
-        if settings.DEBUG:
+        if self.DEBUG:
             import inspect
             assert callable(receiver), "Signal receivers must be callable."
 
