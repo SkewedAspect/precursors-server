@@ -23,7 +23,7 @@ class IncomingQueuedNetstringStream(IncomingQueuedStream):
     def __init__(self, *args, **kwargs):
         super(IncomingQueuedNetstringStream, self).__init__(*args, **kwargs)
 
-        self._incomingData = io.BufferedReader(self.target, buffer_size=NETSTRING_READ_BUFFER_SIZE)
+        self._incomingData = io.BufferedReader(self.targetStream, buffer_size=NETSTRING_READ_BUFFER_SIZE)
 
     def handleRead(self):
         """Read an incoming netstring message from the socket, and queue its
