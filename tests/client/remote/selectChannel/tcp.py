@@ -1,5 +1,7 @@
 import logging
 
+from remote.channel import withDefChannelKwargs
+
 from channel import SelectChannel
 
 
@@ -9,6 +11,7 @@ class TCPChannel(SelectChannel):
     reliable = True
     ordered = True
 
+    @withDefChannelKwargs
     def __init__(self, *args, **kwargs):
         self.protocolName = "TCP"
 
@@ -17,9 +20,9 @@ class TCPChannel(SelectChannel):
         super(TCPChannel, self).__init__(*args, **kwargs)
 
     @classmethod
+    @withDefChannelKwargs
     def supportsArgs(cls, **kwargs):
-        reliable, ordered = cls._getRelOrdOrDefault(kwargs)
-        return reliable == True or ordered == True
+        return kwargs['reliable'] == True or kwargs['ordered'] == True
 
     def connect(self, remoteAddr, **kwargs):
         self.logger.debug("Connecting using %s.", self.protocolName)

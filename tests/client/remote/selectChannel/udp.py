@@ -1,5 +1,7 @@
 import logging
 
+from remote.channel import withDefChannelKwargs
+
 from channel import SelectChannel
 
 
@@ -9,6 +11,7 @@ class UDPChannel(SelectChannel):
     reliable = False
     ordered = False
 
+    @withDefChannelKwargs
     def __init__(self, *args, **kwargs):
         self.protocolName = "UDP"
 
@@ -17,9 +20,9 @@ class UDPChannel(SelectChannel):
         super(UDPChannel, self).__init__(*args, **kwargs)
 
     @classmethod
+    @withDefChannelKwargs
     def supportsArgs(cls, **kwargs):
-        reliable, ordered = cls._getRelOrdOrDefault(kwargs)
-        return reliable == False and ordered == False
+        return kwargs['reliable'] == False and kwargs['ordered'] == False
 
     def connect(self, remoteAddr, **kwargs):
         self.logger.debug("Connecting using UDP.")

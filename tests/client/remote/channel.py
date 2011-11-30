@@ -1,4 +1,5 @@
 from abc import ABCMeta, abstractmethod
+from functools import wraps
 import logging
 
 import dispatch
@@ -14,10 +15,17 @@ defaultChannelKwargs = {
         }
 
 
-def createChannel(channelTypes, *args, **kwargs):
-    for key, val in defaultChannelKwargs.iteritems():
-        kwargs.setdefault(key, val)
+def withDefChannelKwargs(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        for key, val in defaultChannelKwargs.iteritems():
+            kwargs.setdefault(key, val)
 
+        return func(*args, **kwargs)
+    return wrapper
+
+
+def createChannel(channelTypes, *args, **kwargs):
     for chanType in channelTypes:
         chan = chanType.tryCreate(*args, **kwargs)
         if chan is not None and chan is not NotImplemented:
@@ -44,6 +52,7 @@ class Channel(object):
     disconnected = dispatch.Signal(["remoteAddress"])
     incomingPacket = dispatch.Signal(["remoteAddress", "message", "metadata"])
 
+    @withDefChannelKwargs
     def __init__(self, name, remoteAddr=None, **kwargs):
         """Create a Channel, optionally connecting to the given remote host and
         port immediately.
@@ -73,6 +82,7 @@ class Channel(object):
         self.target = ChannelStream(self)
 
     @classmethod
+    @withDefChannelKwargs
     def tryCreate(cls, *args, **kwargs):
         if cls.supportsArgs(**kwargs):
             return cls(*args, **kwargs)
