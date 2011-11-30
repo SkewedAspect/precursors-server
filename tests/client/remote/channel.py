@@ -74,9 +74,6 @@ class Channel(object):
 
     @classmethod
     def tryCreate(cls, *args, **kwargs):
-        kwargs.setdefault('reliable', True)
-        kwargs.setdefault('ordered', True)
-
         if cls.supportsArgs(**kwargs):
             return cls(*args, **kwargs)
 

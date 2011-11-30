@@ -30,6 +30,10 @@ class SelectChannel(QueuedNetstringChannel):
 
         super(SelectChannel, self).__init__(*args, **kwargs)
 
+    @classmethod
+    def _getRelOrdOrDefault(cls, kwargs):
+        return kwargs.get('reliable', True), kwargs.get('ordered', True)
+
     @abstractmethod
     def connect(self, remoteAddr, **kwargs):
         """Connect to the remote host, possibly using encryption.

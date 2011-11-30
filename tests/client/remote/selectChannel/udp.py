@@ -18,7 +18,8 @@ class UDPChannel(SelectChannel):
 
     @classmethod
     def supportsArgs(cls, **kwargs):
-        return kwargs['reliable'] == False and kwargs['ordered'] == False
+        reliable, ordered = cls._getRelOrdOrDefault(kwargs)
+        return reliable == False and ordered == False
 
     def connect(self, remoteAddr, **kwargs):
         self.logger.debug("Connecting using UDP.")

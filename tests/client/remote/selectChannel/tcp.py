@@ -18,7 +18,8 @@ class TCPChannel(SelectChannel):
 
     @classmethod
     def supportsArgs(cls, **kwargs):
-        return kwargs['reliable'] == True or kwargs['ordered'] == True
+        reliable, ordered = cls._getRelOrdOrDefault(kwargs)
+        return reliable == True or ordered == True
 
     def connect(self, remoteAddr, **kwargs):
         self.logger.debug("Connecting using %s.", self.protocolName)
