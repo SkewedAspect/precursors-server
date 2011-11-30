@@ -40,18 +40,6 @@ class Control(object):
 
         return True
 
-    def sendControlRequest(self, request):
-        """Sends the request over the controlChannel channel.
-
-        """
-        self.controlChannel.sendRequest(request)
-
-    def sendControlEvent(self, event):
-        """Sends the event over the controlChannel channel.
-
-        """
-        self.controlChannel.sendEvent(event)
-
     def removeChannel(self, name):
         try:
             del self.channels[name]
