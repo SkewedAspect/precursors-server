@@ -3,33 +3,28 @@ import logging
 import channel
 import selectChannel
 
-from sslStream import SSLStream
-
 
 logger = logging.getLogger("remote.control")
 
 
 class Control(object):
-    def __init__(self, remoteHost=None, remotePort=2695):
-        self.remoteHost = remoteHost
+    def __init__(self, remoteAddr=(None, 2695)):
+        self.remoteAddr = remoteAddr
 
         # Channel vars
         self.channels = dict()
         self.controlChannel = None
 
-        if remoteHost is not None:
-            if not self.connect(remoteHost=remoteHost, remotePort=remotePort):
+        if remoteAddr is not None:
+            if not self.connect(remoteAddr=remoteAddr):
                 raise RuntimeError("Error auto-connecting controlChannel channel!")
 
-    def connect(self, remoteHost, remotePort):
+    def connect(self, remoteAddr):
         """Connects to the server, and creates our SSL controlChannel channel.
 
         """
         try:
-            streamWrappers = [
-                    SSLStream.factory(protocol=SSLStream.PROTOCOL_SSLv3),
-                    ]
-            controlChannel = self.createChannel('Control', reliable=True, ordered=True, streamWrappers=streamWrappers)
+            controlChannel = self.createChannel('Control', remoteAddr, reliable=True, ordered=True)
 
         except Exception, ex:
             logger.exception("Error connecting controlChannel channel!", ex)
@@ -47,13 +42,11 @@ class Control(object):
         except KeyError:
             pass
 
-    def createChannel(self, name, remotePort=None, reliable=False, ordered=False, cryptor=None):
+    def createChannel(self, name, remoteAddr=(None, 2695), reliable=False, ordered=False, cryptor=None):
         """Creates a channel from the given parameters, and stores it with the given name.
 
         """
         assert name not in self.channels
-
-        channelType = channel.createChannel(selectChannel.channelTypes, reliable=reliable, ordered=ordered)
 
         #TODO: Negotiate with the server first to get the port and cookie we should use, and then create the channel!
 
@@ -63,6 +56,9 @@ class Control(object):
         # channel. The dummy channel then passes its queue to the channel (calling send in a loop, basically) and
         # deletes its queue. It then forever acts as a passthrough to the channel, as long as its reference lasts.
 
-        self.channels[name] = channelType(self.remoteHost, remotePort)
+        self.channels[name] = channel.createChannel(selectChannel.channelTypes,
+                name, remoteAddr,
+                reliable=reliable, ordered=ordered
+                )
 
         return self.channels[name]

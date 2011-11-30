@@ -14,12 +14,12 @@ defaultChannelKwargs = {
         }
 
 
-def createChannel(channelTypes, **kwargs):
+def createChannel(channelTypes, *args, **kwargs):
     for key, val in defaultChannelKwargs.iteritems():
         kwargs.setdefault(key, val)
 
     for chanType in channelTypes:
-        chan = chanType.tryCreate(**kwargs)
+        chan = chanType.tryCreate(*args, **kwargs)
         if chan is not None and chan is not NotImplemented:
             return chan
 
@@ -44,7 +44,7 @@ class Channel(object):
     disconnected = dispatch.Signal(["remoteAddress"])
     incomingPacket = dispatch.Signal(["remoteAddress", "message", "metadata"])
 
-    def __init__(self, name, remoteHost=None, remotePort=None, **kwargs):
+    def __init__(self, name, remoteAddr=None, **kwargs):
         """Create a Channel, optionally connecting to the given remote host and
         port immediately.
 
@@ -54,8 +54,7 @@ class Channel(object):
         """
         self.name = name
 
-        self.remoteHost = None
-        self.remotePort = None
+        self.remoteAddr = None
         self.reliable = None
         self.ordered = None
 
@@ -65,21 +64,21 @@ class Channel(object):
         # Dictionary of outstanding requests
         self.requests = dict()
 
-        if remoteHost is not None and remotePort is not None:
-            if not self.connect(remoteHost=remoteHost, remotePort=remotePort, **kwargs):
+        if remoteAddr is not None:
+            if not self.connect(remoteAddr=remoteAddr, **kwargs):
                 raise RuntimeError("Error auto-connecting!")
-
-        elif remoteHost is not None or remotePort is not None:
-            raise ValueError("Both remoteHost and remotePort must be specified in order to connect!")
 
     def buildStreamWrapperStack(self):
         # The base of the StreamWrapper stack.
         self.target = ChannelStream(self)
 
     @classmethod
-    def tryCreate(cls, **kwargs):
+    def tryCreate(cls, *args, **kwargs):
+        kwargs.setdefault('reliable', True)
+        kwargs.setdefault('ordered', True)
+
         if cls.supportsArgs(**kwargs):
-            return cls(**kwargs)
+            return cls(*args, **kwargs)
 
     def send(self, data):
         """Sends data over the channel, encrypting if required.
@@ -133,10 +132,11 @@ class Channel(object):
         """
 
     @abstractmethod
-    def connect(self, remoteHost, remotePort):
+    def connect(self, remoteAddr, **kwargs):
         """Connect to the remote host, possibly using encryption.
 
         """
+        return True
 
     @abstractmethod
     def _readStream(self, requestedBytes=-1, **kwargs):
