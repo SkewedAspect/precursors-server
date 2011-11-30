@@ -24,7 +24,26 @@ class TCPChannel(SelectChannel):
         self.logger.debug("Connecting using %s.", self.protocolName)
 
         # Connect.
-        self.socket.connect(remoteAddr)
+        #XXX: HACK! (instead, Communicator should have a list of sockets awaiting .connect() calls)
+        import socket
+        while True:
+            try:
+                self.socket.connect(remoteAddr)
+            except socket.error, e:
+                if e.errno == 115:
+                    # 115 == "Operation now in progress"; that just means we need to wait longer.
+                    import select
+                    sl = [self.socket]
+                    self.logger.debug("select returned: %r", select.select(sl, sl, sl))
+                else:
+                    self.logger.exception("connect failed with socket error!")
+                    return False
+            except Exception, e:
+                self.logger.exception("connect failed with %s error!", e.__class__)
+                return False
+            else:
+                break
+        #XXX: /HACK!
 
         self.metadata = {
                 'remoteAddress': remoteAddr,
