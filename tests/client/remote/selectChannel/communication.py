@@ -19,14 +19,16 @@ class SelectCommunicator(QueuedCommunicator):
         - Any positive number: wait `timeout` seconds or until a Channel becomes ready, then return
 
         """
-        if len(self.awaitingRead) == 0 and len(self.awaitingWrite) == 0:
+        if len(self.channels) == 0:
+            # No channels set, so nothing to check for. (otherwise, we always check for read)
             return
 
+        #TODO: Implement "exceptional condition" handling.
         readReady, writeReady, _ = select.select(
-                rlist=self.channels,
-                wlist=self.awaitingWrite,
-                xlist=[],
-                timeout=0
+                self.channels,       # check for read
+                self.awaitingWrite,  # check for write
+                [],                  # check for "exceptional condition"
+                0                    # timeout
                 )
 
         for chan in writeReady:
