@@ -42,7 +42,7 @@ class Control(object):
         except KeyError:
             pass
 
-    def createChannel(self, name, remoteAddr=(None, 2695), reliable=False, ordered=False, cryptor=None):
+    def createChannel(self, name, remoteAddr=(None, 2695), **kwargs):
         """Creates a channel from the given parameters, and stores it with the given name.
 
         """
@@ -58,7 +58,7 @@ class Control(object):
 
         self.channels[name] = channel.createChannel(selectChannel.channelTypes,
                 name, remoteAddr,
-                reliable=reliable, ordered=ordered
+                **kwargs
                 )
 
         return self.channels[name]
