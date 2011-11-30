@@ -9,8 +9,8 @@ logger = logging.getLogger("remote.channel")
 
 
 defaultChannelKwargs = {
-        'reliable': False,
-        'ordered': False,
+        'reliable': True,
+        'ordered': True,
         }
 
 
