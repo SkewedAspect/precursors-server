@@ -5,7 +5,7 @@ from _path import setPath
 setPath(__file__)
 
 
-from multiprocessing import Process
+import multiprocessing
 import logging
 import SocketServer
 import string
@@ -19,6 +19,7 @@ from remote.control import Control
 
 
 logger = logging.getLogger("remote.tests.queuedClientServer_test")
+multiprocessing.get_logger().propagate = True
 
 
 class TestQueuedClientServer(unittest.TestCase):
@@ -62,7 +63,7 @@ class TestQueuedClientServer(unittest.TestCase):
             server.serve_forever()
 
         # Start the server.
-        self.server = Process(target=runServer)
+        self.server = multiprocessing.Process(target=runServer)
         self.server.start()
 
         #XXX: HACK!
