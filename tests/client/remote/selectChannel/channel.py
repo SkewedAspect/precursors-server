@@ -54,4 +54,8 @@ class SelectChannel(QueuedNetstringChannel):
         else:
             self.fileno = None
 
-    socket = property(get_socket, set_socket, doc="The underlying socket object for this Channel.")
+    def del_socket(self):
+        self._socket = None
+        self.fileno = None
+
+    socket = property(get_socket, set_socket, del_socket, doc="The underlying socket object for this Channel.")
