@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 from functools import wraps
+import io
 import logging
 
 import dispatch
@@ -32,12 +33,17 @@ def createChannel(channelTypes, *args, **kwargs):
             return chan
 
 
-class ChannelStream(object):
+class ChannelStream(io.RawIOBase):
     def __init__(self, channel):
         self.channel = channel
 
+        super(ChannelStream, self).__init__()
+
     def readable(self):
         return self.channel._readable()
+
+    def readinto(self, buff, **kwargs):
+        return self.channel._readStream(into=buff, **kwargs)
 
     def read(self, requestedBytes=-1, **kwargs):
         return self.channel._readStream(requestedBytes, **kwargs)
@@ -146,12 +152,15 @@ class Channel(object):
         return True
 
     @abstractmethod
-    def _readStream(self, requestedBytes=-1, **kwargs):
+    def _readStream(self, requestedBytes=-1, into=None, **kwargs):
         """Low-level read - this is called by the innermost stream in the self.target hierarchy.
 
         @param requestedBytes the number of bytes to attempt to read from the network
+        @param into the bytearray to attempt to read data into
 
-        @return the bytes read from the network
+        @return if `into` is given, a tuple of (num_bytes_read, metadata_dict); else, a tuple of (data, metadata_dict)
+
+        If into is given, requestedBytes should default to the length of into.
 
         Implement this by reading from the underlying socket or network stream.
 
