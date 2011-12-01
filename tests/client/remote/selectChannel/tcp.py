@@ -57,11 +57,20 @@ class TCPChannel(SelectChannel):
         # encryption if requested.
         return super(TCPChannel, self).connect(remoteAddr, **kwargs)
 
-    def _readStream(self, requestedBytes=-1, **kwargs):
+    def _readStream(self, requestedBytes=-1, into=None, **kwargs):
         # We don't support any keyword arguments.
         assert(len(kwargs) == 0)
 
-        return self.socket.recv(requestedBytes), self.metadata
+        if into is not None:
+            # We should use recv_into, to read into the given buffer.
+            if requestedBytes == -1 or (into is not None and requestedBytes > len(into)):
+                requestedBytes = len(into)
+
+            return self.socket.recv_into(into, requestedBytes), self.metadata
+
+        else:
+            # We should simply use recv, and return a new string.
+            return self.socket.recv(requestedBytes), self.metadata
 
     def _writeStream(self, message, **kwargs):
         # We don't support any keyword arguments.

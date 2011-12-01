@@ -36,16 +36,30 @@ class UDPChannel(SelectChannel):
         # encryption if requested.
         return super(UDPChannel, self).connect(remoteAddr, **kwargs)
 
-    def _readStream(self, requestedBytes=-1, **kwargs):
+    def _readStream(self, requestedBytes=-1, into=None, **kwargs):
         # We don't support any keyword arguments.
         assert(len(kwargs) == 0)
 
-        (data, address) = self.socket.recvfrom(requestedBytes)
+        if into is not None:
+            # We should use recvfrom_into, to read into the given buffer.
+            if requestedBytes == -1 or (into is not None and requestedBytes > len(into)):
+                requestedBytes = len(into)
 
-        metadata = {
-                'remoteAddress': address,
-                }
-        return data, metadata
+            (bytesRead, address) = self.socket.recvfrom_into(into, requestedBytes)
+
+            metadata = {
+                    'remoteAddress': address,
+                    }
+            return bytesRead, metadata
+
+        else:
+            # We should simply use recvfrom, and return a new string.
+            (data, address) = self.socket.recvfrom(requestedBytes)
+
+            metadata = {
+                    'remoteAddress': address,
+                    }
+            return data, metadata
 
     def _writeStream(self, message, **kwargs):
         remoteAddress = kwargs.pop('address', self.defaultTargetAddress)
