@@ -114,11 +114,11 @@ class IncomingQueuedStream(Stream):
     the target stream.
 
     """
+    onIncomingQueueEmpty = dispatch.Signal()
+    onIncomingMessageQueued = dispatch.Signal(["message", "queueLength"])
+
     def __init__(self, *args, **kwargs):
         self._incomingMessages = collections.deque()
-
-        self.onIncomingQueueEmpty = []
-        self.onIncomingMessageQueued = []
 
         super(IncomingQueuedStream, self).__init__(*args, **kwargs)
 
@@ -150,13 +150,13 @@ class IncomingQueuedStream(Stream):
         This should be called by a ready-polling class like SelectCommunicator.
 
         """
-        incomingMessage = self.targetStream.read()
-        logger.debug("Read %d bytes: %r", len(incomingMessage),
-                incomingMessage)
+        message = self.targetStream.read()
+        logger.debug("Read %d bytes: %r", len(message), message)
 
-        self._incomingMessages.append(incomingMessage)
+        self._incomingMessages.append(message)
 
-        self._emit(self.onIncomingMessageQueued, "incoming message queued")
+        self._emit(self.onIncomingMessageQueued, "incoming message queued",
+                message=message, queueLength=len(self._outgoingMessages))
 
 
 class IOQueuedStream(IncomingQueuedStream, OutgoingQueuedStream):
