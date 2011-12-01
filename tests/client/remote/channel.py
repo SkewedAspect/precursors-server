@@ -121,7 +121,7 @@ class Channel(object):
 
             kwargs['metadata'] = metadata
 
-            self.incomingPacket.send_robust(**kwargs)
+            self.incomingPacket.send_robust(self, **kwargs)
 
     def _readable(self):
         """Check whether this channel's stream is currently readable.
