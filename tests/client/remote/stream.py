@@ -3,6 +3,8 @@ import logging
 import io
 import warnings
 
+import dispatch
+
 
 logger = logging.getLogger("remote.stream")
 
@@ -11,21 +13,17 @@ class Stream(io.RawIOBase):
     """Base class for stream wrappers: streams which wrap other streams, adding functionality.
 
     """
+    onReadFinished = dispatch.Signal(["requestedBytes", "dataRead"])
+    onWriteFinished = dispatch.Signal(["bytesWritten", "data"])
+
     def __init__(self, targetStream, *args, **kwargs):
         self.targetStream = targetStream
 
-        self.onReadFinished = []
-        self.onWriteFinished = []
-
         super(Stream, self).__init__(*args, **kwargs)
 
-    def _emit(self, handlerList, eventName, **kwargs):
-        logger.debug("Emitting %r event.", eventName)
-        for handler in handlerList:
-            try:
-                handler(**kwargs)
-            except:
-                logger.exception("Exception encountered when calling %r handler!", eventName)
+    def _emit(self, signal, eventName, **kwargs):
+        logger.debug("Emitting %r signal.", eventName)
+        signal.send_robust(self, **kwargs)
 
     @classmethod
     def factory(cls, **kwargs):
@@ -64,11 +62,11 @@ class OutgoingQueuedStream(Stream):
     """Stream wrapper which queues all outgoing messages instead of writing them instantly.
 
     """
+    onOutgoingQueueEmpty = dispatch.Signal()
+    onOutgoingMessageQueued = dispatch.Signal(["message", "queueLength"])
+
     def __init__(self, *args, **kwargs):
         self._outgoingMessages = collections.deque()
-
-        self.onOutgoingQueueEmpty = []
-        self.onOutgoingMessageQueued = []
 
         super(OutgoingQueuedStream, self).__init__(*args, **kwargs)
 
@@ -78,7 +76,8 @@ class OutgoingQueuedStream(Stream):
         """
         self._outgoingMessages.append(message)
 
-        self._emit(self.onOutgoingMessageQueued, "outgoing message queued")
+        self._emit(self.onOutgoingMessageQueued, "outgoing message queued",
+                message=message, queueLength=len(self._outgoingMessages))
 
         return len(message)
 
@@ -89,6 +88,8 @@ class OutgoingQueuedStream(Stream):
 
         """
         if len(self._outgoingMessages) == 0:
+            # If we got here, we probably weren't properly removed from the list of streams with outgoing messages;
+            # signal whatever's managing outgoing writes that we're done.
             self._emit(self.onOutgoingQueueEmpty, "outgoing queue empty")
             return
 
