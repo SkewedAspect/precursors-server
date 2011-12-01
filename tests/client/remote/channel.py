@@ -180,6 +180,19 @@ class QueuedChannel(Channel):
         self.queuedStreamWrapper = self.queuedStreamWrapperType(self.target)
         self.target = self.queuedStreamWrapper
 
+        # Copy the StreamWrapper's signals so the Communicator can access them.
+        if hasattr(self.queuedStreamWrapper, 'onOutgoingQueueEmpty'):
+            self.onOutgoingQueueEmpty = self.queuedStreamWrapper.onOutgoingQueueEmpty
+
+        if hasattr(self.queuedStreamWrapper, 'onOutgoingMessageQueued'):
+            self.onOutgoingMessageQueued = self.queuedStreamWrapper.onOutgoingMessageQueued
+
+        if hasattr(self.queuedStreamWrapper, 'onIncomingQueueEmpty'):
+            self.onIncomingQueueEmpty = self.queuedStreamWrapper.onIncomingQueueEmpty
+
+        if hasattr(self.queuedStreamWrapper, 'onIncomingMessageQueued'):
+            self.onIncomingMessageQueued = self.queuedStreamWrapper.onIncomingMessageQueued
+
     def handleRead(self):
         # Read all currently-available data into the incoming queue.
         self.queuedStreamWrapper.handleRead()
