@@ -81,13 +81,19 @@ class QueuedCommunicator(Communicator):
     This automatically applies the OutgoingQueuedStream stream wrapper to queue outgoing messages.
 
     """
-    #FIXME: Why is this not IOQueuedStream? Is there a reason?
-    autoApplyStreamWrappers = [OutgoingQueuedStream]
-
     def __init__(self, *args, **kwargs):
         super(QueuedCommunicator, self).__init__(*args, **kwargs)
 
         self.awaitingWrite = set()
+
+    def registerChannel(self, chan):
+        if hasattr(chan, 'onOutgoingQueueEmpty'):
+            chan.onOutgoingQueueEmpty.connect(self.onOutgoingFinished, chan)
+
+        if hasattr(chan, 'onOutgoingMessageQueued'):
+            chan.onOutgoingMessageQueued.connect(self.onOutgoingQueued, chan)
+
+        super(QueuedCommunicator, self).registerChannel(chan)
 
     def onOutgoingQueued(self, sock):
         self.awaitingWrite.add(sock)
