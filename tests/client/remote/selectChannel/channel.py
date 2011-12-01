@@ -48,11 +48,11 @@ class SelectChannel(QueuedNetstringChannel):
         return self._socket
 
     def set_socket(self, sock):
-        self._socket = sock
-        if self.socket is not None:
-            self.fileno = sock.fileno
+        if sock is None:
+            self.del_socket()
         else:
-            self.fileno = None
+            self._socket = sock
+            self.fileno = sock.fileno
 
     def del_socket(self):
         self._socket = None
