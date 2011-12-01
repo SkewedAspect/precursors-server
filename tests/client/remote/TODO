@@ -10,19 +10,21 @@
 * Move list of available Channel types into Communicator, and have Control delegate to its Communicator instance when creating Channels.
 * Move SSL support back into a separate SSL Channel implementation
 * Eventually design a way to add TLS onto an existing Channel; make sure it can get at the socket directly somehow.
-* Implement `Channel.disconnect`
-* Implement `Control.disconnect`
 * Add a list of sockets waiting to call `connect` to Communicator, and perform their `connect` call when they wake up on `select`.
-* Implement retries with delay and timeout in `TCPChannel.connect`
-* Implement the `cryptor` keyword argument for `Control.createChannel`.
-* Implement **blind configuration-based channel type determination** - determine channel types based purely on configuration present on both sides, and expect things to explode if configuration is mismatched
-* Implement **ProtobufStream** and add it to Control's controlChannel
-* Implement **pure server-authoritative channel type determination** (replaces _blind configuration-based channel type determination_) - use `[(ChannelType, Version), (StreamWrapper, Version), (StreamWrapper, Version), ...]` as description of the channel pipeline, and pass `ChannelSetupData`, an opaque string or dict or something that gets interpreted by the Channel class (use to transmit the cookie for UDP-based Channels)
-* Implement **channel auto-negotiation** (replaces _pure server-authoritative channel type determination_)
-* **Dummy channels** - queue outgoing messages during auto-negotiation, and replace itself with the negotiated channel when auto-negotiation finishes.
-* Implement other Communicator classes in selectChannel.communication (EPoll, KQueue, KEvent, and Poll)
+* Finish `remote` implementation
+	- Implement `Channel.disconnect`
+	- Implement `Control.disconnect`
+	- Implement retries with delay and timeout in `TCPChannel.connect`
+	- Implement the `cryptor` keyword argument for `Control.createChannel`? _shouldn't this just be another StreamWrapper at this point?_
+	- Implement **blind configuration-based channel type determination** - determine channel types based purely on configuration present on both sides, and expect things to explode if configuration is mismatched
+	- Implement **ProtobufStream** and add it to Control's controlChannel
+	- Implement **pure server-authoritative channel type determination** (replaces _blind configuration-based channel type determination_) - use `[(ChannelType, Version), (StreamWrapper, Version), (StreamWrapper, Version), ...]` as description of the channel pipeline, and pass `ChannelSetupData`, an opaque string or dict or something that gets interpreted by the Channel class (use to transmit the cookie for UDP-based Channels)
+	- Implement **channel auto-negotiation** (replaces _pure server-authoritative channel type determination_)
+	- **Dummy channels** - queue outgoing messages during auto-negotiation, and replace itself with the negotiated channel when auto-negotiation finishes.
+	- Implement other Communicator classes in selectChannel.communication (EPoll, KQueue, KEvent, and Poll)
 * Make UDP channels multiplex local sockets correctly (call select with each local socket only listed once, but for each local socket, make sure all attached Channels get handleRead/handleWrite called as appropriate) - may make sense to create a `UDPSocketMuxer` that tracks all Channels associated with a given socket. It should handle reads itself and just pass the resulting data to the appropriate Channel based on remote address, and should keep its own awaitingWrite queue, where it calls handleWrite on each queued channel in turn)
-- Better name for selectChannel!
+* Find a way to clean up StreamWrapper creation inside Channels; possibly use a priority-like 'layer' number, where 0 means it _must_ touch the original socket directly, and higher numbers are increasingly high-level wrappers.
+* Better name for selectChannel!
 
 
 **Stream wrapper stack for TCP control connection**
