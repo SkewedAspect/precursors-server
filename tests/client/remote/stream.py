@@ -13,7 +13,7 @@ class Stream(io.RawIOBase):
     """Base class for stream wrappers: streams which wrap other streams, adding functionality.
 
     """
-    onReadFinished = dispatch.Signal(["requestedBytes", "dataRead"])
+    onReadFinished = dispatch.Signal(["requestedBytes", "bytesRead", "dataRead"])
     onWriteFinished = dispatch.Signal(["bytesWritten", "data"])
 
     def __init__(self, targetStream, *args, **kwargs):
@@ -37,13 +37,25 @@ class Stream(io.RawIOBase):
     def readable(self):
         return self.targetStream.readable()
 
+    def readinto(self, into):
+        """Read incoming data from the target stream into the given bytearray.
+
+        """
+        bytesRead, metadata = self.targetStream.readinto(into)
+
+        self._emit(self.onReadFinished, "read finished",
+                requestedBytes=len(into), bytesRead=bytesRead, dataRead=bytes(into[:bytesRead]))
+
+        return bytesRead, metadata
+
     def read(self, requestedBytes=-1):
         """Read incoming data from the target stream.
 
         """
         dataRead, metadata = self.targetStream.read(requestedBytes)
 
-        self._emit(self.onReadFinished, "read finished", requestedBytes=requestedBytes, dataRead=dataRead)
+        self._emit(self.onReadFinished, "read finished",
+                requestedBytes=requestedBytes, bytesRead=len(dataRead), dataRead=dataRead)
 
         return dataRead, metadata
 
@@ -122,6 +134,38 @@ class IncomingQueuedStream(Stream):
 
         super(IncomingQueuedStream, self).__init__(*args, **kwargs)
 
+    def _popIncomingMessage(self):
+        try:
+            return self._incomingMessages.popleft()
+
+        except IndexError:
+            return None
+
+        finally:
+            if len(self._incomingMessages) == 0:
+                self._emit(self.onIncomingQueueEmpty, "incoming queue empty")
+
+    def readinto(self, into):
+        """Read message from the incoming queue into the given bytearray.
+
+        """
+        incomingMessage, metadata = self._popIncomingMessage()
+
+        messageLen = len(incomingMessage)
+        lenDiff = messageLen - len(into)
+        if lenDiff > 0:
+            raise RuntimeError(
+                    "Incoming message longer than 'into' bytearray in readinto! Discarding %d bytes of data!"
+                    % (lenDiff, )
+                    )
+
+        into[:messageLen] = incomingMessage
+
+        self._emit(self.onReadFinished, "read finished",
+                requestedBytes=len(into), bytesRead=bytesRead, dataRead=bytes(into[:messageLen]))
+
+        return messageLen, metadata
+
     def read(self, requestedBytes=-1):
         """Read message from the incoming queue.
 
@@ -130,14 +174,11 @@ class IncomingQueuedStream(Stream):
             self._emit(self.onIncomingQueueEmpty, "incoming queue empty")
             return None
 
-        try:
-            #TODO: Implement requestedBytes support
-            if requestedBytes != -1:
-                warnings.warn("requestedBytes support not currently implemented.", FutureWarning)
-            incomingMessage = self._incomingMessages.popleft()
+        #TODO: Implement requestedBytes support
+        if requestedBytes != -1:
+            warnings.warn("requestedBytes support not currently implemented.", FutureWarning)
 
-        except IndexError:
-            incomingMessage = None
+        incomingMessage = self._popIncomingMessage()
 
         if len(self._incomingMessages) == 0:
             self._emit(self.onIncomingQueueEmpty, "incoming queue empty")
@@ -153,6 +194,7 @@ class IncomingQueuedStream(Stream):
         message = self.targetStream.read()
         logger.debug("Read %d bytes: %r", len(message), message)
 
+        # NOTE: 'message' is actually a tuple: (data, metadata); We just store the whole thing.
         self._incomingMessages.append(message)
 
         self._emit(self.onIncomingMessageQueued, "incoming message queued",
