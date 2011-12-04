@@ -7,7 +7,8 @@
 	cookie :: binary(),
 	ssl_socket,
 	tcp_socket,
-	udp_socket
+	udp_socket,
+	udp_remote_info :: binary() | {string(), integer()} | 'undefined'
 }).
 
 %% ------------------------------------------------------------------
@@ -42,9 +43,11 @@ udp(Pid, Msg) ->
 init({Socket, Cookie}) ->
 	?info("new client connection"),
 	ssl:setopts(Socket, [{active, once}]),
+	{ok, Udp} = gen_udp:open(0, [{active, once}, binary, {ip, {0,0,0,0}}]),
 	State = #state{
 		ssl_socket = Socket,
-		cookie = Cookie
+		cookie = Cookie,
+		udp_socket = Udp
 	},
   {ok, State}.
 
