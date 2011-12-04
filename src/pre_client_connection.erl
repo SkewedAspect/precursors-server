@@ -82,9 +82,16 @@ handle_cast(_Msg, State) ->
 
 handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
 	?debug("got ssl packet:  ~p", [Packet]),
-	ssl:send(Socket, Packet),
+	{Bins, SSLNetstring} = case State#state.ssl_netstring of
+		undefined ->
+			netstring:decode(Packet);
+		Cont ->
+			netstring:decode(Packet, Cont)
+	end,
+	State1 = State#state{ssl_netstring = SSLNetstring},
+	NewState = service_requests(Bins, State1),
 	ssl:setopts(Socket, [{active, once}]),
-	{noreply, State};
+	{noreply, NewState};
 
 handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
 	?info("got ssl socket closed; Imma die"),
@@ -124,3 +131,16 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
+service_requests([], State) ->
+	State;
+service_requests([Binary | Tail], State) ->
+	NewState = service_request(Binary, State),
+	service_requests(Tail, NewState).
+
+service_request(Binary, State) when is_binary(State) ->
+	Rec = precursors_pb:decode(Binary, request),
+	service_request(Rec, State);
+
+service_request(Request, State) ->
+	?warning("Unhandled reqeust:  ~p", [Request]),
+	State.
