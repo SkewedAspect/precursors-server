@@ -88,6 +88,17 @@ handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
 	?info("got ssl socket closed; Imma die"),
 	{stop, normal, State};
 
+handle_info({udp, Socket, IP, InPortNo, Packet}, #state{udp_socket = Socket,
+	udp_remote_info = Packet} = State) ->
+		?info("Client confirmed udp port sync up"),
+		NewState = State#state{udp_remote_info = {IP, InPortNo}},
+		{noreply, NewState};
+
+handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
+	udp_remote_info = {Ip, InPortNo}} = State) ->
+		?info("Client got udp:  ~p", [Packet]),
+		{noreply, State};
+
 handle_info(Info, State) ->
 	?debug("unhandled info:  ~p", [Info]),
   {noreply, State}.
