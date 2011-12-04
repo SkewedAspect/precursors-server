@@ -99,6 +99,7 @@ handle_info({udp, Socket, IP, InPortNo, Packet}, #state{udp_socket = Socket,
 handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 	udp_remote_info = {Ip, InPortNo}} = State) ->
 		?info("Client got udp:  ~p", [Packet]),
+		inet:setopts(Socket, [{active, once}]),
 		{noreply, State};
 
 handle_info(Info, State) ->
