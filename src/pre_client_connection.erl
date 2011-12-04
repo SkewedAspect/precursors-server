@@ -6,7 +6,9 @@
 -record(state, {
 	cookie :: binary(),
 	ssl_socket,
+	ssl_netstring,
 	tcp_socket,
+	tcp_netstring,
 	udp_socket,
 	udp_remote_info :: binary() | {string(), integer()} | 'undefined'
 }).
