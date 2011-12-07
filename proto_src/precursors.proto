@@ -51,4 +51,9 @@ message Event {
   extensions 100 to 199;
 }
 
-
+message Envelope {
+	// exactly one
+	optional Request request = 1;
+	optional Response response = 2;
+	optional Event event = 3;
+}
