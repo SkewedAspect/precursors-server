@@ -1,3 +1,15 @@
+# New Implementation #
+* connect SSL
+* send auth
+* wait for cookie, channels=>connections, tcp/udp ports
+* connect tcp
+* connect udp
+* send cookie on tcp
+* send cookie on udp
+* wait for all clear
+
+
+# Old Implementation #
 * Update SelectCommunicator to use channels correctly.
 * Implement **unit tests**:
 	- Queued I/O client and server
