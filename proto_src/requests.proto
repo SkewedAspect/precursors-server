@@ -29,12 +29,14 @@ message LoginReply {
 }
 
 message Channel {
-	enum PortType {
-		tdp = 1;
-		udp = 2;
+	enum ConnectionType {
+		ssl = 1;
+		tcp = 2;
+		udp = 3;
 	}
+
 	required string channel_name = 1;
-	required PortType port_type = 2;
+	required ConnectionType connection_type = 2;
 }
 
 message Logout {
