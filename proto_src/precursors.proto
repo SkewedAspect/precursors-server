@@ -53,7 +53,8 @@ message Event {
 
 message Envelope {
 	// exactly one
-	optional Request request = 1;
-	optional Response response = 2;
-	optional Event event = 3;
+	required string channel = 1;
+	optional Request request = 2;
+	optional Response response = 3;
+	optional Event event = 4;
 }
