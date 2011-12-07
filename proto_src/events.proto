@@ -11,7 +11,6 @@ message MessageEvent {
   extensions 100 to 199;
 }
 
-message NewChannelEvent {
-  required string channel_name = 1;
-  required int32 port = 2;
+message ConnectPort {
+	required string cookie = 1;
 }

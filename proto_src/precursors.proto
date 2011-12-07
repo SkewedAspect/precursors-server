@@ -47,6 +47,7 @@ message Event {
 
   // Event types - ONLY ONE of these should be present.
   optional MessageEvent message = 4;
+	optional ConnectPort connect_port = 5;
 
   // Allow extensions to this message
   extensions 100 to 199;

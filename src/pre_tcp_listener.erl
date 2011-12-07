@@ -66,7 +66,7 @@ handle_info({inet_async, ListSock, Ref, {ok, CliSocket}}, #state{listener=ListSo
 	try inet:setopts(State#state.listener, [{active, once}]) of
 		ok  ->
 			%% New client connected
-			{ok, Pid} = pre_client_manager:start_client(CliSocket),
+			{ok, Pid} = pre_tcp_transient:start(CliSocket),
 			gen_tcp:controlling_process(CliSocket, Pid),
 			case prim_inet:async_accept(ListSock, -1) of
 				{ok, NewRef} ->
