@@ -21,30 +21,24 @@ message Login {
   extensions 100 to 199;
 }
 
-message Logout {
-  required string user_id = 1;
-
-  // Allow extensions to this message
-  extensions 100 to 199;
+message LoginReply {
+	required string cookie = 1;
+	required int32 udp_port = 2;
+	required int32 tcp_port = 3;
+	repeated Channel channesl = 4;
 }
 
-message CreateNewChannel {
-  required string channel_name = 1;
+message Channel {
+	enum PortType {
+		tdp = 1;
+		udp = 2;
+	}
+	required string channel_name = 1;
+	required PortType port_type = 2;
+}
 
-  // These are only used Server -> Client
-  optional bool reliable = 2;
-  optional bool ordered = 3;
-
-  enum EncryptionType {
-    SSL = 1;
-    AES = 2;
-    NONE = 3;
-  }
-
-  optional EncryptionType encryption = 4;
-
-  // Optional extra parameters
-  repeated KeyValuePair properties = 5;
+message Logout {
+  required string user_id = 1;
 
   // Allow extensions to this message
   extensions 100 to 199;
