@@ -20,10 +20,10 @@ protoSourceDir = os.path.join(
 protoDestDir = os.path.join(scriptDir, "remote/protos")
 
 # Find all matching source files.
-sourceProtos = filter(
+sourceProtos = list(filter(
         lambda p: p.endswith(".proto"),
         os.listdir(protoSourceDir)
-        )
+        ))
 
 # Display what we've found.
 print("\033[1;33mProtobuf sources in \033[0;33m%s\033[1;33m:\033[m %s"
@@ -35,15 +35,16 @@ if not os.path.isdir(protoDestDir):
     os.makedirs(protoDestDir)
 
 # Generate the .py files.
-retval = subprocess.call(
-        ["protoc",
-            "--proto_path=" + protoSourceDir,
-            "--python_out=" + protoDestDir,
-            ] + map(
-                lambda f: os.path.join(protoSourceDir, f),
-                sourceProtos
-                )
-            )
+command = [
+        "protoc",
+        "--proto_path=" + protoSourceDir,
+        "--python_out=" + protoDestDir,
+        ] + list(map(
+            lambda f: os.path.join(protoSourceDir, f),
+            sourceProtos
+            ))
+
+retval = subprocess.call(command)
 
 if retval == 0:
     print("\033[1;32mFinished successfully.\033[m")
