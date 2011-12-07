@@ -2,6 +2,7 @@
 -behaviour(gen_server).
 
 -include("log.hrl").
+-include("precursors_pb.hrl").
 
 -record(state, {
 	cookie :: binary(),
@@ -70,7 +71,7 @@ handle_call(_Request, _From, State) ->
 handle_cast({set_tcp, Socket, Bins, Cont}, State) ->
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
 	NewState = service_requests(Bins, State1),
-	inet:setopts(Socket, [{active once}]),
+	inet:setopts(Socket, [{active, once}]),
 	{noreply, NewState};
 
 handle_cast(_Msg, State) ->
@@ -145,10 +146,49 @@ service_requests([Binary | Tail], State) ->
 	NewState = service_request(Binary, State),
 	service_requests(Tail, NewState).
 
+%% ------------------------------------------------------------------
+
 service_request(Binary, State) when is_binary(State) ->
 	Rec = precursors_pb:decode(Binary, request),
 	service_request(Rec, State);
 
+service_request(#envelope{channel = "control"} = Envelope, State) ->
+	service_control_channel(Envelope, State);
+
 service_request(Request, State) ->
 	?warning("Unhandled reqeust:  ~p", [Request]),
 	State.
+
+%% ------------------------------------------------------------------
+
+service_control_channel(#envelope{request = Request}, State) ->
+	service_control_channel_request(Request, State);
+
+service_control_channel(Thing, State) ->
+	?warning("unhandled input:  ~p", [Thing]),
+	State.
+
+%% ------------------------------------------------------------------
+
+service_control_channel_request(#request{login = Login} = Request, State) when is_record(Login, login) ->
+	% TODO actually ask an authentication system if they should be let in.
+	#request{id = ReqId} = Request,
+	Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
+	#state{udp_socket = UdpSocket} = State,
+	UdpPort = inet:port(UdpSocket),
+	LoginRep = #loginreply{
+		cookie = Cookie,
+		udp_port = UdpPort,
+		tcp_port = 6007,
+		channels = [#channel{channel_name = "control", connection_type = ssl}]
+	},
+	Response = #response{
+		inresponseto = ReqId,
+		confirm = true,
+		login = LoginRep
+	},
+	OutBin = netstring:encode(precursors_pb:encode(Response)),
+	ssl:send(State#state.ssl_socket, OutBin),
+	State#state{cookie = Cookie, tcp_socket = Cookie,
+		udp_remote_info = Cookie
+	}.
