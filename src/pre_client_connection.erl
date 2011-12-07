@@ -17,7 +17,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2,udp/2]).
+-export([start_link/2,start/2,udp/2,set_tcp/4]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -37,6 +37,9 @@ start(Socket, Cookie) ->
 
 udp(Pid, Msg) ->
 	gen_server:cast(Pid, Msg).
+
+set_tcp(Pid, Socket, Bins, Cont) ->
+	gen_server:cast(Pid, {set_tcp, Socket, Bins, Cont}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -63,6 +66,11 @@ handle_call(_Request, _From, State) ->
 %% ------------------------------------------------------------------
 %% handle_cast
 %% ------------------------------------------------------------------
+
+handle_cast({set_tcp, Socket, Bins, Cont}, State) ->
+	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
+	NewState = service_requests(Bins, State1),
+	{noreply, NewState};
 
 handle_cast(_Msg, State) ->
   {noreply, State}.

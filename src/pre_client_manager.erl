@@ -3,16 +3,11 @@
 -define(SERVER, ?MODULE).
 
 -include("log.hrl").
+-include("pre_client.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 -record(state, {
 	ets
-}).
--record(client_connection, {
-	pid,
-	ssl_socket,
-	tcp_socket,
-	udp_socket
 }).
 
 %% ------------------------------------------------------------------
