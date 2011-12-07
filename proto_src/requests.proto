@@ -30,9 +30,9 @@ message LoginReply {
 
 message Channel {
 	enum ConnectionType {
-		ssl = 1;
-		tcp = 2;
-		udp = 3;
+		SSL = 0;
+		TCP = 1;
+		UDP = 2;
 	}
 
 	required string channel_name = 1;
