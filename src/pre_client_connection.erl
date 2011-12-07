@@ -70,6 +70,7 @@ handle_call(_Request, _From, State) ->
 handle_cast({set_tcp, Socket, Bins, Cont}, State) ->
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
 	NewState = service_requests(Bins, State1),
+	inet:setopts(Socket, [{active once}]),
 	{noreply, NewState};
 
 handle_cast(_Msg, State) ->
@@ -78,15 +79,6 @@ handle_cast(_Msg, State) ->
 %% ------------------------------------------------------------------
 %% handle_info
 %% ------------------------------------------------------------------
-
-%handle_info({tcp, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
-%	?debug("got ssl socket packet while in tcp:  ~p", [Packet]),
-%	inet:setopts(Socket, [{active, once}]),
-%	{noreply, State};
-%
-%handle_info({tcp_closed, Socket}, #state{ssl_socket = Socket} = State) ->
-%	?info("got ssl socket closed while in tcp, Imma die"),
-%	{stop, ssl_closed, State};
 
 handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
 	?debug("got ssl packet:  ~p", [Packet]),
@@ -104,6 +96,14 @@ handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
 handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
 	?info("got ssl socket closed; Imma die"),
 	{stop, normal, State};
+
+handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
+	#state{tcp_netstring = Cont} = State,
+	{Bins, Cont1} = netstring:decode(Packet, Cont),
+	State1 = State#state{tcp_netstring = Cont1},
+	NewState = service_requests(Bins, State1),
+	inet:setopts(Socket, [{active, once}]),
+	{noreply, NewState};
 
 handle_info({udp, Socket, IP, InPortNo, Packet}, #state{udp_socket = Socket,
 	udp_remote_info = Packet} = State) ->
