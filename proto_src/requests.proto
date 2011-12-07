@@ -25,7 +25,7 @@ message LoginReply {
 	required string cookie = 1;
 	required int32 udp_port = 2;
 	required int32 tcp_port = 3;
-	repeated Channel channesl = 4;
+	repeated Channel channels = 4;
 }
 
 message Channel {
