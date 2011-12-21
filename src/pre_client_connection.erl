@@ -91,7 +91,7 @@ handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
 	end,
 	State1 = State#state{ssl_netstring = SSLNetstring},
 	NewState = service_requests(Bins, State1),
-	ssl:setopts(Socket, [{active, once}]),
+	ssl:setopts(Socket, [{active, once}, binary]),
 	{noreply, NewState};
 
 handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
