@@ -171,6 +171,7 @@ service_control_channel(Thing, State) ->
 %% ------------------------------------------------------------------
 
 service_control_channel_request(#request{login = Login} = Request, State) when is_record(Login, login) ->
+	?info("starting authentication"),
 	% TODO actually ask an authentication system if they should be let in.
 	#request{id = ReqId} = Request,
 	Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
@@ -187,8 +188,21 @@ service_control_channel_request(#request{login = Login} = Request, State) when i
 		confirm = true,
 		login = LoginRep
 	},
-	OutBin = netstring:encode(precursors_pb:encode(Response)),
-	ssl:send(State#state.ssl_socket, OutBin),
+	OutBin = wrap_for_send("control", Response),
+	SendRes = ssl:send(State#state.ssl_socket, OutBin),
+	?debug("authentiation ssl:send result:  ~p:  ~p", [SendRes, OutBin]),
 	State#state{cookie = Cookie, tcp_socket = Cookie,
 		udp_remote_info = Cookie
 	}.
+
+wrap_for_send(Channel, Recthing) ->
+	Base = #envelope{channel = Channel},
+	OutRec = case Recthing of
+		X when is_record(X, response) ->
+			Base#envelope{response = X};
+		X when is_record(X, request) ->
+			Base#envelope{request = X};
+		X when is_record(X, event) ->
+			Base#envelope{event = X}
+	end,
+	netstring:encode(precursors_pb:encode(OutRec)).
