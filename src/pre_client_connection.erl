@@ -175,12 +175,12 @@ service_control_channel_request(#request{login = Login} = Request, State) when i
 	#request{id = ReqId} = Request,
 	Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
 	#state{udp_socket = UdpSocket} = State,
-	UdpPort = inet:port(UdpSocket),
+	{ok, UdpPort} = inet:port(UdpSocket),
 	LoginRep = #loginreply{
 		cookie = Cookie,
 		udp_port = UdpPort,
 		tcp_port = 6007,
-		channels = [#channel{channel_name = "control", connection_type = ssl}]
+		channels = [#channel{channel_name = "control", connection_type = 'SSL'}]
 	},
 	Response = #response{
 		inresponseto = ReqId,
