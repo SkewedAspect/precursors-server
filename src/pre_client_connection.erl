@@ -148,8 +148,8 @@ service_requests([Binary | Tail], State) ->
 
 %% ------------------------------------------------------------------
 
-service_request(Binary, State) when is_binary(State) ->
-	Rec = precursors_pb:decode(Binary, request),
+service_request(Binary, State) when is_binary(Binary) ->
+	Rec = precursors_pb:decode_envelope(Binary),
 	service_request(Rec, State);
 
 service_request(#envelope{channel = "control"} = Envelope, State) ->
