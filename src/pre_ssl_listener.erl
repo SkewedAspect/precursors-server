@@ -64,7 +64,7 @@ init(Args) ->
 	Keyfile = proplists:get_value(keyfile, Args, DefaultKeyfile),
 	SimpleOpts = [list, {packet, line}, {reuseaddr, true},
 		{certfile, Certfile}, {keyfile, Keyfile}, {keepalive, true},
-		{backlog, 30}, {active, false}],
+		{backlog, 30}, {active, false}, binary],
 	Poolsize = proplists:get_value(poolsize, Args, 5),
 	case ssl:listen(Port, SimpleOpts) of
 		{ok, Listen_socket} ->
