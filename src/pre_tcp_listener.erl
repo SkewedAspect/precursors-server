@@ -29,7 +29,7 @@ start_link(Args) -> gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 init(Args) ->
 	Port = proplists:get_value(port, Args, 6007),
-	SimpleOpts = [list, {packet, line}, {reuseaddr, true},
+	SimpleOpts = [list, {packet, raw}, {reuseaddr, true}, binary,
 		{keepalive, true}, {backlog, 30}, {active, false}],
 	case gen_tcp:listen(Port, SimpleOpts) of
 		{ok, Listen_socket} ->
@@ -68,6 +68,7 @@ handle_info({inet_async, ListSock, Ref, {ok, CliSocket}}, #state{listener=ListSo
 			%% New client connected
 			{ok, Pid} = pre_tcp_transient:start(CliSocket),
 			gen_tcp:controlling_process(CliSocket, Pid),
+			gen_server:cast(Pid, start_accept),
 			case prim_inet:async_accept(ListSock, -1) of
 				{ok, NewRef} ->
 					{noreply, State#state{acceptor = NewRef}};

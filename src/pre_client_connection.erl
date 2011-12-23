@@ -71,8 +71,13 @@ handle_call(_Request, _From, State) ->
 handle_cast({set_tcp, Socket, Bins, Cont}, State) ->
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
 	NewState = service_requests(Bins, State1),
-	inet:setopts(Socket, [{active, once}]),
 	{noreply, NewState};
+
+handle_cast(start_accept_tcp, State) ->
+	#state{tcp_socket = Socket} = State,
+	inet:setopts(Socket, [{active, once}]),
+	?info("tcp socket set:  ~p", [Socket]),
+	{noreply, State};
 
 handle_cast(_Msg, State) ->
   {noreply, State}.

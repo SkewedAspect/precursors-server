@@ -32,27 +32,45 @@ start(Socket) ->
 %% ------------------------------------------------------------------
 
 init(Socket) ->
-	{ok, Socket}.
+	?info("New transient tcp:  ~p", [Socket]),
+	{ok, {Socket, 10}, 500}.
 
-handle_call(_Request, _From, State) ->
+handle_call(Request, _From, State) ->
+	?debug("unhandled call ~p", [Request]),
 	{noreply, ok, State}.
 
-handle_cast(_Msg, State) ->
+handle_cast(start_accept, {Socket, _}) ->
+	inet:setopts(Socket, [{active, once}]),
+	{noreply, {Socket, 10}, 5000};
+
+handle_cast(Msg, State) ->
+	?debug("unhandled cast:  ~p", [Msg]),
 	{noreply, State}.
 
-handle_info({tcp, Socket, Packet}, Socket) ->
-	case netstring:decode(Packet) of
+handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
+	?debug("and your little dog:  ~p", [Packet]),
+	case netstring:decode(Packet, InCont) of
 		{[Bin | Tail], Cont} ->
 			QH = qlc:q([X || #client_connection{tcp_socket = Bin} = X <- ets:table(client_ets)]),
 			[#client_connection{pid = Client}] = qlc:e(QH),
 			gen_tcp:controlling_process(Socket, Client),
 			pre_client_connection:set_tcp(Client#client_connection.pid, Socket, Tail, Cont),
+			gen_server:cast(Client, start_accept_tcp),
 			{stop, normal, Socket};
-		_ ->
+		{[], Cont} ->
+			inet:setopts(Socket, [{active, once}]),
+			{noreply, {Socket, Cont}, 5000};
+		Abuh ->
+			?warning("netstring decode exploded:  ~p", [Abuh]),
 			{stop, invalid_cookie, Socket}
 	end;
 
-handle_info(_Info, State) ->
+handle_info(timeout, State) ->
+	?warning("client (or ancestor) did not respond in time"),
+	{stop, timeout, State};
+
+handle_info(Info, State) ->
+	?debug("unhandled info:  ~p", [Info]),
 	{noreply, State}.
 
 terminate(_Reason, _State) ->

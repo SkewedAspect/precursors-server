@@ -62,7 +62,7 @@ init(Args) ->
 	DefaultKeyfile = filename:join(PrivDir, "key"),
 	Certfile = proplists:get_value(certfile, Args, DefaultCertfile),
 	Keyfile = proplists:get_value(keyfile, Args, DefaultKeyfile),
-	SimpleOpts = [list, {packet, line}, {reuseaddr, true},
+	SimpleOpts = [list, {packet, raw}, {reuseaddr, true},
 		{certfile, Certfile}, {keyfile, Keyfile}, {keepalive, true},
 		{backlog, 30}, {active, false}, binary],
 	Poolsize = proplists:get_value(poolsize, Args, 5),
