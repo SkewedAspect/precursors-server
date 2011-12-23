@@ -40,7 +40,7 @@ start() -> start([]).
 
 %% @doc Starts an unlinked ssl listener with the given options.
 -spec(start/1 :: (Args :: start_opts()) -> {'ok', pid()}).
-start(Args) -> gen_server:start(?MODULE, Args, []).
+start(Args) -> gen_server:start({local, ?MODULE}, ?MODULE, Args, []).
 
 %% @doc Starts an ssl listener with default options.
 -spec(start_link/0 :: () -> {'ok', pid()}).
@@ -48,7 +48,7 @@ start_link() -> start_link([]).
 
 %% @doc Starts an ssl listener with the given options.
 -spec(start_link/1 :: (Args :: start_opts()) -> {'ok', pid()}).
-start_link(Args) -> gen_server:start_link(?MODULE, Args, []).
+start_link(Args) -> gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% =====
 %% init

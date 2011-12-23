@@ -17,11 +17,11 @@
 %% =====
 start() -> start([]).
 
-start(Args) -> gen_server:start(?MODULE, Args, []).
+start(Args) -> gen_server:start({local, ?MODULE}, ?MODULE, Args, []).
 
 start_link() -> start_link([]).
 
-start_link(Args) -> gen_server:start_link(?MODULE, Args, []).
+start_link(Args) -> gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% =====
 %% init
