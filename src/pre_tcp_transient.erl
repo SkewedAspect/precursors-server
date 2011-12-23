@@ -9,7 +9,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1]).
+-export([start_link/1,start/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -23,6 +23,9 @@
 
 start_link(Socket) ->
 	gen_server:start_link(?MODULE, Socket, []).
+
+start(Socket) ->
+	gen_server:start(?MODULE, Socket, []).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions

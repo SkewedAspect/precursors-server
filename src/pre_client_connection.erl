@@ -205,4 +205,5 @@ wrap_for_send(Channel, Recthing) ->
 		X when is_record(X, event) ->
 			Base#envelope{event = X}
 	end,
+	?debug("ksending:  ~p", [OutRec]),
 	netstring:encode(precursors_pb:encode(OutRec)).
