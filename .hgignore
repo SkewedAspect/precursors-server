@@ -1,8 +1,11 @@
 syntax: glob
 
 # pycharm artifacts
-.idea*
-.idea/*
+.idea**
+.idea/**
+
+# mac artifacts
+**.DS_Store
 
 # build artifacts
 ebin/*
@@ -18,18 +21,18 @@ precursors.crt
 precursors.csr
 
 # debug artifacts
-*.dump
+**.dump
 
 # vim artifacts
-*.swp
-*.swo
+**.swp
+**.swo
 
 # run artifacts
-*.log
+**.log*
 
 # python bytecode artifacts
-tests/client/**.pyc
-tests/client/**.pyo
+**.pyc
+**.pyo
 tests/client/remote/tests/build/*
 
 # auto-generated protobuf implementation files
