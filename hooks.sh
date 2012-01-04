@@ -5,9 +5,9 @@ function pre_compile {
 		mkdir ebin
 	fi
 	
-	for file in proto_src/*.proto
+	for file in common/protos/*.proto
 	do
-		nameBase=`echo "$file" | sed -e "s/^proto_src\///"`
+		nameBase=`echo "$file" | sed -e "s/^commons\/protos\///"`
 		nameBase="src/${nameBase}"
 		if [ ! -e $nameBase -o $file -nt $nameBase ]
 		then
