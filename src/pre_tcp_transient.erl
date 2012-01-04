@@ -60,7 +60,7 @@ handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 			QH = qlc:q([X || #client_connection{tcp_socket = TestCookie} = X <- ets:table(client_ets), TestCookie =:= Cookie]),
 			[#client_connection{pid = Client}] = qlc:e(QH),
 			gen_tcp:controlling_process(Socket, Client),
-			pre_client_connection:set_tcp(Client#client_connection.pid, Socket, Tail, Cont),
+			pre_client_connection:set_tcp(Client, Socket, Tail, Cont),
 			gen_server:cast(Client, start_accept_tcp),
 			{stop, normal, Socket};
 		{[], Cont} ->

@@ -3,6 +3,7 @@
 
 -include("log.hrl").
 -include("precursors_pb.hrl").
+-include("pre_client.hrl").
 
 -record(state, {
 	cookie :: binary(),
@@ -76,6 +77,16 @@ handle_cast({set_tcp, Socket, Bins, Cont}, State) ->
 handle_cast(start_accept_tcp, State) ->
 	#state{tcp_socket = Socket} = State,
 	inet:setopts(Socket, [{active, once}]),
+	ClientRec = #client_connection{
+		pid = self(),
+		ssl_socket = State#state.ssl_socket,
+		tcp_socket = Socket,
+		udp_socket = case State#state.udp_remote_info of
+			undefined -> State#state.cookie;
+			Else -> Else
+		end
+	},
+	ets:insert(client_ets, ClientRec),
 	?info("tcp socket set:  ~p", [Socket]),
 	{noreply, State};
 
