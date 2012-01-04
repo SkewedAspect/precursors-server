@@ -121,11 +121,42 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
 	inet:setopts(Socket, [{active, once}]),
 	{noreply, NewState};
 
-handle_info({udp, Socket, IP, InPortNo, Packet}, #state{udp_socket = Socket,
-	udp_remote_info = Packet} = State) ->
-		?info("Client confirmed udp port sync up"),
-		NewState = State#state{udp_remote_info = {IP, InPortNo}},
-		{noreply, NewState};
+handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
+	udp_remote_info = undefined} = State) ->
+		#state{cookie = Cookie} = State,
+		Success = try begin
+			Rec = precursors_pb:decode_envelope(Packet),
+			#envelope{channel = "control", event = Event} = Rec,
+			#event{connect_port = #connectport{cookie = TestCookie}} = Event,
+			case list_to_binary(TestCookie) of
+				Cookie -> ok;
+				_ -> badcookie
+			end end
+		catch
+			What:Why ->
+				{What,Why}
+		end,
+		case Success of
+			ok ->
+				ClientRec = #client_connection{
+					pid = self(),
+					ssl_socket = State#state.ssl_socket,
+					tcp_socket = case State#state.tcp_socket of
+						undefined -> State#state.cookie;
+						TcpElse -> TcpElse
+					end,
+					udp_socket = {Ip, InPortNo}
+				},
+				ets:insert(client_ets, ClientRec),
+				State0 = State#state{udp_remote_info = {Ip, InPortNo}},
+				?info("Upd port sync up:  ~p:~p", [Ip, InPortNo]),
+				inet:setopts(Socket, [{active, once}]),
+				{noreply, State0};
+			Else ->
+				?info("Upd not confirmed:  ~p", [Else]),
+				inet:setopts(Socket, [{active, once}]),
+				{noreply, State}
+		end;
 
 handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 	udp_remote_info = {Ip, InPortNo}} = State) ->
@@ -134,7 +165,7 @@ handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 		{noreply, State};
 
 handle_info(Info, State) ->
-	?debug("unhandled info:  ~p", [Info]),
+	?debug("unhandled info:  ~p (~p)", [Info, State]),
   {noreply, State}.
 
 %% ------------------------------------------------------------------
@@ -208,7 +239,7 @@ service_control_channel_request(#request{login = Login} = Request, State) when i
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
 	?debug("authentiation ssl:send result:  ~p", [SendRes]),
 	State#state{cookie = Cookie, tcp_socket = Cookie,
-		udp_remote_info = Cookie
+		udp_remote_info = undefined
 	}.
 
 wrap_for_send(Channel, Recthing) ->
