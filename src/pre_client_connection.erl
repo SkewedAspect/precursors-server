@@ -87,7 +87,6 @@ handle_cast(_Msg, State) ->
 %% ------------------------------------------------------------------
 
 handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
-	?debug("got ssl packet:  ~p", [Packet]),
 	{Bins, SSLNetstring} = case State#state.ssl_netstring of
 		undefined ->
 			netstring:decode(Packet);
@@ -179,7 +178,8 @@ service_control_channel_request(#request{login = Login} = Request, State) when i
 	?info("starting authentication"),
 	% TODO actually ask an authentication system if they should be let in.
 	#request{id = ReqId} = Request,
-	Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
+	#state{cookie = Cookie} = State,
+	%Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
 	#state{udp_socket = UdpSocket} = State,
 	{ok, UdpPort} = inet:port(UdpSocket),
 	LoginRep = #loginreply{
@@ -195,7 +195,7 @@ service_control_channel_request(#request{login = Login} = Request, State) when i
 	},
 	OutBin = wrap_for_send("control", Response),
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
-	?debug("authentiation ssl:send result:  ~p:  ~p", [SendRes, OutBin]),
+	?debug("authentiation ssl:send result:  ~p", [SendRes]),
 	State#state{cookie = Cookie, tcp_socket = Cookie,
 		udp_remote_info = Cookie
 	}.
@@ -210,5 +210,4 @@ wrap_for_send(Channel, Recthing) ->
 		X when is_record(X, event) ->
 			Base#envelope{event = X}
 	end,
-	?debug("ksending:  ~p", [OutRec]),
 	netstring:encode(precursors_pb:encode(OutRec)).
