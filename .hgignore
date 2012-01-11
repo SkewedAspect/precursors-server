@@ -20,6 +20,9 @@ key.pub
 precursors.crt
 precursors.csr
 
+# edoc artifacts
+doc
+
 # debug artifacts
 **.dump
 
