@@ -19,7 +19,8 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2,udp/2,set_tcp/4]).
+-export([start_link/2,start/2,udp/2,set_tcp/4,send/3,send_tcp/2,send_ssl/2,
+	send_udp/2]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -42,6 +43,15 @@ udp(Pid, Msg) ->
 
 set_tcp(Pid, Socket, Bins, Cont) ->
 	gen_server:cast(Pid, {set_tcp, Socket, Bins, Cont}).
+
+send(Pid, Socket, Binary) when Socket == udp; Socket == ssl; Socket == tcp ->
+	gen_server:cast(Pid, {send, Socket, Binary}).
+
+send_tcp(Pid, Binary) -> send(Pid, tcp, Binary).
+
+send_udp(Pid, Binary) -> send(Pid, udp, Binary).
+
+send_ssl(Pid, Binary) -> send(Pid, ssl, Binary).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -69,6 +79,28 @@ handle_call(_Request, _From, State) ->
 %% handle_cast
 %% ------------------------------------------------------------------
 
+handle_cast({send, tcp, _Binary}, #state{tcp_socket = undefined} = State) ->
+	{noreply, State};
+
+handle_cast({send, tcp, Binary}, State) ->
+	Bin = netstring:encode(Binary),
+	gen_tcp:send(State#state.tcp_socket, Bin),
+	{noreply, State};
+
+handle_cast({send, ssl, Binary}, State) ->
+	#state{ssl_socket = Socket} = State,
+	Bin = netstring:encode(Binary),
+	ssl:send(Socket, Bin),
+	{noreply, State};
+
+handle_cast({send, udp, _Binary}, #state{udp_remote_info = undefined} = State) ->
+	{noreply, State};
+
+handle_cast({send, udp, Binary}, State) ->
+	#state{udp_socket = Sock, udp_remote_info = {Ip, Port}} = State,
+	gen_udp:send(Sock, Ip, Port, Binary),
+	{noreply, State};
+	
 handle_cast({set_tcp, Socket, Bins, Cont}, State) ->
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
 	NewState = service_requests(Bins, State1),
