@@ -33,15 +33,17 @@
 -include("precursors_pb.hrl").
 
 % API
--export([start_link/3, behavior_info/1, call/2, call/3, cast/2,
-	client_event/3, client_request/3, client_response/3, reply/2]).
+-export([start_link/1, client_event/3, client_request/3, client_response/3,
+	add_handler/3, add_sup_handler/3, notify/2, sync_notify/2, call/2,
+	call/3, delete_handler/3, swap_handler/3, swap_sup_handler/3,
+	which_handlers/1
+]).
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {
 	connection :: pid(),
-	callback :: atom(),
-	substate :: any()
+	gen_event_mgr :: pid()
 }).
 
 %% ==================================================================
@@ -50,39 +52,9 @@
 
 %% @doc Start linked to the calling process.  `Args' is used in
 %% `Callback:init/1'.
--spec(start_link/3 :: (Callback :: atom(), Connection :: pid(),
-	Args :: any()) -> {'ok', pid()}).
-start_link(Callback, Connection, Args) ->
-	gen_server:start_link(?MODULE, {Callback, Connection, Args, []}, []).
-
-%% @private
-behavior_info(callbacks) ->
-	[{handle_client_event, 3},
-	{handle_client_response, 3},
-	{handle_client_request, 3},
-	{handle_call, 3},
-	{handle_cast, 2},
-	{handle_info, 2},
-	{teminate, 2},
-	{code_change, 3}];
-behavior_info(_) ->
-	invalid.
-
-%% @doc Same as {@link gen_server:call/2}, just here to make code prettier.
--spec(call/2 :: (Pid :: pid(), Req :: any()) -> any()).
-call(Pid, Req) ->
-	call(Pid, Req, 5000).
-
-%% @doc Same as {@link gen_server:call/3}, just here to make code prettier.
--spec(call/3 :: (Pid :: pid(), Req :: any(),
-	Timeout :: 'infinity' | non_neg_integer()) -> any()).
-call(Pid, Req, Timeout) ->
-	gen_server:call(Pid, Req, Timeout).
-
-%% @doc Same as {@link gen_server:cast/2}, just here to make code prettier.
--spec(cast/2 :: (Pid :: pid(), Msg :: any()) -> any()).
-cast(Pid, Msg) ->
-	gen_server:cast(Pid, Msg).
+-spec(start_link/1 :: (Connection :: pid()) -> {'ok', pid()}).
+start_link(Connection) ->
+	gen_server:start_link(?MODULE, Connection, []).
 
 %% @doc Asynchronously handle an event sent from the client to the server
 %% (us).  Replies are usually sent through the `send' return structure.
@@ -105,10 +77,42 @@ client_request(Pid, Channel, Request) when is_record(Request, request) ->
 client_response(Pid, Channel, Response) when is_record(Response, response) ->
 	gen_server:cast(Pid, {{'$pre_client', client_response}, {Channel, Response}}).
 
-%% @doc Same as {@link gen_server:reply/2}, just here to make code prettier.
--spec(reply/2 :: (Client :: {pid(), reference()}, Reply :: any()) -> 'ok').
-reply(Client, Reply) ->
-	gen_server:reply(Client, Reply).
+add_handler(Client, Handler, Args) ->
+	gen_server:call(Client, {{'$pre_client', add_handler}, {Handler, Args}}).
+
+add_sup_handler(Client, Handler, Args) ->
+	gen_server:call(Client, {{'$pre_client', add_sup_handler}, {Handler, Args}}).
+
+async_add_handler(Client, Handler, Args) ->
+	gen_server:cast(Client, {{'$pre_client', add_handler}, {Handler, Args}}).
+
+async_add_sup_handler(Client, Handler, Args) ->
+	gen_server:cast(Client, {{'$pre_client', add_sup_handler}, {Handler, Args}}).
+
+notify(Client, Event) ->
+	gen_server:cast(Client, {{'$pre_client', notify}, Event}).
+
+sync_notify(Client, Event) ->
+	gen_server:call(Client, {{'$pre_client', sync_notify}, Event}).
+
+call(Client, Request) ->
+	call(Client, Request, infinity).
+
+call(Client, Request, Timeout) ->
+	gen_server:call(Client, {{'$pre_client', call}, {Request, Timeout}}).
+
+delete_handler(Client, Handler, Args) ->
+	gen_server:call(Client, {{'$pre_client', delete_handler}, {Handler, Args}}).
+
+swap_handler(Client, {Handler1, Args1}, {Handler2, Args2}) ->
+	gen_server:call(Client, {{'$pre_client', swap_handler}, {{Handler1, Args1}, {Handler2, Args2}}}).
+
+swap_sup_handler(Client, {Handler1, Args1}, {Handler2, Args2}) ->
+	gen_server:call(Client, {{'$pre_client', swap_sup_handler}, {{Handler1, Args1}, {Handler2, Args2}}}).
+
+which_handlers(Client) ->
+	List = gen_server:call(Client, {{'$pre_client', which_handlers}, undefined}),
+	[X || {pre_gen_event, X} <- List].
 
 %% ==================================================================
 %% gen_server Function Definitions
@@ -119,126 +123,152 @@ reply(Client, Reply) ->
 %% ------------------------------------------------------------------
 
 %% @private
-init({Callback, Connection, Args, _Options}) ->
-	case Callback:init(Args) of
-		ignore ->
-			ignore;
-		{stop, Reason} ->
-			{stop, Reason};
-		{ok, Substate} ->
-			State = #state{
-				callback = Callback,
-				substate = Substate,
-				connection = Connection
-			},
-			{ok, State}
-	end.
+init(Connection) ->
+	{ok, Eventer} = gen_event:start_link(),
+	State = #state{
+		connection = Connection,
+		gen_event_mgr = Eventer
+	},
+	{ok, State}.
 
 %% ------------------------------------------------------------------
 %% handle_call
 %% ------------------------------------------------------------------
 
 %% @private
-handle_call(Req, From, State) ->
-	#state{callback = Mod, substate = SubState} = State,
-	ModResponse = Mod:handle_call(Req, From, SubState),
-	handle_callback_return(ModResponse, State).
+handle_call({{'$pre_client', add_handler}, {Handler, Args}}, _From, State) ->
+	#state{gen_event_mgr = Eventer} = State,
+	Callback = case handler of
+		{C, _} -> C;
+		A when is_atom(A) -> A
+	end,
+	Out = gen_event:add_handler(Eventer, {pre_gen_event, Handler}, {Callback, Args}),
+	{reply, Out, State};
+
+handle_call({{'$pre_client', add_sup_handler}, {Handler, Args}}, _From, State) ->
+	#state{gen_event_mgr = Eventer} = State,
+	Callback = case Handler of
+		{C, _} -> C;
+		A when is_atom(A) -> A
+	end,
+	Out = gen_event:add_handler(Eventer, {pre_gen_event, Handler}, {Callback, Args}),
+	{reply, Out, State};
+
+handle_call({{'$pre_client', sync_notify}, Event}, _From, State) ->
+	#state{gen_event_mgr = Eventer, connection = Conn} = State,
+	Event0 = {{'$pre_client', notify}, {Conn, self(), Event}},
+	Out = gen_event:sync_notify(Eventer, Event0),
+	{reply, Out, State};
+
+handle_call({{'$pre_client', call}, {Handler, Request, Timeout}}, _From, State) ->
+	#state{connection = Conn, gen_event_mgr = Mgr} = State,
+	Call0 = {{'$pre_client', call}, {Conn, self(), Request}},
+	Out = gen_event:call(Mgr, {pre_gen_event, Handler}, Call0, Timeout),
+	{reply, Out, State};
+
+handle_call({{'$pre_client', delete_handler}, {Handler, Args}}, _From, State) ->
+	#state{gen_event_mgr = Mgr, connection = Conn} = State,
+	Out = gen_event:delete_handler(Mgr, {pre_gen_event, Handler}, Args),
+	{reply, Out, State};
+
+handle_call({{'$pre_client', swap_handler}, {{Handler1, Args1}, {Handler2, Args2}}}, _From, State) ->
+	#state{connection = Conn, gen_event_mgr = Mgr} = State,
+	Callback2 = case Handler2 of
+		{C, _} -> C;
+		A when is_atom(A) -> A
+	end,
+	RealHandler2 = {pre_gen_event, Handler2},
+	RealArgs2 = {Callback2, Args2},
+	RealHandler1 = {pre_gen_event, Handler1},
+	Out = gen_event:swap_handler(Mgr, {RealHandler1, Args1}, {RealHandler2, RealArgs2}),
+	{reply, Out, State};
+
+handle_call({{'$pre_client', swap_sup_handler}, {{Handler1, Args1}, {Handler2, Args2}}}, _From, State) ->
+	#state{connection = Conn, gen_event_mgr = Mgr} = State,
+	Callback2 = case Handler2 of
+		{C, _} -> C;
+		A when is_atom(A) -> A
+	end,
+	RealHandler2 = {pre_gen_event, Handler2},
+	RealArgs2 = {Callback2, Args2},
+	RealHandler1 = {pre_gen_event, Handler1},
+	Out = gen_event:swap_sup_handler(Mgr, {RealHandler1, Args1}, {RealHandler2, RealArgs2}),
+	{reply, Out, State};
+
+handle_call({{'$pre_client', which_handlers}, _}, _From, State) ->
+	#state{gen_event_mgr = Mgr} = State,
+	Handlers = gen_event:which_handlers(Mgr),
+	{reply, Handlers, State};
+
+handle_call(Req, _From, State) ->
+	{reply, invalid, State}.
 
 %% ------------------------------------------------------------------
 %% handle_cast
 %% ------------------------------------------------------------------
 
 %% @private
-handle_cast({{'$pre_client', client_event}, {Channel, Event}}, State) ->
-	#state{callback = Mod, substate = SubState} = State,
-	ModResponse = Mod:handle_client_event(Channel, Event, SubState),
-	handle_callback_return(ModResponse, State);
+handle_cast({{'$pre_client', client_event} = Tag, {Channel, Event} = Args}, State) when is_record(Event, event) ->
+	handle_client_msg(Tag, Args, State),
+	{noreply, State};
 
-handle_cast({{'$pre_client', client_request}, {Channel, Request}}, State) ->
-	#state{callback = Mod, substate = Substate} = State,
-	ModResponse = Mod:handle_client_request(Channel, Request, Substate),
-	handle_callback_return(ModResponse, State);
+handle_cast({{'$pre_client', client_request} = Tag, {Channel, Request} = Args}, State) when is_record(Request, request) ->
+	handle_client_msg(Tag, Args, State),
+	{noreply, State};
 
-handle_cast({{'$pre_client', client_response}, {Channel, Response}}, State) ->
-	#state{callback = Mod, substate = Substate} = State,
-	ModResponse = Mod:handle_client_response(Channel, Response, Substate),
-	handle_callback_return(ModResponse, State);
+handle_cast({{'$pre_client', client_response} = Tag, {Channel, Response} = Args}, State) when is_record(Response, response) ->
+	handle_client_msg(Tag, Args, State),
+	{noreply, State};
+
+handle_cast({{'$pre_client', add_handler}, {Handler, Args}} = Msg, State) ->
+	{reply, Out, State0} = handle_call(Msg, "self", State),
+	?info("addhandler async got ~p", [Out]),
+	{noreply, State0};
+
+handle_cast({{'$pre_client', add_sup_handler}, {Handler, Args}} = Msg, State) ->
+	{reply, Out, State0} = handle_call(Msg, "self", State),
+	?info("add sup handler async got ~p", [Out]),
+	{noreply, State0};
 
 handle_cast(Msg, State) ->
-	#state{callback = Mod, substate = Substate} = State,
-	ModResponse = Mod:handle_cast(Msg, Substate),
-	handle_callback_return(ModResponse, State).
+	{noreply, State}.
 
 %% ------------------------------------------------------------------
-%% handle_call
+
+handle_client_msg(Tag, {Chan, Arg}, State) ->
+	#state{connection = Conn, gen_event_mgr = Mgr} = State,
+	gen_event:notify(Mgr, {Tag, {Chan, Conn, self(), Arg}}).
+
+%% ------------------------------------------------------------------
+%% handle_info
 %% ------------------------------------------------------------------
 
 %% @private
 handle_info(Msg, State) ->
-	#state{callback = Mod, substate= Substate} = State,
-	ModResponse = Mod:handle_info(Msg, Substate),
-	handle_callback_return(ModResponse, State).
+	% well, maybe it was meant for the event manager.
+	#state{connection = Conn, gen_event_mgr = Mgr} = State,
+	Msg0 = {{'$pre_client', info}, {Conn, self(), Msg}},
+	Mgr ! Msg0,
+	{noreply, State}.
 
 %% ------------------------------------------------------------------
-%% handle_call
+%% terminate
 %% ------------------------------------------------------------------
 
 %% @private
 terminate(Reason, State) ->
-	#state{callback = Mod, substate = Sub} = State,
-	Mod:terminate(Reason, Sub).
+	#state{gen_event_mgr = Mgr} = State,
+	Event = {{'$pre_client', terminate}, Reason},
+	gen_event:notify(Mgr, Event).
 
 %% ------------------------------------------------------------------
-%% handle_call
+%% code_change
 %% ------------------------------------------------------------------
 
 %% @private
 code_change(OldVsn, State, Extra) ->
-	#state{callback = Mod, substate = Sub} = State,
-	{ok, NewSub} = Mod:code_change(OldVsn, Sub, Extra),
-	State0 = State#state{substate = NewSub},
-	{ok, State0}.
+	{ok, State}.
 
 %% ==================================================================
 %% Internal Function Definitions
 %% ==================================================================
-
-%% ------------------------------------------------------------------
-%% handle_callback_return
-%% ------------------------------------------------------------------
-
-handle_callback_return({mutate, Reply, NewMod, NewArgs}, State) ->
-	case handle_mutate(NewMod, NewArgs) of
-		{error, Err} -> {stop, Err, Reply, State};
-		{ok, NewSub} ->
-			{reply, Reply, State#state{callback = NewMod, substate = NewSub}}
-	end;
-
-handle_callback_return({mutate, NewMod, NewArgs}, State) ->
-	case handle_mutate(NewMod, NewArgs) of
-		{error, Err} -> {stop, Err, State};
-		{ok, NewSub} ->
-			{noreply, State#state{callback = NewMod, substate = NewSub}}
-	end;
-
-handle_callback_return({send, Reply, Sends, NewSub}, State) ->
-	{noreply, State0} = handle_callback_return({send, Sends, NewSub}, State),
-	{reply, Reply, State0};
-
-handle_callback_return({send, [], NewSub}, State) ->
-	State0 = State#state{substate = NewSub},
-	{noreply, State0};
-
-handle_callback_return({send, [{Sock, Bin}|Tail], NewSub}, State) ->
-	#state{connection = Conn} = State,
-	pre_client_connection:send(Conn, Sock, Bin),
-	handle_callback_return({send, Tail, NewSub}, State).
-
-%% ------------------------------------------------------------------
-
-handle_mutate(NewMod, NewArgs) ->
-	case NewMod:init(NewArgs) of
-		{stop, Reason} -> {error, Reason};
-		ignore -> {error, bad_mutate};
-		{ok, _} = Ok -> Ok
-	end.
