@@ -20,6 +20,9 @@ key.pub
 precursors.crt
 precursors.csr
 
+# test/eunit artifacts
+.eunit
+
 # edoc artifacts
 doc
 
