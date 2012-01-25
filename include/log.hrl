@@ -3,6 +3,8 @@
 
 -ifdef(TEST).
 
+-include_lib("eunit/include/eunit.hrl").
+
 -define(debug(Message), ?debugFmt("[~p][~p][~p]~n	DEBUG: ~s~n", [erlang:localtime(), node(), self(), Message])).
 -define(debug(Message, Args), ?debugFmt("[~p][~p][~p]~n	DEBUG: ~s~n", [erlang:localtime(), node(), self(), lists:flatten(io_lib:format(Message, Args))])).
 
