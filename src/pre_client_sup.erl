@@ -28,8 +28,8 @@ init(Args) ->
 	TcpListener = proplists:get_value(tcp_port_opts, Args, []),
 	TcpKid = ?CHILD(pre_tcp_listener, worker, TcpListener),
 
-	%UdpListener = proplists:get_value(upd_port_opts, Args, []),
-	%UpdKid = ?CHILD(pre_udp_listener, worker, UdpListener),
+	%UdpListener = proplists:get_value(udp_port_opts, Args, []),
+	%UdpKid = ?CHILD(pre_udp_listener, worker, UdpListener),
 
 	ManagerOpts = proplists:get_value(client_manager_opts, Args, []),
 	Manager = ?CHILD(pre_client_manager, worker, [ManagerOpts]),

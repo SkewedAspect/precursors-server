@@ -181,11 +181,11 @@ handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 				},
 				ets:insert(client_ets, ClientRec),
 				State0 = State#state{udp_remote_info = {Ip, InPortNo}},
-				?info("Upd port sync up:  ~p:~p", [Ip, InPortNo]),
+				?info("Udp port sync up:  ~p:~p", [Ip, InPortNo]),
 				inet:setopts(Socket, [{active, once}]),
 				{noreply, State0};
 			Else ->
-				?info("Upd not confirmed:  ~p", [Else]),
+				?info("Udp not confirmed:  ~p", [Else]),
 				inet:setopts(Socket, [{active, once}]),
 				{noreply, State}
 		end;
