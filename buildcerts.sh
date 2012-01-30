@@ -1,3 +1,5 @@
+#!/bin/bash
+
 if [ ! -f "key" ]; then
 	echo "RSA key does not exist, generating..."
 	ssh-keygen -t rsa -f priv/key -N ""
