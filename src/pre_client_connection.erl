@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -include("log.hrl").
--include("precursors_pb.hrl").
+%-include("precursors_pb.hrl").
 -include("pre_client.hrl").
 
 -record(state, {
@@ -15,6 +15,12 @@
 	udp_remote_info :: binary() | {string(), integer()} | 'undefined'
 }).
 
+-type(message_type() :: 'request' | 'response' | 'event').
+-type(message_id() :: 'undefined' | binary()).
+-type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()]).
+-record(envelope, {type :: message_type(), id :: message_id(),
+	channel :: binary(), content :: json()}).
+
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
@@ -26,7 +32,8 @@
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
+	code_change/3]).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
@@ -156,18 +163,19 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
 handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 	udp_remote_info = undefined} = State) ->
 		#state{cookie = Cookie} = State,
-		Success = try begin
-			Rec = precursors_pb:decode_envelope(Packet),
-			#envelope{channel = "control", event = Event} = Rec,
-			#event{connect_port = #connectport{cookie = TestCookie}} = Event,
-			case list_to_binary(TestCookie) of
-				Cookie -> ok;
-				_ -> badcookie
-			end end
-		catch
-			What:Why ->
-				{What,Why}
-		end,
+		Success = fail,
+%		Success = try begin
+%			Rec = precursors_pb:decode_envelope(Packet),
+%			#envelope{channel = "control", event = Event} = Rec,
+%			#event{connect_port = #connectport{cookie = TestCookie}} = Event,
+%			case list_to_binary(TestCookie) of
+%				Cookie -> ok;
+%				_ -> badcookie
+%			end end
+%		catch
+%			What:Why ->
+%				{What,Why}
+%		end,
 		case Success of
 			ok ->
 				ClientRec = #client_connection{
@@ -239,7 +247,7 @@ service_request(Request, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_channel(#envelope{request = Request}, State) ->
+service_control_channel(#envelope{id = Id, content= Request}, State) when is_binary(Id) ->
 	service_control_channel_request(Request, State);
 
 service_control_channel(Thing, State) ->
@@ -248,40 +256,67 @@ service_control_channel(Thing, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_channel_request(#request{login = Login} = Request, State) when is_record(Login, login) ->
-	?info("starting authentication"),
-	% TODO actually ask an authentication system if they should be let in.
-	#request{id = ReqId} = Request,
-	#state{cookie = Cookie} = State,
-	%Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
-	#state{udp_socket = UdpSocket} = State,
-	{ok, UdpPort} = inet:port(UdpSocket),
-	LoginRep = #loginreply{
-		cookie = Cookie,
-		udp_port = UdpPort,
-		tcp_port = 6007,
-		channels = [#channel{channel_name = "control", connection_type = 'SSL'}]
-	},
-	Response = #response{
-		inresponseto = ReqId,
-		confirm = true,
-		login = LoginRep
-	},
-	OutBin = wrap_for_send("control", Response),
-	SendRes = ssl:send(State#state.ssl_socket, OutBin),
-	?debug("authentiation ssl:send result:  ~p", [SendRes]),
-	State#state{cookie = Cookie, tcp_socket = Cookie,
-		udp_remote_info = undefined
-	}.
+service_control_channel_request(_, State) ->
+	State.
+%service_control_channel_request(#request{login = Login} = Request, State) when is_record(Login, login) ->
+%	?info("starting authentication"),
+%	% TODO actually ask an authentication system if they should be let in.
+%	#request{id = ReqId} = Request,
+%	#state{cookie = Cookie} = State,
+%	%Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
+%	#state{udp_socket = UdpSocket} = State,
+%	{ok, UdpPort} = inet:port(UdpSocket),
+%	LoginRep = #loginreply{
+%		cookie = Cookie,
+%		udp_port = UdpPort,
+%		tcp_port = 6007,
+%		channels = [#channel{channel_name = "control", connection_type = 'SSL'}]
+%	},
+%	Response = #response{
+%		inresponseto = ReqId,
+%		confirm = true,
+%		login = LoginRep
+%	},
+%	OutBin = wrap_for_send("control", Response),
+%	SendRes = ssl:send(State#state.ssl_socket, OutBin),
+%	?debug("authentiation ssl:send result:  ~p", [SendRes]),
+%	State#state{cookie = Cookie, tcp_socket = Cookie,
+%		udp_remote_info = undefined
+%	}.
 
 wrap_for_send(Channel, Recthing) ->
 	Base = #envelope{channel = Channel},
-	OutRec = case Recthing of
-		X when is_record(X, response) ->
-			Base#envelope{response = X};
-		X when is_record(X, request) ->
-			Base#envelope{request = X};
-		X when is_record(X, event) ->
-			Base#envelope{event = X}
-	end,
-	netstring:encode(precursors_pb:encode(OutRec)).
+	OutRec = Base,
+%	OutRec = case Recthing of
+%		X when is_record(X, response) ->
+%			Base#envelope{response = X};
+%		X when is_record(X, request) ->
+%			Base#envelope{request = X};
+%		X when is_record(X, event) ->
+%			Base#envelope{event = X}
+%	end,
+	netstring:encode(encode_envelope(OutRec)).
+
+%% ------------------------------------------------------------------
+
+encode_envelope(_) ->
+	<<>>.
+
+decode_envelope(_) ->
+	#envelope{}.
+
+%% ------------------------------------------------------------------
+%% Tests
+%% ------------------------------------------------------------------
+
+-ifdef(TEST).
+
+json_encode_decode_test_() -> [
+	{"decode event", fun() ->
+		Expected = #envelope{type = request, channel = "goober chan"},
+		Out = decode_envelope(mochijson2:encode({struct, [
+			{<<"mType">>, <<"req">>}, {<<"channel">>, <<"goober chan">>}]})),
+		?assertEqual(Expected, Out)
+	end}
+	].
+-endif.
