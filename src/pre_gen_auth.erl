@@ -60,6 +60,7 @@
 -behavior(gen_event).
 
 -include("log.hrl").
+-include("internal_auth.hrl").
 
 -ifdef(TEST).
 	-compile([export_all]).
@@ -265,8 +266,22 @@ authentication([Handler | Tail], Username, Password) ->
 			authentication(Tail, Username, Password)
 	end.
 
-% TODO mnesia backed
-build_tables() -> ok.
+build_tables() ->
+	Create = mnesia:create_table(user_auth, [
+		{attributes, record_info(fields, user_auth)}
+	]),
+	case Create of
+		{atomic, ok} -> ok;
+		{aborted, already_exits} -> ok;
+		{aborted, Else} ->
+			?warning("Could not build user_auth table.  This will die later."),
+			{error, Else}
+	end.
+
+proplist_to_user_auth(Proplist) ->
+	BaseRec = #user_auth{},
+	KeyPos = record_info(fields, user_auth),
+	{error, nyi}.
 
 %% ==================================================================
 %% API
