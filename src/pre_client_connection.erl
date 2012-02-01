@@ -19,7 +19,7 @@
 -type(message_id() :: 'undefined' | binary()).
 -type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()]).
 -record(envelope, {type :: message_type(), id :: message_id(),
-	channel :: binary(), content :: json()}).
+	channel :: binary(), contents :: json()}).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -163,19 +163,18 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
 handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 	udp_remote_info = undefined} = State) ->
 		#state{cookie = Cookie} = State,
-		Success = fail,
-%		Success = try begin
-%			Rec = precursors_pb:decode_envelope(Packet),
-%			#envelope{channel = "control", event = Event} = Rec,
-%			#event{connect_port = #connectport{cookie = TestCookie}} = Event,
-%			case list_to_binary(TestCookie) of
-%				Cookie -> ok;
-%				_ -> badcookie
-%			end end
-%		catch
-%			What:Why ->
-%				{What,Why}
-%		end,
+		Success = try begin
+			Json = mochijson2:decode(Socket),
+			Rec = json_to_envelope(Json),
+			#envelope{channel = "control", contents = {struct, Event}} = Rec,
+			case proplists:get_value(<<"cookie">>, Event) of
+				Cookie -> ok;
+				_ -> badcookie
+			end end
+		catch
+			What:Why ->
+				{What,Why}
+		end,
 		case Success of
 			ok ->
 				ClientRec = #client_connection{
@@ -235,7 +234,8 @@ service_requests([Binary | Tail], State) ->
 %% ------------------------------------------------------------------
 
 service_request(Binary, State) when is_binary(Binary) ->
-	Rec = precursors_pb:decode_envelope(Binary),
+	Json = mochijson2:decode(Binary),
+	Rec = json_to_envelope(Json),
 	service_request(Rec, State);
 
 service_request(#envelope{channel = "control"} = Envelope, State) ->
@@ -247,8 +247,9 @@ service_request(Request, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_channel(#envelope{id = Id, content= Request}, State) when is_binary(Id) ->
-	service_control_channel_request(Request, State);
+service_control_channel(#envelope{id = Id, contents = Request}, State) when is_binary(Id) ->
+	ReqType = proplists:get_value(<<"type">>, Request),
+	service_control_channel_request(Id, ReqType, Request, State);
 
 service_control_channel(Thing, State) ->
 	?warning("unhandled input:  ~p", [Thing]),
@@ -256,54 +257,60 @@ service_control_channel(Thing, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_channel_request(_, State) ->
-	State.
-%service_control_channel_request(#request{login = Login} = Request, State) when is_record(Login, login) ->
-%	?info("starting authentication"),
-%	% TODO actually ask an authentication system if they should be let in.
-%	#request{id = ReqId} = Request,
-%	#state{cookie = Cookie} = State,
-%	%Cookie = lists:flatten(io_lib:format("~p", [erlang:make_ref()])),
-%	#state{udp_socket = UdpSocket} = State,
-%	{ok, UdpPort} = inet:port(UdpSocket),
-%	LoginRep = #loginreply{
-%		cookie = Cookie,
-%		udp_port = UdpPort,
-%		tcp_port = 6007,
-%		channels = [#channel{channel_name = "control", connection_type = 'SSL'}]
-%	},
-%	Response = #response{
-%		inresponseto = ReqId,
-%		confirm = true,
-%		login = LoginRep
-%	},
-%	OutBin = wrap_for_send("control", Response),
-%	SendRes = ssl:send(State#state.ssl_socket, OutBin),
-%	?debug("authentiation ssl:send result:  ~p", [SendRes]),
-%	State#state{cookie = Cookie, tcp_socket = Cookie,
-%		udp_remote_info = undefined
-%	}.
+service_control_channel_request(Id, <<"login">>, {struct, Props}, State) ->
+	?info("starting authentication"),
+	% TODO actually ask an authentication system if they should be let in.
+	#state{cookie = Cookie} = State,
+	#state{udp_socket = UdpSocket} = State,
+	{ok, UdpPort} = inet:port(UdpSocket),
+	LoginRep = {struct, [
+		{cookie, Cookie},
+		{udp_port, UdpPort},
+		{tcp_port, 6007},
+		{channels = [{struct, [{channel_name, <<"control">>},
+			{connection_type, 'SSL'}]}]}
+	]},
+	Response = #envelope{id = Id, type = response, contents = LoginRep, 
+		channel = <<"control">>},
+	OutBin = wrap_for_send(Response),
+	SendRes = ssl:send(State#state.ssl_socket, OutBin),
+	?debug("authentiation ssl:send result:  ~p", [SendRes]),
+	State#state{cookie = Cookie, tcp_socket = Cookie,
+		udp_remote_info = undefined
+	}.
 
-wrap_for_send(Channel, Recthing) ->
-	Base = #envelope{channel = Channel},
-	OutRec = Base,
-%	OutRec = case Recthing of
-%		X when is_record(X, response) ->
-%			Base#envelope{response = X};
-%		X when is_record(X, request) ->
-%			Base#envelope{request = X};
-%		X when is_record(X, event) ->
-%			Base#envelope{event = X}
-%	end,
-	netstring:encode(encode_envelope(OutRec)).
+wrap_for_send(Recthing) ->
+	Json = envelope_to_json(Recthing),
+	JsonEnc = mochijson2:encode(Json),
+	Binary = list_to_binary(lists:flatten(JsonEnc)),
+	netstring:encode(Binary).
 
 %% ------------------------------------------------------------------
 
-encode_envelope(_) ->
-	<<>>.
+envelope_to_json(Envelope) ->
+	Props = [{<<"type">>, Envelope#envelope.type},
+		{<<"channel">>, Envelope#envelope.channel},
+		{<<"contents">>, Envelope#envelope.contents}
+	],
+	case Envelope#envelope.id of
+		undefined -> {struct, Props};
+		Id -> {struct, [{<<"id">>, Id} | Props]}
+	end.
 
-decode_envelope(_) ->
-	#envelope{}.
+json_to_envelope(Json) when is_binary(Json) ->
+	json_to_envelope(mochijson2:decode(Json));
+
+json_to_envelope({struct, Props}) ->
+	Type = proplists:get_value(<<"type">>, Props, <<>>),
+	Type0 = check_envelope_type(Type),
+	Id = proplists:get_value(<<"id">>, Props),
+	Content = proplists:get_value(<<"contents">>, Props),
+	Channel = proplists:get_value(<<"channel">>, Props),
+	#envelope{type = Type0, id = Id, contents = Content, channel = Channel}.
+
+check_envelope_type(<<"request">>) -> request;
+check_envelope_type(<<"response">>) -> response;
+check_envelope_type(<<"event">>) -> event.
 
 %% ------------------------------------------------------------------
 %% Tests
@@ -312,11 +319,27 @@ decode_envelope(_) ->
 -ifdef(TEST).
 
 json_encode_decode_test_() -> [
-	{"decode event", fun() ->
-		Expected = #envelope{type = request, channel = "goober chan"},
-		Out = decode_envelope(mochijson2:encode({struct, [
-			{<<"mType">>, <<"req">>}, {<<"channel">>, <<"goober chan">>}]})),
+	{"json_to_envelope, simple success", fun() ->
+		Expected = #envelope{type = request, channel = <<"goober chan">>},
+		Out = json_to_envelope({struct, [{<<"type">>, <<"request">>},
+			{<<"channel">>, <<"goober chan">>}]}),
 		?assertEqual(Expected, Out)
+	end},
+
+	{"json_to_envelope, explosion", fun() ->
+		Json = <<"\"not valid json\"">>,
+		?assertError({case_clause, _}, json_to_envelope(Json))
+	end},
+
+	{"envelope_to_json, simple success", fun() ->
+		Expected = lists:sort([{<<"id">>, <<"an id">>},
+			{<<"channel">>, <<"goober chan">>}, {<<"type">>, request},
+			{<<"contents">>, <<"this is a string">>}]),
+		Input = #envelope{type = request, channel = <<"goober chan">>, 
+			id = <<"an id">>, contents = <<"this is a string">>},
+		{struct, Out} = envelope_to_json(Input),
+		Out0 = lists:sort(Out),
+		?assertEqual(Expected, Out0)
 	end}
 	].
 -endif.
