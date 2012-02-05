@@ -95,7 +95,8 @@ handle_cast({send, ssl, Binary}, State) ->
 	ssl:send(Socket, Bin),
 	{noreply, State};
 
-handle_cast({send, udp, _Binary}, #state{udp_remote_info = undefined} = State) ->
+handle_cast({send, udp, Binary}, #state{udp_remote_info = undefined} = State) ->
+	?warning("Tried to send message over UDP before getting UDP sync info: ~p", Binary),
 	{noreply, State};
 
 handle_cast({send, udp, Binary}, State) ->
@@ -155,23 +156,42 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
 	inet:setopts(Socket, [{active, once}]),
 	{noreply, NewState};
 
-handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
-	udp_remote_info = undefined} = State) ->
-		#state{cookie = Cookie} = State,
+handle_info({udp, Socket, Ip, InPortNo, Packet},
+	#state{udp_socket = Socket, udp_remote_info = undefined} = State) ->
+		#state{cookie = Cookie, aes_key = AESKey, aes_vector = AESVector} = State,
 		Success = try begin
-			Json = mochijson2:decode(Socket),
+			% Decrypt message
+			Decrypted = crypto:aes_cbc_128_decrypt(AESKey, AESVector, Packet),
+			% Strip padding added by OpenSSL's AES algorithm.
+			PaddingByteCount = binary:last(Decrypted),
+			Cleaned = binary:part(Decrypted, 0, byte_size(Decrypted) - PaddingByteCount),
+			% Decode JSON message
+			Json = mochijson2:decode(Cleaned),
 			Rec = json_to_envelope(Json),
-			#envelope{channel = "control", contents = {struct, Event}} = Rec,
-			case proplists:get_value(<<"cookie">>, Event) of
-				Cookie -> ok;
-				_ -> badcookie
-			end end
+			#envelope{type = request, channel = <<"control">>, id = MsgID, contents = {struct, Request}} = Rec,
+			case proplists:get_value(<<"type">>, Request) of
+				<<"connect">> ->
+					case proplists:get_value(<<"cookie">>, Request) of
+						Cookie -> ok;
+						_ -> badcookie
+					end;
+				_ -> badrequest
+			end end,
+			% Send response over SSL transport
+			ConnectRep = {struct, [
+				{confirm, true}
+			]},
+			Response = #envelope{type = response, channel = <<"control">>, id = MsgID, contents = ConnectRep},
+			OutBin = wrap_for_send(Response),
+			SendRes = ssl:send(State#state.ssl_socket, OutBin),
+			?debug("UDP connection response ssl:send result:  ~p", [SendRes])
 		catch
 			What:Why ->
 				{What,Why}
 		end,
 		case Success of
 			ok ->
+				% Record this client's information in ETS
 				ClientRec = #client_connection{
 					pid = self(),
 					ssl_socket = State#state.ssl_socket,
@@ -182,6 +202,7 @@ handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 					udp_socket = {Ip, InPortNo}
 				},
 				ets:insert(client_ets, ClientRec),
+				% Record the UDP information in the state
 				State0 = State#state{udp_remote_info = {Ip, InPortNo}},
 				?info("Udp port sync up:  ~p:~p", [Ip, InPortNo]),
 				inet:setopts(Socket, [{active, once}]),
@@ -259,6 +280,7 @@ service_control_channel(Thing, State) ->
 service_control_channel_request(Id, <<"login">>, Request, State) ->
 	?info("starting authentication"),
 	% TODO actually ask an authentication system if they should be let in.
+	% Send login response
 	#state{cookie = Cookie} = State,
 	#state{udp_socket = UdpSocket} = State,
 	{ok, UdpPort} = inet:port(UdpSocket),
@@ -272,7 +294,8 @@ service_control_channel_request(Id, <<"login">>, Request, State) ->
 		channel = <<"control">>},
 	OutBin = wrap_for_send(Response),
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
-	?debug("authentiation ssl:send result:  ~p", [SendRes]),
+	?debug("Login response ssl:send result:  ~p", [SendRes]),
+	% Record login information in state
 	AESKey = base64:decode(proplists:get_value(<<"key">>, Request)),
 	AESVector = base64:decode(proplists:get_value(<<"vector">>, Request)),
 	State#state{
