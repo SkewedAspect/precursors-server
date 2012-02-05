@@ -158,31 +158,7 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
 
 handle_info({udp, Socket, Ip, InPortNo, Packet},
 	#state{udp_socket = Socket, udp_remote_info = undefined} = State) ->
-		#state{cookie = Cookie} = State,
-		Success = try begin
-			% Decrypt message envelope
-			Rec = aes_decrypt_envelope(Packet, State),
-			#envelope{type = request, channel = <<"control">>, id = MsgID, contents = {struct, Request}} = Rec,
-			case proplists:get_value(<<"type">>, Request) of
-				<<"connect">> ->
-					case proplists:get_value(<<"cookie">>, Request) of
-						Cookie -> ok;
-						_ -> badcookie
-					end;
-				_ -> badrequest
-			end end,
-			% Send response over SSL transport
-			ConnectRep = {struct, [
-				{confirm, true}
-			]},
-			Response = #envelope{type = response, channel = <<"control">>, id = MsgID, contents = ConnectRep},
-			OutBin = wrap_for_send(Response),
-			SendRes = ssl:send(State#state.ssl_socket, OutBin),
-			?debug("UDP connection response ssl:send result:  ~p", [SendRes])
-		catch
-			What:Why ->
-				{What,Why}
-		end,
+		Success = handle_connect_message(Packet, State),
 		case Success of
 			ok ->
 				% Record this client's information in ETS
@@ -198,11 +174,11 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 				ets:insert(client_ets, ClientRec),
 				% Record the UDP information in the state
 				State0 = State#state{udp_remote_info = {Ip, InPortNo}},
-				?info("Udp port sync up:  ~p:~p", [Ip, InPortNo]),
+				?info("UDP port sync up:  ~p:~p", [Ip, InPortNo]),
 				inet:setopts(Socket, [{active, once}]),
 				{noreply, State0};
 			Else ->
-				?info("Udp not confirmed:  ~p", [Else]),
+				?info("UDP not confirmed:  ~p", [Else]),
 				inet:setopts(Socket, [{active, once}]),
 				{noreply, State}
 		end;
@@ -215,21 +191,21 @@ handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
 
 handle_info(Info, State) ->
 	?debug("unhandled info:  ~p (~p)", [Info, State]),
-  {noreply, State}.
+	{noreply, State}.
 
 %% ------------------------------------------------------------------
 %% terminate
 %% ------------------------------------------------------------------
 
 terminate(_Reason, _State) ->
-  ok.
+	ok.
 
 %% ------------------------------------------------------------------
 %% code_change
 %% ------------------------------------------------------------------
 
 code_change(_OldVsn, State, _Extra) ->
-  {ok, State}.
+	{ok, State}.
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
@@ -350,6 +326,35 @@ decode_envelope(Packet) ->
 
 aes_decrypt_envelope(Packet, State) ->
 	decode_envelope(aes_decrypt(Packet, State)).
+
+%% ------------------------------------------------------------------
+
+handle_connect_message(Packet, State) ->
+	#state{cookie = Cookie} = State,
+	try begin
+		% Decrypt message envelope
+		Rec = aes_decrypt_envelope(Packet, State),
+		#envelope{type = request, channel = <<"control">>, id = MsgID, contents = {struct, Request}} = Rec,
+		case proplists:get_value(<<"type">>, Request) of
+			<<"connect">> ->
+				case proplists:get_value(<<"cookie">>, Request) of
+					Cookie -> ok;
+					_ -> badcookie
+				end;
+			_ -> badrequest
+		end end,
+		% Send response over SSL transport
+		ConnectRep = {struct, [
+			{confirm, true}
+		]},
+		Response = #envelope{type = response, channel = <<"control">>, id = MsgID, contents = ConnectRep},
+		OutBin = wrap_for_send(Response),
+		SendRes = ssl:send(State#state.ssl_socket, OutBin),
+		?debug("Connect response ssl:send result:  ~p", [SendRes])
+	catch
+		What:Why ->
+			{What,Why}
+	end.
 
 %% ------------------------------------------------------------------
 %% Tests
