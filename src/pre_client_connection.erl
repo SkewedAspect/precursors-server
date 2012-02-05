@@ -158,16 +158,10 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
 
 handle_info({udp, Socket, Ip, InPortNo, Packet},
 	#state{udp_socket = Socket, udp_remote_info = undefined} = State) ->
-		#state{cookie = Cookie, aes_key = AESKey, aes_vector = AESVector} = State,
+		#state{cookie = Cookie} = State,
 		Success = try begin
-			% Decrypt message
-			Decrypted = crypto:aes_cbc_128_decrypt(AESKey, AESVector, Packet),
-			% Strip padding added by OpenSSL's AES algorithm.
-			PaddingByteCount = binary:last(Decrypted),
-			Cleaned = binary:part(Decrypted, 0, byte_size(Decrypted) - PaddingByteCount),
-			% Decode JSON message
-			Json = mochijson2:decode(Cleaned),
-			Rec = json_to_envelope(Json),
+			% Decrypt message envelope
+			Rec = aes_decrypt_envelope(Packet, State),
 			#envelope{type = request, channel = <<"control">>, id = MsgID, contents = {struct, Request}} = Rec,
 			case proplists:get_value(<<"type">>, Request) of
 				<<"connect">> ->
@@ -338,6 +332,24 @@ json_to_envelope({struct, Props}) ->
 check_envelope_type(<<"request">>) -> request;
 check_envelope_type(<<"response">>) -> response;
 check_envelope_type(<<"event">>) -> event.
+
+%% ------------------------------------------------------------------
+
+% Decrypt message
+aes_decrypt(Packet, #state{aes_key = AESKey, aes_vector = AESVector}) ->
+	% Decrypt message
+	Decrypted = crypto:aes_cbc_128_decrypt(AESKey, AESVector, Packet),
+	% Strip padding added by OpenSSL's AES algorithm.
+	PaddingByteCount = binary:last(Decrypted),
+	binary:part(Decrypted, 0, byte_size(Decrypted) - PaddingByteCount).
+
+% Decode JSON message
+decode_envelope(Packet) ->
+	Json = mochijson2:decode(Packet),
+	json_to_envelope(Json).
+
+aes_decrypt_envelope(Packet, State) ->
+	decode_envelope(aes_decrypt(Packet, State)).
 
 %% ------------------------------------------------------------------
 %% Tests
