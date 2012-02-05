@@ -60,7 +60,7 @@ send_ssl(Pid, Binary) -> send(Pid, ssl, Binary).
 %% ------------------------------------------------------------------
 
 init({Socket, Cookie}) ->
-	?info("new client connection"),
+	?info("New client connection"),
 	ssl:setopts(Socket, [{active, once}]),
 	{ok, Udp} = gen_udp:open(0, [{active, once}, binary, {ip, {0,0,0,0}}]),
 	State = #state{
@@ -125,7 +125,7 @@ handle_cast(start_accept_tcp, State) ->
 		end
 	},
 	ets:insert(client_ets, ClientRec),
-	?info("tcp socket set:  ~p", [Socket]),
+	?info("TCP socket set:  ~p", [Socket]),
 	{noreply, State};
 
 handle_cast(_Msg, State) ->
@@ -148,7 +148,7 @@ handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
 	{noreply, NewState};
 
 handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
-	?info("got ssl socket closed; Imma die"),
+	?info("Got SSL socket closed; Imma die"),
 	{stop, normal, State};
 
 handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
@@ -189,12 +189,12 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 
 handle_info({udp, Socket, Ip, InPortNo, Packet},
 	#state{udp_socket = Socket, udp_remote_info = {Ip, InPortNo}} = State) ->
-		?info("Client got udp:  ~p", [Packet]),
+		?info("Client got UDP:  ~p", [Packet]),
 		inet:setopts(Socket, [{active, once}]),
 		{noreply, State};
 
 handle_info(Info, State) ->
-	?debug("unhandled info:  ~p (~p)", [Info, State]),
+	?debug("Unhandled info:  ~p (~p)", [Info, State]),
 	{noreply, State}.
 
 %% ------------------------------------------------------------------
@@ -246,7 +246,7 @@ service_control_channel(#envelope{id = Id, contents = {struct, Request}}, State)
 	service_control_channel_request(Id, ReqType, Request, State);
 
 service_control_channel(Thing, State) ->
-	?warning("unhandled input:  ~p", [Thing]),
+	?warning("Unhandled input:  ~p", [Thing]),
 	State.
 
 %% ------------------------------------------------------------------

@@ -33,7 +33,7 @@ start(Socket) ->
 %% ------------------------------------------------------------------
 
 init(Socket) ->
-	?info("New transient tcp:  ~p", [Socket]),
+	?info("New transient TCP:  ~p", [Socket]),
 	{ok, {Socket, 10}, 500}.
 
 handle_call(Request, From, State) ->
