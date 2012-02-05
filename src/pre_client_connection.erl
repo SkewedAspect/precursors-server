@@ -243,17 +243,17 @@ service_control_channel(Thing, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_message(request, Id, Request, State) ->
+service_control_message(Type, Id, Request, State) when Type =:= request; Type =:= event ->
 	ReqType = proplists:get_value(<<"type">>, Request),
-	service_control_channel_request(Id, ReqType, Request, State);
+	service_control_message(Type, ReqType, Id, Request, State);
 
-service_control_message(Thing, _, Request, State) ->
-	?warning("Unhandled ~p message:  ~p", [Thing, Request]),
+service_control_message(Type, _, Request, State) ->
+	?warning("Unhandled ~p message:  ~p", [Type, Request]),
 	State.
 
 %% ------------------------------------------------------------------
 
-service_control_channel_request(Id, <<"login">>, Request, State) ->
+service_control_message(request, <<"login">>, Id, Request, State) ->
 	?info("starting authentication"),
 	% TODO actually ask an authentication system if they should be let in.
 	% Send login response
@@ -280,7 +280,11 @@ service_control_channel_request(Id, <<"login">>, Request, State) ->
 		udp_remote_info = undefined,
 		aes_key = AESKey,
 		aes_vector = AESVector
-	}.
+	};
+
+service_control_message(event, <<"logout">>, _, _, State) ->
+	?info("Got logout event from client."),
+	State.
 
 %% ------------------------------------------------------------------
 
