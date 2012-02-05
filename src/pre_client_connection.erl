@@ -105,13 +105,9 @@ handle_cast({send, udp, Binary}, State) ->
 	{noreply, State};
 	
 handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
-	Success = handle_connect_message(Message, State),
-	case Success of
-		ok ->
-			?info("TCP port sync up!");
-		Else ->
-			?error("Error handling TCP connect message:  ~p", [Else])
-	end,
+	% Respond to connect message
+	confirm_connect_message(Message, State),
+	% Update state and handle any remaining requests
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
 	NewState = service_requests(Bins, State1),
 	{noreply, NewState};
@@ -338,9 +334,9 @@ aes_decrypt_envelope(Packet, State) ->
 %% ------------------------------------------------------------------
 
 handle_connect_message(Message, State) ->
-	#state{cookie = Cookie, ssl_socket = SSLSocket} = State,
+	#state{cookie = Cookie} = State,
 	try begin
-		#envelope{type = request, channel = <<"control">>, id = MsgID, contents = {struct, Request}} = Message,
+		#envelope{type = request, channel = <<"control">>, contents = {struct, Request}} = Message,
 		case proplists:get_value(<<"type">>, Request) of
 			<<"connect">> ->
 				case proplists:get_value(<<"cookie">>, Request) of
@@ -349,18 +345,26 @@ handle_connect_message(Message, State) ->
 				end;
 			_ -> badrequest
 		end end,
-		% Send response over SSL transport
-		ConnectRep = {struct, [
-			{confirm, true}
-		]},
-		Response = #envelope{type = response, channel = <<"control">>, id = MsgID, contents = ConnectRep},
-		OutBin = wrap_for_send(Response),
-		SendRes = ssl:send(SSLSocket, OutBin),
-		?debug("Connect response ssl:send result:  ~p", [SendRes])
+		confirm_connect_message(Message, State)
 	catch
 		What:Why ->
 			{What,Why}
 	end.
+
+confirm_connect_message(Message, #state{ssl_socket = SSLSocket}) ->
+	confirm_connect_message(Message, SSLSocket);
+
+confirm_connect_message(Message, SSLSocket) ->
+	% Send response over SSL transport
+	#envelope{type = request, channel = <<"control">>, id = MsgID} = Message,
+	ConnectRep = {struct, [
+		{confirm, true}
+	]},
+	Response = #envelope{type = response, channel = <<"control">>, id = MsgID, contents = ConnectRep},
+	OutBin = wrap_for_send(Response),
+	SendRes = ssl:send(SSLSocket, OutBin),
+	?debug("Connect response ssl:send result:  ~p", [SendRes]),
+	SendRes.
 
 %% ------------------------------------------------------------------
 %% Tests
