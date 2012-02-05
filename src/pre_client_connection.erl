@@ -20,8 +20,8 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2,udp/2,set_tcp/4,send/3,send_tcp/2,send_ssl/2,
-	send_udp/2,json_to_envelope/1]).
+-export([start_link/2,start/2,udp/2,set_tcp/5,send/3,send_tcp/2,send_ssl/2,
+	send_udp/2,decode_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -43,8 +43,8 @@ start(Socket, Cookie) ->
 udp(Pid, Msg) ->
 	gen_server:cast(Pid, Msg).
 
-set_tcp(Pid, Socket, Bins, Cont) ->
-	gen_server:cast(Pid, {set_tcp, Socket, Bins, Cont}).
+set_tcp(Pid, Socket, Message, Bins, Cont) ->
+	gen_server:cast(Pid, {set_tcp, Socket, Message, Bins, Cont}).
 
 send(Pid, Socket, Binary) when Socket == udp; Socket == ssl; Socket == tcp ->
 	gen_server:cast(Pid, {send, Socket, Binary}).
@@ -104,7 +104,14 @@ handle_cast({send, udp, Binary}, State) ->
 	gen_udp:send(Sock, Ip, Port, Binary),
 	{noreply, State};
 	
-handle_cast({set_tcp, Socket, Bins, Cont}, State) ->
+handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
+	Success = handle_connect_message(Message, State),
+	case Success of
+		ok ->
+			?info("TCP port sync up!");
+		Else ->
+			?error("Error handling TCP connect message:  ~p", [Else])
+	end,
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
 	NewState = service_requests(Bins, State1),
 	{noreply, NewState};
@@ -158,7 +165,9 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
 
 handle_info({udp, Socket, Ip, InPortNo, Packet},
 	#state{udp_socket = Socket, udp_remote_info = undefined} = State) ->
-		Success = handle_connect_message(Packet, State),
+		% Decrypt message envelope
+		Message = aes_decrypt_envelope(Packet, State),
+		Success = handle_connect_message(Message, State),
 		case Success of
 			ok ->
 				% Record this client's information in ETS
@@ -173,18 +182,17 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 				},
 				ets:insert(client_ets, ClientRec),
 				% Record the UDP information in the state
-				State0 = State#state{udp_remote_info = {Ip, InPortNo}},
-				?info("UDP port sync up:  ~p:~p", [Ip, InPortNo]),
-				inet:setopts(Socket, [{active, once}]),
-				{noreply, State0};
+				NewState = State#state{udp_remote_info = {Ip, InPortNo}},
+				?info("UDP port sync up:  ~p:~p", [Ip, InPortNo]);
 			Else ->
-				?info("UDP not confirmed:  ~p", [Else]),
-				inet:setopts(Socket, [{active, once}]),
-				{noreply, State}
-		end;
+				NewState = State,
+				?info("UDP not confirmed:  ~p", [Else])
+		end,
+		inet:setopts(Socket, [{active, once}]),
+		{noreply, NewState};
 
-handle_info({udp, Socket, Ip, InPortNo, Packet}, #state{udp_socket = Socket,
-	udp_remote_info = {Ip, InPortNo}} = State) ->
+handle_info({udp, Socket, Ip, InPortNo, Packet},
+	#state{udp_socket = Socket, udp_remote_info = {Ip, InPortNo}} = State) ->
 		?info("Client got udp:  ~p", [Packet]),
 		inet:setopts(Socket, [{active, once}]),
 		{noreply, State};
@@ -329,12 +337,10 @@ aes_decrypt_envelope(Packet, State) ->
 
 %% ------------------------------------------------------------------
 
-handle_connect_message(Packet, State) ->
-	#state{cookie = Cookie} = State,
+handle_connect_message(Message, State) ->
+	#state{cookie = Cookie, ssl_socket = SSLSocket} = State,
 	try begin
-		% Decrypt message envelope
-		Rec = aes_decrypt_envelope(Packet, State),
-		#envelope{type = request, channel = <<"control">>, id = MsgID, contents = {struct, Request}} = Rec,
+		#envelope{type = request, channel = <<"control">>, id = MsgID, contents = {struct, Request}} = Message,
 		case proplists:get_value(<<"type">>, Request) of
 			<<"connect">> ->
 				case proplists:get_value(<<"cookie">>, Request) of
@@ -349,7 +355,7 @@ handle_connect_message(Packet, State) ->
 		]},
 		Response = #envelope{type = response, channel = <<"control">>, id = MsgID, contents = ConnectRep},
 		OutBin = wrap_for_send(Response),
-		SendRes = ssl:send(State#state.ssl_socket, OutBin),
+		SendRes = ssl:send(SSLSocket, OutBin),
 		?debug("Connect response ssl:send result:  ~p", [SendRes])
 	catch
 		What:Why ->

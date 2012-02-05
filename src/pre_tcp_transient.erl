@@ -51,15 +51,17 @@ handle_cast(Msg, State) ->
 handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 	case netstring:decode(Packet, InCont) of
 		{[Binary | Tail], Cont} ->
-			Json = mochijson2:decode(Binary),
-			Rec = pre_client_connection:json_to_envelope(Json),
-			#envelope{type = request, channel = <<"control">>, contents = {struct, Request}} = Rec,
+			% Decode message envelope
+			Message = pre_client_connection:decode_envelope(Binary),
+			#envelope{type = request, channel = <<"control">>, contents = {struct, Request}} = Message,
 			Cookie = proplists:get_value(<<"cookie">>, Request),
+			% Look up client PID by cookie in ETS
 			?debug("Checking for cookie:  ~p", [Cookie]),
 			QH = qlc:q([X || #client_connection{tcp_socket = TestCookie} = X <- ets:table(client_ets), TestCookie =:= Cookie]),
 			[#client_connection{pid = Client}] = qlc:e(QH),
+			% Transfer connection ownership to client
 			gen_tcp:controlling_process(Socket, Client),
-			pre_client_connection:set_tcp(Client, Socket, Tail, Cont),
+			pre_client_connection:set_tcp(Client, Socket, Message, Tail, Cont),
 			gen_server:cast(Client, start_accept_tcp),
 			{stop, normal, Socket};
 		{[], Cont} ->
