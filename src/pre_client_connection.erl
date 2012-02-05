@@ -21,7 +21,7 @@
 %% ------------------------------------------------------------------
 
 -export([start_link/2,start/2,udp/2,set_tcp/5,send/3,send_tcp/2,send_ssl/2,
-	send_udp/2,decode_envelope/1]).
+	send_udp/2,json_to_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -109,7 +109,7 @@ handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
 	confirm_connect_message(Message, State),
 	% Update state and handle any remaining requests
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
-	NewState = service_requests(Bins, State1),
+	NewState = service_messages(Bins, State1),
 	{noreply, NewState};
 
 handle_cast(start_accept_tcp, State) ->
@@ -135,15 +135,10 @@ handle_cast(_Msg, State) ->
 %% handle_info
 %% ------------------------------------------------------------------
 
-handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket} = State) ->
-	{Bins, SSLNetstring} = case State#state.ssl_netstring of
-		undefined ->
-			netstring:decode(Packet);
-		Cont ->
-			netstring:decode(Packet, Cont)
-	end,
+handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket, ssl_netstring = Cont} = State) ->
+	{Bins, SSLNetstring} = parse_netstring(Packet, Cont),
 	State1 = State#state{ssl_netstring = SSLNetstring},
-	NewState = service_requests(Bins, State1),
+	NewState = service_messages(Bins, State1),
 	ssl:setopts(Socket, [{active, once}, binary]),
 	{noreply, NewState};
 
@@ -151,11 +146,10 @@ handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
 	?info("Got SSL socket closed; Imma die"),
 	{stop, normal, State};
 
-handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket} = State) ->
-	#state{tcp_netstring = Cont} = State,
-	{Bins, Cont1} = netstring:decode(Packet, Cont),
-	State1 = State#state{tcp_netstring = Cont1},
-	NewState = service_requests(Bins, State1),
+handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket, tcp_netstring = Cont} = State) ->
+	{Bins, TCPNetstring} = parse_netstring(Packet, Cont),
+	State1 = State#state{tcp_netstring = TCPNetstring},
+	NewState = service_messages(Bins, State1),
 	inet:setopts(Socket, [{active, once}]),
 	{noreply, NewState};
 
@@ -215,38 +209,46 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal Function Definitions
 %% ------------------------------------------------------------------
 
-service_requests([], State) ->
+service_messages([], State) ->
 	State;
-service_requests([Binary | Tail], State) ->
-	NewState = service_request(Binary, State),
-	service_requests(Tail, NewState).
+service_messages([Binary | Tail], State) ->
+	NewState = service_message(Binary, State),
+	service_messages(Tail, NewState).
 
 %% ------------------------------------------------------------------
 
-service_request(Binary, State) when is_binary(Binary) ->
-	Json = mochijson2:decode(Binary),
-	Rec = json_to_envelope(Json),
-	service_request(Rec, State);
+service_message(Binary, State) when is_binary(Binary) ->
+	Rec = json_to_envelope(Binary),
+	service_message(Rec, State);
 
-service_request(#envelope{channel = <<"control">>} = Envelope, State) ->
+service_message(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
-service_request(#envelope{} = Envelope, State) ->
+service_message(#envelope{} = Envelope, State) ->
 	?warning("Unhandled reqeust:  ~p", [Envelope]),
 	State;
 
-service_request(Request, State) ->
+service_message(Request, State) ->
 	?warning("Unhandled request with invalid envelope:  ~p", [Request]),
 	State.
 
 %% ------------------------------------------------------------------
 
-service_control_channel(#envelope{id = Id, contents = {struct, Request}}, State) ->
-	ReqType = proplists:get_value(<<"type">>, Request),
-	service_control_channel_request(Id, ReqType, Request, State);
+service_control_channel(#envelope{type = Type, id = Id, contents = {struct, Request}}, State) ->
+	service_control_message(Type, Id, Request, State);
 
 service_control_channel(Thing, State) ->
 	?warning("Unhandled input:  ~p", [Thing]),
+	State.
+
+%% ------------------------------------------------------------------
+
+service_control_message(request, Id, Request, State) ->
+	ReqType = proplists:get_value(<<"type">>, Request),
+	service_control_channel_request(Id, ReqType, Request, State);
+
+service_control_message(Thing, _, Request, State) ->
+	?warning("Unhandled ~p message:  ~p", [Thing, Request]),
 	State.
 
 %% ------------------------------------------------------------------
@@ -280,6 +282,8 @@ service_control_channel_request(Id, <<"login">>, Request, State) ->
 		aes_vector = AESVector
 	}.
 
+%% ------------------------------------------------------------------
+
 wrap_for_send(Recthing) ->
 	Json = envelope_to_json(Recthing),
 	JsonEnc = mochijson2:encode(Json),
@@ -287,6 +291,13 @@ wrap_for_send(Recthing) ->
 	netstring:encode(Binary).
 
 %% ------------------------------------------------------------------
+
+parse_netstring(Packet, Continuation) ->
+	netstring:decode(Packet, case Continuation of
+			undefined -> 10;
+			_ -> Continuation
+		end
+	).
 
 envelope_to_json(Envelope) ->
 	Props = [{<<"type">>, Envelope#envelope.type},
@@ -324,12 +335,8 @@ aes_decrypt(Packet, #state{aes_key = AESKey, aes_vector = AESVector}) ->
 	binary:part(Decrypted, 0, byte_size(Decrypted) - PaddingByteCount).
 
 % Decode JSON message
-decode_envelope(Packet) ->
-	Json = mochijson2:decode(Packet),
-	json_to_envelope(Json).
-
 aes_decrypt_envelope(Packet, State) ->
-	decode_envelope(aes_decrypt(Packet, State)).
+	json_to_envelope(aes_decrypt(Packet, State)).
 
 %% ------------------------------------------------------------------
 
