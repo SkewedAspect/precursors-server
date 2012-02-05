@@ -4,7 +4,6 @@
 
 -include("log.hrl").
 -include("pre_client.hrl").
--include("precursors_pb.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% ------------------------------------------------------------------
@@ -37,8 +36,8 @@ init(Socket) ->
 	?info("New transient tcp:  ~p", [Socket]),
 	{ok, {Socket, 10}, 500}.
 
-handle_call(Request, _From, State) ->
-	?debug("unhandled call ~p", [Request]),
+handle_call(Request, From, State) ->
+	?debug("Unhandled call from ~p:  ~p", [From, Request]),
 	{noreply, ok, State}.
 
 handle_cast(start_accept, {Socket, _}) ->
@@ -46,16 +45,16 @@ handle_cast(start_accept, {Socket, _}) ->
 	{noreply, {Socket, 10}, 5000};
 
 handle_cast(Msg, State) ->
-	?debug("unhandled cast:  ~p", [Msg]),
+	?debug("Unhandled cast:  ~p", [Msg]),
 	{noreply, State}.
 
 handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 	case netstring:decode(Packet, InCont) of
-		{[Bin | Tail], Cont} ->
-			Rec = precursors_pb:decode_envelope(Bin),
-			#envelope{channel = "control", event = Event} = Rec,
-			#event{connect_port = #connectport{cookie = MidCookie}} = Event,
-			Cookie = list_to_binary(MidCookie),
+		{[Binary | Tail], Cont} ->
+			Json = mochijson2:decode(Binary),
+			Rec = pre_client_connection:json_to_envelope(Json),
+			#envelope{type = request, channel = <<"control">>, contents = {struct, Request}} = Rec,
+			Cookie = proplists:get_value(<<"cookie">>, Request),
 			?debug("Checking for cookie:  ~p", [Cookie]),
 			QH = qlc:q([X || #client_connection{tcp_socket = TestCookie} = X <- ets:table(client_ets), TestCookie =:= Cookie]),
 			[#client_connection{pid = Client}] = qlc:e(QH),
@@ -67,16 +66,16 @@ handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 			inet:setopts(Socket, [{active, once}]),
 			{noreply, {Socket, Cont}, 5000};
 		Abuh ->
-			?warning("netstring decode exploded:  ~p", [Abuh]),
+			?warning("Netstring decode exploded:  ~p", [Abuh]),
 			{stop, invalid_cookie, Socket}
 	end;
 
 handle_info(timeout, State) ->
-	?warning("client (or ancestor) did not respond in time"),
+	?warning("Client (or ancestor) did not respond in time"),
 	{stop, timeout, State};
 
 handle_info(Info, State) ->
-	?debug("unhandled info:  ~p", [Info]),
+	?debug("Unhandled info:  ~p", [Info]),
 	{noreply, State}.
 
 terminate(_Reason, _State) ->

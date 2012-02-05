@@ -2,7 +2,6 @@
 -behaviour(gen_server).
 
 -include("log.hrl").
-%-include("precursors_pb.hrl").
 -include("pre_client.hrl").
 
 -record(state, {
@@ -12,25 +11,17 @@
 	tcp_socket,
 	tcp_netstring,
 	udp_socket,
-	udp_remote_info :: binary() | {string(), integer()} | 'undefined'
+	udp_remote_info :: binary() | {string(), integer()} | 'undefined',
+	aes_key :: binary(),
+	aes_vector :: binary()
 }).
-
--type(message_type() :: 'request' | 'response' | 'event').
--type(message_id() :: 'undefined' | integer()).
--type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()] | null | true | false).
--record(envelope, {
-		type :: message_type(),
-		id :: message_id(),
-		channel :: binary(),
-		contents :: json()
-	}).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
 %% ------------------------------------------------------------------
 
 -export([start_link/2,start/2,udp/2,set_tcp/4,send/3,send_tcp/2,send_ssl/2,
-	send_udp/2]).
+	send_udp/2,json_to_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -282,8 +273,14 @@ service_control_channel_request(Id, <<"login">>, Request, State) ->
 	OutBin = wrap_for_send(Response),
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
 	?debug("authentiation ssl:send result:  ~p", [SendRes]),
-	State#state{cookie = Cookie, tcp_socket = Cookie,
-		udp_remote_info = undefined
+	AESKey = base64:decode(proplists:get_value(<<"key">>, Request)),
+	AESVector = base64:decode(proplists:get_value(<<"vector">>, Request)),
+	State#state{
+		cookie = Cookie,
+		tcp_socket = Cookie,
+		udp_remote_info = undefined,
+		aes_key = AESKey,
+		aes_vector = AESVector
 	}.
 
 wrap_for_send(Recthing) ->
