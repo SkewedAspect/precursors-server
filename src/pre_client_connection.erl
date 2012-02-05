@@ -16,10 +16,14 @@
 }).
 
 -type(message_type() :: 'request' | 'response' | 'event').
--type(message_id() :: 'undefined' | binary()).
--type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()]).
--record(envelope, {type :: message_type(), id :: message_id(),
-	channel :: binary(), contents :: json()}).
+-type(message_id() :: 'undefined' | integer()).
+-type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()] | null | true | false).
+-record(envelope, {
+		type :: message_type(),
+		id :: message_id(),
+		channel :: binary(),
+		contents :: json()
+	}).
 
 %% ------------------------------------------------------------------
 %% API Function Exports
@@ -238,16 +242,20 @@ service_request(Binary, State) when is_binary(Binary) ->
 	Rec = json_to_envelope(Json),
 	service_request(Rec, State);
 
-service_request(#envelope{channel = "control"} = Envelope, State) ->
+service_request(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
+service_request(#envelope{} = Envelope, State) ->
+	?warning("Unhandled reqeust:  ~p", [Envelope]),
+	State;
+
 service_request(Request, State) ->
-	?warning("Unhandled reqeust:  ~p", [Request]),
+	?warning("Unhandled request with invalid envelope:  ~p", [Request]),
 	State.
 
 %% ------------------------------------------------------------------
 
-service_control_channel(#envelope{id = Id, contents = Request}, State) when is_binary(Id) ->
+service_control_channel(#envelope{id = Id, contents = {struct, Request}}, State) ->
 	ReqType = proplists:get_value(<<"type">>, Request),
 	service_control_channel_request(Id, ReqType, Request, State);
 
@@ -257,18 +265,17 @@ service_control_channel(Thing, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_channel_request(Id, <<"login">>, {struct, Props}, State) ->
+service_control_channel_request(Id, <<"login">>, Request, State) ->
 	?info("starting authentication"),
 	% TODO actually ask an authentication system if they should be let in.
 	#state{cookie = Cookie} = State,
 	#state{udp_socket = UdpSocket} = State,
 	{ok, UdpPort} = inet:port(UdpSocket),
 	LoginRep = {struct, [
+		{confirm, true},
 		{cookie, Cookie},
-		{udp_port, UdpPort},
-		{tcp_port, 6007},
-		{channels = [{struct, [{channel_name, <<"control">>},
-			{connection_type, 'SSL'}]}]}
+		{udpPort, UdpPort},
+		{tcpPort, 6007}
 	]},
 	Response = #envelope{id = Id, type = response, contents = LoginRep, 
 		channel = <<"control">>},
