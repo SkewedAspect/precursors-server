@@ -301,12 +301,10 @@ wrap_for_send(Recthing) ->
 
 %% ------------------------------------------------------------------
 
+parse_netstring(Packet, undefined) ->
+	parse_netstring(Packet, 10);
 parse_netstring(Packet, Continuation) ->
-	netstring:decode(Packet, case Continuation of
-			undefined -> 10;
-			_ -> Continuation
-		end
-	).
+	netstring:decode(Packet, Continuation).
 
 envelope_to_json(Envelope) ->
 	Props = [{<<"type">>, Envelope#envelope.type},
