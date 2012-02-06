@@ -35,7 +35,7 @@
 %% ------------------------------------------------------------------
 
 start_link(Socket, Cookie) ->
-  gen_server:start_link(?MODULE, {Socket, Cookie}, []).
+	gen_server:start_link(?MODULE, {Socket, Cookie}, []).
 
 start(Socket, Cookie) ->
 	gen_server:start(?MODULE, {Socket, Cookie}, {}).
@@ -68,20 +68,21 @@ init({Socket, Cookie}) ->
 		cookie = Cookie,
 		udp_socket = Udp
 	},
-  {ok, State}.
+	{ok, State, 1000}.
 
 %% ------------------------------------------------------------------
 %% handle_call
 %% ------------------------------------------------------------------
 
 handle_call(_Request, _From, State) ->
-  {noreply, ok, State}.
+	{noreply, ok, State}.
 
 %% ------------------------------------------------------------------
 %% handle_cast
 %% ------------------------------------------------------------------
 
-handle_cast({send, tcp, _Binary}, #state{tcp_socket = undefined} = State) ->
+handle_cast({send, tcp, Binary}, #state{tcp_socket = undefined} = State) ->
+	?warning("Tried to send message over TCP before getting TCP sync info: ~p", Binary),
 	{noreply, State};
 
 handle_cast({send, tcp, Binary}, State) ->
@@ -103,7 +104,7 @@ handle_cast({send, udp, Binary}, State) ->
 	#state{udp_socket = Sock, udp_remote_info = {Ip, Port}} = State,
 	gen_udp:send(Sock, Ip, Port, Binary),
 	{noreply, State};
-	
+
 handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
 	% Respond to connect message
 	confirm_connect_message(Message, State),
@@ -129,7 +130,7 @@ handle_cast(start_accept_tcp, State) ->
 	{noreply, State};
 
 handle_cast(_Msg, State) ->
-  {noreply, State}.
+	{noreply, State}.
 
 %% ------------------------------------------------------------------
 %% handle_info
@@ -186,6 +187,10 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 		?info("Client got UDP:  ~p", [Packet]),
 		inet:setopts(Socket, [{active, once}]),
 		{noreply, State};
+
+handle_info(timeout, State) ->
+	?warning("Client did not respond in time; disconnecting."),
+	{stop, timeout, State};
 
 handle_info(Info, State) ->
 	?debug("Unhandled info:  ~p (~p)", [Info, State]),
@@ -284,7 +289,7 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 
 service_control_message(event, <<"logout">>, _, _, State) ->
 	?info("Got logout event from client."),
-	State.
+	{State, 100}.
 
 %% ------------------------------------------------------------------
 
