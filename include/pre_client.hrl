@@ -6,7 +6,7 @@
 }).
 
 -type(message_type() :: 'request' | 'response' | 'event').
--type(message_id() :: 'undefined' | integer()).
+-type(message_id() :: any()).
 -type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()] | null | true | false).
 -record(envelope, {
 	type :: message_type(),
