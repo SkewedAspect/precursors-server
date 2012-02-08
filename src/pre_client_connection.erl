@@ -282,7 +282,6 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 	AESVector = base64:decode(proplists:get_value(<<"vector">>, Request)),
 	State#state{
 		cookie = Cookie,
-		tcp_socket = Cookie,
 		udp_remote_info = undefined,
 		aes_key = AESKey,
 		aes_vector = AESVector
