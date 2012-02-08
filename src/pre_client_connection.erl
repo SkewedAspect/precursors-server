@@ -13,7 +13,8 @@
 	udp_socket,
 	udp_remote_info :: binary() | {string(), integer()} | 'undefined',
 	aes_key :: binary(),
-	aes_vector :: binary()
+	aes_vector :: binary(),
+	channel_mgr :: pid()
 }).
 
 %% ------------------------------------------------------------------
@@ -100,9 +101,9 @@ handle_cast({send, udp, Type, Channel, Json}, #state{udp_remote_info = undefined
 	{noreply, State};
 
 handle_cast({send, udp, Type, Channel, Json}, State) ->
-	#state{udp_socket = Sock, udp_remote_info = {Ip, Port}} = State,
+	#state{udp_socket = Socket, udp_remote_info = {Ip, Port}} = State,
 	Bin = build_message(Type, Channel, Json),
-	gen_udp:send(Sock, Ip, Port, Bin),
+	gen_udp:send(Socket, Ip, Port, Bin),
 	{noreply, State};
 
 handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
@@ -159,8 +160,8 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 		% Decrypt message envelope
 		Message = aes_decrypt_envelope(Packet, State),
 		Success = handle_connect_message(Message, State),
-		case Success of
-			ok ->
+		State1 = case Success of
+			{ok, State0} ->
 				% Record this client's information in ETS
 				ClientRec = #client_connection{
 					pid = self(),
@@ -172,15 +173,15 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 					udp_socket = {Ip, InPortNo}
 				},
 				ets:insert(client_ets, ClientRec),
+				?info("UDP port sync up:  ~p:~p", [Ip, InPortNo]),
 				% Record the UDP information in the state
-				NewState = State#state{udp_remote_info = {Ip, InPortNo}},
-				?info("UDP port sync up:  ~p:~p", [Ip, InPortNo]);
+				State0#state{udp_remote_info = {Ip, InPortNo}};
 			Else ->
-				NewState = State,
-				?info("UDP not confirmed:  ~p", [Else])
+				?info("UDP not confirmed:  ~p", [Else]),
+				State
 		end,
 		inet:setopts(Socket, [{active, once}]),
-		{noreply, NewState};
+		{noreply, State1};
 
 handle_info({udp, Socket, Ip, InPortNo, Packet},
 	#state{udp_socket = Socket, udp_remote_info = {Ip, InPortNo}} = State) ->
@@ -287,9 +288,9 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 		aes_vector = AESVector
 	};
 
-service_control_message(event, <<"logout">>, _, _, State) ->
+service_control_message(event, <<"logout">>, _, _, _) ->
 	?info("Got logout event from client."),
-	{State, 100}.
+	exit(normal).
 
 %% ------------------------------------------------------------------
 
@@ -380,10 +381,8 @@ handle_connect_message(Message, State) ->
 			{What,Why}
 	end.
 
-confirm_connect_message(Message, #state{ssl_socket = SSLSocket}) ->
-	confirm_connect_message(Message, SSLSocket);
-
-confirm_connect_message(Message, SSLSocket) ->
+confirm_connect_message(Message, State) ->
+	#state{ssl_socket = SSLSocket, tcp_socket = TCPSocket, udp_socket = UDPSocket} = State,
 	% Send response over SSL transport
 	#envelope{type = request, channel = <<"control">>, id = MsgID} = Message,
 	ConnectRep = {struct, [
@@ -393,7 +392,18 @@ confirm_connect_message(Message, SSLSocket) ->
 	OutBin = wrap_for_send(Response),
 	SendRes = ssl:send(SSLSocket, OutBin),
 	?debug("Connect response ssl:send result:  ~p", [SendRes]),
-	SendRes.
+	?info("TCPSocket, UDPSocket: ~p, ~p", [TCPSocket, UDPSocket]),
+	case {TCPSocket, UDPSocket} of
+		{undefined, _} ->
+			{ok, State};
+		{_, undefined} ->
+			{ok, State};
+		_ ->
+			{ok, ChannelMgr} = pre_client_channels:start_link(),
+			NewState = State#state{channel_mgr = ChannelMgr},
+			?info("Started pre_client_channels at ~p", [ChannelMgr]),
+			{ok, NewState}
+	end.
 
 %% ------------------------------------------------------------------
 %% Tests
