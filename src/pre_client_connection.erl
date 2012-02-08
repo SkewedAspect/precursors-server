@@ -20,8 +20,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2,udp/2,set_tcp/5,send/3,send_tcp/2,send_ssl/2,
-	send_udp/2,json_to_envelope/1]).
+-export([start_link/2,start/2,udp/2,set_tcp/5,send/5,json_to_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -46,14 +45,15 @@ udp(Pid, Msg) ->
 set_tcp(Pid, Socket, Message, Bins, Cont) ->
 	gen_server:cast(Pid, {set_tcp, Socket, Message, Bins, Cont}).
 
-send(Pid, Socket, Binary) when Socket == udp; Socket == ssl; Socket == tcp ->
-	gen_server:cast(Pid, {send, Socket, Binary}).
+-spec(send/5 :: (Pid :: pid(), Socket :: 'udp' | 'ssl' | 'tcp', Type :: 'request' | {'response', message_id()}
+		| 'event' | {'request', message_id()}, Channel :: binary(), Json :: json()) -> 'ok' | message_id()).
+send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
+	Id = generate_id(),
+	send(Pid, Socket, {request, Id}, Channel, Json),
+	Id;
 
-send_tcp(Pid, Binary) -> send(Pid, tcp, Binary).
-
-send_udp(Pid, Binary) -> send(Pid, udp, Binary).
-
-send_ssl(Pid, Binary) -> send(Pid, ssl, Binary).
+send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
+	gen_server:cast(Pid, {send, Socket, Type, Channel, Json}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -81,28 +81,28 @@ handle_call(_Request, _From, State) ->
 %% handle_cast
 %% ------------------------------------------------------------------
 
-handle_cast({send, tcp, Binary}, #state{tcp_socket = undefined} = State) ->
-	?warning("Tried to send message over TCP before getting TCP sync info: ~p", Binary),
+handle_cast({send, tcp, Type, Channel, Json}, #state{tcp_socket = undefined} = State) ->
+	?warning("Tried to send ~p message for channel ~p over TCP before getting TCP sync info: ~p", [Type, Channel, Json]),
 	{noreply, State};
 
-handle_cast({send, tcp, Binary}, State) ->
-	Bin = netstring:encode(Binary),
+handle_cast({send, tcp, Type, Channel, Json}, State) ->
+	Bin = build_message(Type, Channel, Json),
 	gen_tcp:send(State#state.tcp_socket, Bin),
 	{noreply, State};
 
-handle_cast({send, ssl, Binary}, State) ->
-	#state{ssl_socket = Socket} = State,
-	Bin = netstring:encode(Binary),
-	ssl:send(Socket, Bin),
+handle_cast({send, ssl, Type, Channel, Json}, State) ->
+	Bin = build_message(Type, Channel, Json),
+	ssl:send(State#state.ssl_socket, Bin),
 	{noreply, State};
 
-handle_cast({send, udp, Binary}, #state{udp_remote_info = undefined} = State) ->
-	?warning("Tried to send message over UDP before getting UDP sync info: ~p", Binary),
+handle_cast({send, udp, Type, Channel, Json}, #state{udp_remote_info = undefined} = State) ->
+	?warning("Tried to send ~p message for channel ~p over UDP before getting TCP sync info: ~p", [Type, Channel, Json]),
 	{noreply, State};
 
-handle_cast({send, udp, Binary}, State) ->
+handle_cast({send, udp, Type, Channel, Json}, State) ->
 	#state{udp_socket = Sock, udp_remote_info = {Ip, Port}} = State,
-	gen_udp:send(Sock, Ip, Port, Binary),
+	Bin = build_message(Type, Channel, Json),
+	gen_udp:send(Sock, Ip, Port, Bin),
 	{noreply, State};
 
 handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
@@ -293,6 +293,20 @@ service_control_message(event, <<"logout">>, _, _, State) ->
 
 %% ------------------------------------------------------------------
 
+generate_id() ->
+	IdRef = erlang:make_ref(),
+	IdList = io_lib:format("~p", [IdRef]),
+	Id = list:flatten(IdList),
+	list_to_binary(Id).
+
+build_message({Type, Id}, Channel, Json) ->
+	Response = #envelope{id = Id, type = Type, contents = Json, channel = Channel},
+	wrap_for_send(Response);
+
+build_message(Type, Channel, Json) ->
+	Response = #envelope{id = generate_id(), type = Type, contents = Json, channel = Channel},
+	wrap_for_send(Response).
+
 wrap_for_send(Recthing) ->
 	Json = envelope_to_json(Recthing),
 	JsonEnc = mochijson2:encode(Json),
@@ -307,11 +321,12 @@ parse_netstring(Packet, Continuation) ->
 	netstring:decode(Packet, Continuation).
 
 envelope_to_json(Envelope) ->
-	Props = [{<<"type">>, Envelope#envelope.type},
-		{<<"channel">>, Envelope#envelope.channel},
-		{<<"contents">>, Envelope#envelope.contents}
+	#envelope{type = Type, channel = Channel, contents = Contents, id = Id} = Envelope,
+	Props = [{<<"type">>, Type},
+		{<<"channel">>, Channel},
+		{<<"contents">>, Contents}
 	],
-	case Envelope#envelope.id of
+	case Id of
 		undefined -> {struct, Props};
 		Id -> {struct, [{<<"id">>, Id} | Props]}
 	end.
@@ -323,9 +338,9 @@ json_to_envelope({struct, Props}) ->
 	Type = proplists:get_value(<<"type">>, Props, <<>>),
 	Type0 = check_envelope_type(Type),
 	Id = proplists:get_value(<<"id">>, Props),
-	Content = proplists:get_value(<<"contents">>, Props),
+	Contents = proplists:get_value(<<"contents">>, Props),
 	Channel = proplists:get_value(<<"channel">>, Props),
-	#envelope{type = Type0, id = Id, contents = Content, channel = Channel}.
+	#envelope{type = Type0, id = Id, contents = Contents, channel = Channel}.
 
 check_envelope_type(<<"request">>) -> request;
 check_envelope_type(<<"response">>) -> response;
