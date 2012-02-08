@@ -25,7 +25,7 @@ set_channel(Mgr, Channel, Module, Info) ->
 	gen_event:add_handler(Mgr, {?MODULE, Channel}, {Channel, Module, Info}).
 
 set_sup_channel(Mgr, Channel, Module, Info) ->
-	gen_event:add_handler(Mgr, {?MODULE, Channel}, {Channel, Module, Info}).
+	gen_event:add_sup_handler(Mgr, {?MODULE, Channel}, {Channel, Module, Info}).
 
 drop_channel(Mgr, Channel) ->
 	gen_event:delete_handler(Mgr, {?MODULE, Channel}).
@@ -94,15 +94,15 @@ code_change(_OldVsn, State, _Extra) ->
 handle_return(remove_handler, _Msg, _State) ->
 	remove_handler;
 
-handle_return({ok, NewInfo}, _Msg, {Chan, Mod, _State}) ->
-	{ok, {Chan, Mod, NewInfo}};
+handle_return({ok, NewChannelState}, _Msg, {Chan, Mod, _OldChannelState}) ->
+	{ok, {Chan, Mod, NewChannelState}};
 
-handle_return({ok, NewState, hibernate}, _Msg, {Chan, Mod, State}) ->
-	{ok, {Chan, Mod, NewState}, hibernate};
+handle_return({ok, NewChannelState, hibernate}, _Msg, {Chan, Mod, _OldChannelState}) ->
+	{ok, {Chan, Mod, NewChannelState}, hibernate};
 
-handle_return({swap_handler, Args1, NewInfo, NewMod, NewModInfo}, _Msg, {Chan, Mod, OldInfo}) ->
+handle_return({swap_handler, Args1, NewInfo, NewMod, NewChannelState}, _Msg, {Chan, Mod, _OldChannelState}) ->
 	NewState = {Chan, Mod, NewInfo},
-	{swap_handler, Args1, NewState, {?MODULE, Chan}, {Chan, NewMod, NewModInfo}};
+	{swap_handler, Args1, NewState, {?MODULE, Chan}, {Chan, NewMod, NewChannelState}};
 
 handle_return({reply, Payload}, {request, Client, Channel, Id, _}, State) ->
 	pre_client_connection:send_reply(Id, Payload),
