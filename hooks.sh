@@ -5,16 +5,6 @@ function pre_compile {
 		mkdir ebin
 	fi
 	
-	for file in common/protos/*.proto
-	do
-		nameBase=`echo "$file" | sed -e "s/^commons\/protos\///"`
-		nameBase="src/${nameBase}"
-		if [ ! -e $nameBase -o $file -nt $nameBase ]
-		then
-			cp $file src/
-		fi
-	done
-	
 	# hack for reltool
 	if [ ! -d precursors_server ]; then
 		mkdir precursors_server
