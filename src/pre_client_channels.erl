@@ -6,6 +6,8 @@
 
 -include("log.hrl").
 
+% behavior
+-export([behaviour_info/1]).
 % gen_event
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2,
 	code_change/3]).
@@ -18,13 +20,13 @@
 %% pre_client_channels behavior
 %% -------------------------------------------------------------------
 
-behavior_info(callbacks) ->
+behaviour_info(callbacks) ->
 	[{init, 1},
 		{client_request, 3},
 		{client_response, 4},
 		{client_event, 3}];
 
-behavior_info(_) ->
+behaviour_info(_) ->
 	undefined.
 
 %% -------------------------------------------------------------------
