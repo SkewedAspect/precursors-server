@@ -6,8 +6,6 @@
 
 -include("log.hrl").
 
-% behavior
--export([behaviour_info/1]).
 % gen_event
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2,
 	code_change/3]).
@@ -15,19 +13,6 @@
 -export([start_link/0, set_channel/4, set_sup_channel/4, drop_channel/2]).
 % non-public api
 -export([handle_request/5, handle_response/5, handle_event/4]).
-
-%% -------------------------------------------------------------------
-%% pre_client_channels behavior
-%% -------------------------------------------------------------------
-
-behaviour_info(callbacks) ->
-	[{init, 1},
-		{client_request, 3},
-		{client_response, 4},
-		{client_event, 3}];
-
-behaviour_info(_) ->
-	undefined.
 
 %% -------------------------------------------------------------------
 %% api
