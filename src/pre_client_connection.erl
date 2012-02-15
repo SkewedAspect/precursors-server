@@ -74,7 +74,7 @@ init({Socket, Cookie}) ->
 		udp_socket = Udp,
 		client_info = ClientInfo
 	},
-	pre_hooks:async_trigger_hooks(client_connected, [ClientInfo]),
+	pre_hooks:async_trigger_hooks(client_connected, [ClientInfo], all),
 	{ok, State, 1000}.
 
 %% ------------------------------------------------------------------
@@ -305,7 +305,7 @@ service_control_message(event, <<"logout">>, _, _, _) ->
 generate_id() ->
 	IdRef = erlang:make_ref(),
 	IdList = io_lib:format("~p", [IdRef]),
-	Id = list:flatten(IdList),
+	Id = lists:flatten(IdList),
 	list_to_binary(Id).
 
 build_message({Type, Id}, Channel, Json) ->
@@ -416,7 +416,7 @@ confirm_connect_message(Message, State) ->
 				client_info = NewClientInfo
 			},
 			?info("Started pre_client_channels at ~p", [ChannelMgr]),
-			pre_hooks:async_trigger_hooks(client_logged_in, [NewClientInfo]),
+			pre_hooks:async_trigger_hooks(client_logged_in, [NewClientInfo], all),
 			{ok, NewState}
 	end.
 
