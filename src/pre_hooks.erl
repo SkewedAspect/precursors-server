@@ -31,10 +31,10 @@ add_hook(Hook, Mod, Func, Info) ->
 
 add_hook(Hook, Mod, Func, Info, Nodes) ->
 	Pid = self(),
-	gen_server:cast(cpx_hooks, {add_hook, Pid, Hook, Mod, Func, Info, Nodes}).
+	gen_server:cast(?MODULE, {add_hook, Pid, Hook, Mod, Func, Info, Nodes}).
 
 drop_hook(Pid) ->
-	gen_server:cast(cpx_hooks, {drop_hook, Pid}).
+	gen_server:cast(?MODULE, {drop_hook, Pid}).
 
 trigger_hooks(Hook, Args) ->
 	trigger_hooks(Hook, Args, first).
@@ -49,7 +49,7 @@ trigger_hooks(Hook, Args, Mode) ->
 		first -> first;
 		all -> []
 	end,
-	run_hooks(Hooks, Args, Mode).
+	run_hooks(Hooks, Args, Acc).
 
 async_trigger_hooks(Hook, Args) ->
 	async_trigger_hooks(Hook, Args, first).
@@ -102,7 +102,7 @@ handle_cast(_, State) ->
 %% handle_info
 %% -------------------------------------------------------------------
 
-handle_info({'DOWN', _Monref, process, Pid, Reason}, State) ->
+handle_info({'DOWN', _Monref, process, Pid, _Reason}, State) ->
 	ets:delete(?MODULE, Pid),
 	{noreply, State};
 
@@ -113,7 +113,7 @@ handle_info(_, State) ->
 %% terminate
 %% -------------------------------------------------------------------
 
-terminate(Reason, State) ->
+terminate(Reason, _State) ->
 	?info("And so I die:  ~p", [Reason]).
 
 %% -------------------------------------------------------------------
@@ -130,18 +130,21 @@ code_change(_OldVsn, State, _Extra) ->
 run_hooks([], _Args, first) ->
 	{error, not_handled};
 
-run_hooks([HookRec | Tail], Args, Mode) ->
+run_hooks([HookRec | Tail], Args, Acc) ->
 	#hook{mod = Mod, func = Func, info = Info} = HookRec,
-	try erlang:apply(Mode, Func, [Info | Args]) of
-		{ok, Val} when Mode == first ->
+	try erlang:apply(Mod, Func, [Info | Args]) of
+		{ok, Val} when Acc == first ->
 			{ok, Val};
 		{ok, Val} ->
-			run_hooks(Tail, Args, [Val | Mode]);
+			run_hooks(Tail, Args, [Val | Acc]);
 		Else ->
 			?debug("hook returned bad value:  ~p.  Hook:  ~p", [Else, HookRec]),
-			run_hooks(Tail, Args, Mode)
+			run_hooks(Tail, Args, Acc)
 	catch
 		What:Why ->
 			?notice("Hook errored:  ~p:~p.  Hook:  ~p", [What, Why, HookRec]),
-			run_hooks(Tail, Args, Mode)
-	end.
+			run_hooks(Tail, Args, Acc)
+	end;
+
+run_hooks([], _Args, Acc) ->
+	{ok, Acc}.
