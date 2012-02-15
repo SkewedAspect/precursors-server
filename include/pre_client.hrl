@@ -5,6 +5,13 @@
 	udp_socket
 }).
 
+-record(client_info, {
+	connection,
+	channel_manager,
+	user_id,
+	username
+}).
+
 -type(message_type() :: 'request' | 'response' | 'event').
 -type(message_id() :: any()).
 -type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()] | null | true | false).

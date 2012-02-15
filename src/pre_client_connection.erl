@@ -14,7 +14,8 @@
 	udp_remote_info :: binary() | {string(), integer()} | 'undefined',
 	aes_key :: binary(),
 	aes_vector :: binary(),
-	channel_mgr :: pid()
+	channel_mgr :: pid(),
+	client_info = #client_info{} :: #client_info{}
 }).
 
 %% ------------------------------------------------------------------
@@ -64,11 +65,16 @@ init({Socket, Cookie}) ->
 	?info("New client connection"),
 	ssl:setopts(Socket, [{active, once}]),
 	{ok, Udp} = gen_udp:open(0, [{active, once}, binary, {ip, {0,0,0,0}}]),
+	ClientInfo = #client_info{
+		connection = self()
+	},
 	State = #state{
 		ssl_socket = Socket,
 		cookie = Cookie,
-		udp_socket = Udp
+		udp_socket = Udp,
+		client_info = ClientInfo
 	},
+	pre_hooks:async_trigger_hooks(client_connected, [ClientInfo]),
 	{ok, State, 1000}.
 
 %% ------------------------------------------------------------------
@@ -263,8 +269,7 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 	?info("starting authentication"),
 	% TODO actually ask an authentication system if they should be let in.
 	% Send login response
-	#state{cookie = Cookie} = State,
-	#state{udp_socket = UdpSocket} = State,
+	#state{cookie = Cookie, udp_socket = UdpSocket, client_info = ClientInfo} = State,
 	{ok, UdpPort} = inet:port(UdpSocket),
 	LoginRep = {struct, [
 		{confirm, true},
@@ -280,11 +285,15 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 	% Record login information in state
 	AESKey = base64:decode(proplists:get_value(<<"key">>, Request)),
 	AESVector = base64:decode(proplists:get_value(<<"vector">>, Request)),
+	Username = proplists:get_value(<<"user">>, Request),
 	State#state{
 		cookie = Cookie,
 		udp_remote_info = undefined,
 		aes_key = AESKey,
-		aes_vector = AESVector
+		aes_vector = AESVector,
+		client_info = ClientInfo#client_info{
+			username = Username
+		}
 	};
 
 service_control_message(event, <<"logout">>, _, _, _) ->
@@ -381,7 +390,7 @@ handle_connect_message(Message, State) ->
 	end.
 
 confirm_connect_message(Message, State) ->
-	#state{ssl_socket = SSLSocket, tcp_socket = TCPSocket, udp_socket = UDPSocket} = State,
+	#state{ssl_socket = SSLSocket, tcp_socket = TCPSocket, udp_socket = UDPSocket, client_info = ClientInfo} = State,
 	% Send response over SSL transport
 	#envelope{type = request, channel = <<"control">>, id = MsgID} = Message,
 	ConnectRep = {struct, [
@@ -399,8 +408,15 @@ confirm_connect_message(Message, State) ->
 			{ok, State};
 		_ ->
 			{ok, ChannelMgr} = pre_client_channels:start_link(),
-			NewState = State#state{channel_mgr = ChannelMgr},
+			NewClientInfo = ClientInfo#client_info{
+				channel_manager = ChannelMgr
+			},
+			NewState = State#state{
+				channel_mgr = ChannelMgr,
+				client_info = NewClientInfo
+			},
 			?info("Started pre_client_channels at ~p", [ChannelMgr]),
+			pre_hooks:async_trigger_hooks(client_logged_in, [NewClientInfo]),
 			{ok, NewState}
 	end.
 

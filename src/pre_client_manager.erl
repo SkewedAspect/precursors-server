@@ -43,10 +43,10 @@ start_client(Socket) ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
-init(Args) ->
+init(_Args) ->
 	process_flag(trap_exit, true),
 	Ets = ets:new(client_ets, [named_table, public, set, {keypos,2}]),
-  {ok, #state{ets = Ets}}.
+	{ok, #state{ets = Ets}}.
 
 %% ------------------------------------------------------------------
 %% handle_call
@@ -71,14 +71,14 @@ handle_call({start_client, Socket}, _From, State) ->
 	end;
 
 handle_call(_Request, _From, State) ->
-  {noreply, ok, State}.
+	{noreply, ok, State}.
 
 %% ------------------------------------------------------------------
 %% handle_cast
 %% ------------------------------------------------------------------
 
 handle_cast(_Msg, State) ->
-  {noreply, State}.
+	{noreply, State}.
 
 %% ------------------------------------------------------------------
 %% handle_info
@@ -88,23 +88,25 @@ handle_info({'EXIT', Pid, Cause}, State) ->
 	?info("Handling an exit of ~p due to ~p", [Pid, Cause]),
 	#state{ets = Ets} = State,
 	ets:delete(Ets, Pid),
+	pre_hooks:async_trigger_hooks(client_disconnected, [Pid, Cause]),
 	{noreply, State};
+
 handle_info(_Info, State) ->
-  {noreply, State}.
+	{noreply, State}.
 
 %% ------------------------------------------------------------------
 %% terminate
 %% ------------------------------------------------------------------
 
 terminate(_Reason, _State) ->
-  ok.
+	ok.
 
 %% ------------------------------------------------------------------
 %% code_change
 %% ------------------------------------------------------------------
 
 code_change(_OldVsn, State, _Extra) ->
-  {ok, State}.
+	{ok, State}.
 
 %% ------------------------------------------------------------------
 %% Internal Function Definitions
