@@ -162,7 +162,8 @@ handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
 handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket, tcp_netstring = Cont} = State) ->
 	{Bins, TCPNetstring} = parse_netstring(Packet, Cont),
 	State1 = State#state{tcp_netstring = TCPNetstring},
-	NewState = service_messages(Bins, State1),
+	Messages = [aes_decrypt_envelope(Bin, State) || Bin <- Bins],
+	NewState = service_messages(Messages, State1),
 	inet:setopts(Socket, [{active, once}]),
 	{noreply, NewState};
 
@@ -196,7 +197,8 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 
 handle_info({udp, Socket, Ip, InPortNo, Packet},
 	#state{udp_socket = Socket, udp_remote_info = {Ip, InPortNo}} = State) ->
-		?info("Client got UDP:  ~p", [Packet]),
+		Message = aes_decrypt_envelope(Packet, State),
+		?warning("Client got unhandled UDP message:  ~p", [Message]),
 		inet:setopts(Socket, [{active, once}]),
 		{noreply, State};
 
@@ -242,7 +244,7 @@ service_message(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
 service_message(#envelope{} = Envelope, State) ->
-	?warning("Unhandled reqeust:  ~p", [Envelope]),
+	?warning("Unhandled request:  ~p", [Envelope]),
 	State;
 
 service_message(Request, State) ->
