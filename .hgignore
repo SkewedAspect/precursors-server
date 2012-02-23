@@ -8,12 +8,10 @@ syntax: glob
 **.DS_Store
 
 # build artifacts
-ebin/*
-deps/*
+ebin/**
+deps/**
 include/commit_ver.hrl
-include/*_pb.hrl
 precursors_server
-src/*.proto
 key
 key.pub
 *.config
@@ -39,7 +37,3 @@ doc
 # python bytecode artifacts
 **.pyc
 **.pyo
-tests/client/remote/tests/build/*
-
-# auto-generated protobuf implementation files
-tests/client/protos/*_pb2.py
