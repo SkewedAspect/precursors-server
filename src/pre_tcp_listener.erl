@@ -64,6 +64,7 @@ handle_cast(Req, State) ->
 %% =====
 
 handle_info({'EXIT', Pid, _Reason}, State) ->
+	?debug("tcp acceptor died due to ~p", [Reason]),
 	#state{acceptors = Acceptors, listener = Sock} = State,
 	Acceptors0 = lists:delete(Pid, Acceptors),
 	NewPid = spawn_link(?MODULE, spawn_acceptor, [Sock]),
