@@ -23,5 +23,5 @@ client_login_hook(undefined, ClientRecord) ->
 		{type, <<"setZone">>},
 		{level, LevelUrl}
 	]},
-	pre_client_connection:send(Connection, ssl, event, level, LoadLevel),
+	pre_client_connection:send(Connection, tcp, event, level, LoadLevel),
 	{ok, undefined}.
