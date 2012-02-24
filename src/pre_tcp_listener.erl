@@ -5,11 +5,11 @@
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,
 	code_change/3]).
--export([start/0,start/1,start_link/0,start_link/1]).
+-export([start/0,start/1,start_link/0,start_link/1,spawn_acceptor/1]).
 
 -record(state, {
 	listener,
-	acceptor
+	acceptors = []
 }).
 
 %% =====
@@ -28,15 +28,16 @@ start_link(Args) -> gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 %% =====
 
 init(Args) ->
+	process_flag(trap_exit, true),
 	Port = proplists:get_value(port, Args, 6007),
 	SimpleOpts = [list, {packet, raw}, {reuseaddr, true}, binary,
 		{keepalive, true}, {backlog, 30}, {active, false}],
 	case gen_tcp:listen(Port, SimpleOpts) of
 		{ok, Listen_socket} ->
-			%%Create first accepting process
-			{ok, Ref} = prim_inet:async_accept(Listen_socket, -1),
+			AcceptNum = proplists:get_value(poolsize, Args, 5),
+			Acceptors = spawn_acceptors(Listen_socket, AcceptNum),
 			?info("Started on port ~p", [Port]),
-			{ok, #state{listener = Listen_socket, acceptor = Ref}};
+			{ok, #state{listener = Listen_socket, acceptors = Acceptors}};
 		{error, Reason} ->
 			?warning("Could not start gen_tcp:  ~p", [Reason]),
 			{stop, Reason}
@@ -62,31 +63,13 @@ handle_cast(Req, State) ->
 %% handle_info
 %% =====
 
-handle_info({inet_async, ListSock, Ref, {ok, CliSocket}}, #state{listener=ListSock, acceptor=Ref} = State) ->
-	try inet:setopts(State#state.listener, [{active, once}]) of
-		ok  ->
-			%% New client connected
-			{ok, Pid} = pre_tcp_transient:start(CliSocket),
-			gen_tcp:controlling_process(CliSocket, Pid),
-			gen_server:cast(Pid, start_accept),
-			case prim_inet:async_accept(ListSock, -1) of
-				{ok, NewRef} ->
-					{noreply, State#state{acceptor = NewRef}};
-				{error, NewRef} ->
-					{stop, {async_accept, inet:format_error(NewRef)}, State}
-			end;
-		{error, Reason} ->
-			{sopt, {set_sockopt, Reason}, State}
-	catch
-		exit:Why ->
-			error_logger:error_msg("Error in async accept: ~p.\n", [Why]),
-			{stop, Why, State}
-	end;
-
-handle_info({inet_async, ListSock, Ref, Error}, #state{listener=ListSock, acceptor=Ref} = State) ->
-	?warning("Error in socket acceptor: ~p", [Error]),
-	{stop, Error, State};
-
+handle_info({'EXIT', Pid, _Reason}, State) ->
+	#state{acceptors = Acceptors, listener = Sock} = State,
+	Acceptors0 = lists:delete(Pid, Acceptors),
+	NewPid = spawn_link(?MODULE, spawn_acceptor, [Sock]),
+	Acceptors1 = [NewPid | Acceptors0],
+	{noreply, State#state{acceptors = Acceptors1}};
+	
 handle_info(Req, State) ->
 	?debug("Unhandled info:  ~p", [Req]),
 	{noreply, State}.
@@ -107,3 +90,28 @@ terminate(Cause, _State) ->
 
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
+
+%% =====
+%% internal
+%% =====
+
+spawn_acceptors(Sock, Num) ->
+	spawn_acceptors(Sock, Num, []).
+
+spawn_acceptors(_Sock, 0, Acc) ->
+	Acc;
+
+spawn_acceptors(Sock, Num, Acc) when Num > 0 ->
+	Pid = spawn_link(?MODULE, spawn_acceptor, [Sock]),
+	spawn_acceptors(Sock, Num - 1, [Pid | Acc]).
+
+spawn_acceptor(Sock) ->
+	case gen_tcp:accept(Sock) of
+		{ok, Sock} ->
+			{ok, Pid} = pre_tcp_transient:start(Sock),
+			gen_tcp:controlling_process(Sock, Pid),
+			gen_server:cast(Pid, start_accept),
+			exit(normal);
+		Else ->
+			exit(Else)
+	end.
