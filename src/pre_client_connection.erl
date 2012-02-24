@@ -4,6 +4,8 @@
 -include("log.hrl").
 -include("pre_client.hrl").
 
+-define(AES_BLOCK_SIZE, 16).
+
 -record(state, {
 	cookie :: binary(),
 	ssl_socket,
@@ -98,7 +100,8 @@ handle_cast({send, tcp, Type, Channel, Json}, #state{tcp_socket = undefined} = S
 	{noreply, State};
 
 handle_cast({send, tcp, Type, Channel, Json}, State) ->
-	Bin = build_message(Type, Channel, Json),
+	#state{aes_key = AESKey, aes_vector = AESVector} = State,
+	Bin = build_message(Type, Channel, Json, AESKey, AESVector),
 	gen_tcp:send(State#state.tcp_socket, Bin),
 	{noreply, State};
 
@@ -112,8 +115,8 @@ handle_cast({send, udp, Type, Channel, Json}, #state{udp_remote_info = undefined
 	{noreply, State};
 
 handle_cast({send, udp, Type, Channel, Json}, State) ->
-	#state{udp_socket = Socket, udp_remote_info = {Ip, Port}} = State,
-	Bin = build_message(Type, Channel, Json),
+	#state{udp_socket = Socket, udp_remote_info = {Ip, Port}, aes_key = AESKey, aes_vector = AESVector} = State,
+	Bin = build_message(Type, Channel, Json, AESKey, AESVector),
 	gen_udp:send(Socket, Ip, Port, Bin),
 	{noreply, State};
 
@@ -315,19 +318,30 @@ generate_id() ->
 	Id = lists:flatten(IdList),
 	list_to_binary(Id).
 
-build_message({Type, Id}, Channel, Json) ->
-	Response = #envelope{id = Id, type = Type, contents = Json, channel = Channel},
-	wrap_for_send(Response);
-
 build_message(Type, Channel, Json) ->
-	Response = #envelope{id = generate_id(), type = Type, contents = Json, channel = Channel},
-	wrap_for_send(Response).
+	build_message(Type, Channel, Json, undefined, undefined).
+
+build_message({Type, Id}, Channel, Json, AESKey, AESVector) ->
+	Response = #envelope{id = Id, type = Type, contents = Json, channel = Channel},
+	wrap_for_send(Response, AESKey, AESVector);
+
+build_message(Type, Channel, Json, AESKey, AESVector) ->
+	build_message({Type, generate_id()}, Channel, Json, AESKey, AESVector).
 
 wrap_for_send(Recthing) ->
+	wrap_for_send(Recthing, undefined, undefined).
+
+wrap_for_send(Recthing, AESKey, AESVector) ->
 	Json = envelope_to_json(Recthing),
 	JsonEnc = mochijson2:encode(Json),
 	Binary = list_to_binary(lists:flatten(JsonEnc)),
-	netstring:encode(Binary).
+	case {AESKey, AESVector} of
+		{undefined, undefined} ->
+			netstring:encode(Binary);
+		{_, _} ->
+			Encrypted = aes_encrypt(Binary, AESKey, AESVector),
+			netstring:encode(Encrypted)
+	end.
 
 %% ------------------------------------------------------------------
 
@@ -363,6 +377,18 @@ check_envelope_type(<<"response">>) -> response;
 check_envelope_type(<<"event">>) -> event.
 
 %% ------------------------------------------------------------------
+
+get_pkcs5_padding(Packet) ->
+	PacketLength = byte_size(Packet),
+	PaddingNeeded = ?AES_BLOCK_SIZE - (PacketLength rem ?AES_BLOCK_SIZE),
+	binary:copy(<<PaddingNeeded/integer>>, PaddingNeeded).
+
+% Decrypt message
+aes_encrypt(Packet, AESKey, AESVector) ->
+	% Decrypt message
+	Padding = get_pkcs5_padding(Packet),
+	Padded = <<Packet/binary, Padding/binary>>,
+	crypto:aes_cbc_128_encrypt(AESKey, AESVector, Padded).
 
 % Decrypt message
 aes_decrypt(Packet, #state{aes_key = AESKey, aes_vector = AESVector}) ->
