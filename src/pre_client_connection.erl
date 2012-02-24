@@ -247,7 +247,20 @@ service_message(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
 service_message(#envelope{} = Envelope, State) ->
-	?warning("Unhandled request:  ~p", [Envelope]),
+	#state{client_info = ClientInfo} = State,
+	#envelope{type = MessageType, channel = Channel, contents = {struct, Contents}, id = Id} = Envelope,
+	?warning("Unhandled message; triggering hooks: ~p", [Envelope]),
+	MessageInfo = [Channel, Envelope, ClientInfo],
+	case MessageType of
+		request ->
+			RequestType = proplists:get_value(<<"type">>, Contents),
+			pre_hooks:async_trigger_hooks(client_request_received, [RequestType | MessageInfo], first);
+		response ->
+			pre_hooks:async_trigger_hooks(client_response_received, [Id | MessageInfo], first);
+		event ->
+			EventType = proplists:get_value(<<"type">>, Contents),
+			pre_hooks:async_trigger_hooks(client_event_received, [EventType | MessageInfo], first)
+	end,
 	State;
 
 service_message(Request, State) ->
