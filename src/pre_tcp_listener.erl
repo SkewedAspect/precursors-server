@@ -109,7 +109,7 @@ spawn_acceptor(Sock) ->
 	case gen_tcp:accept(Sock) of
 		{ok, Sock} ->
 			{ok, Pid} = pre_tcp_transient:start(Sock),
-			gen_tcp:controlling_process(Sock, Pid),
+			ok = gen_tcp:controlling_process(Sock, Pid),
 			gen_server:cast(Pid, start_accept),
 			exit(normal);
 		Else ->
