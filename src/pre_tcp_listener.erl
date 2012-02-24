@@ -63,7 +63,7 @@ handle_cast(Req, State) ->
 %% handle_info
 %% =====
 
-handle_info({'EXIT', Pid, _Reason}, State) ->
+handle_info({'EXIT', Pid, Reason}, State) ->
 	?debug("tcp acceptor died due to ~p", [Reason]),
 	#state{acceptors = Acceptors, listener = Sock} = State,
 	Acceptors0 = lists:delete(Pid, Acceptors),
@@ -106,8 +106,8 @@ spawn_acceptors(Sock, Num, Acc) when Num > 0 ->
 	Pid = spawn_link(?MODULE, spawn_acceptor, [Sock]),
 	spawn_acceptors(Sock, Num - 1, [Pid | Acc]).
 
-spawn_acceptor(Sock) ->
-	case gen_tcp:accept(Sock) of
+spawn_acceptor(ListenSock) ->
+	case gen_tcp:accept(ListenSock) of
 		{ok, Sock} ->
 			{ok, Pid} = pre_tcp_transient:start(Sock),
 			ok = gen_tcp:controlling_process(Sock, Pid),
