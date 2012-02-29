@@ -36,7 +36,8 @@ client_ping_request_hook(undefined, <<"ping">>, <<"ping">>, Envelope, ClientReco
 		{confirm, true},
 		{timestamp, Timestamp}
 	]},
-	pre_client_connection:respond(Connection, tcp, Envelope, PingResponse),
+	#envelope{channel = Channel, id = MsgID} = Envelope,
+	pre_client_connection:send(Connection, tcp, {response, MsgID}, Channel, PingResponse),
 	{ok, undefined};
 
 client_ping_request_hook(_HookInfo, _RequestType, _Channel, _Envelope, _ClientRecord) ->

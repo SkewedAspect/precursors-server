@@ -24,7 +24,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2,udp/2,set_tcp/5,send/5,respond/4,json_to_envelope/1]).
+-export([start_link/2,start/2,udp/2,set_tcp/5,send/5,json_to_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -58,11 +58,6 @@ send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Soc
 
 send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
 	gen_server:cast(Pid, {send, Socket, Type, Channel, Json}).
-
--spec(respond/4 :: (Pid :: pid(), Socket :: 'udp' | 'ssl' | 'tcp', #envelope{}, Json :: json()) -> 'ok').
-respond(Pid, Socket, #envelope{type = request} = Message, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
-	#envelope{channel = Channel, id = MsgID} = Message,
-	gen_server:cast(Pid, {send, Socket, {response, MsgID}, Channel, Json}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
