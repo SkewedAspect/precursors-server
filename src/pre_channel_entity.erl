@@ -10,7 +10,7 @@
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 % pre_client_channels
--export([client_request/3, client_response/4, client_event/3]).
+-export([client_request/4, client_response/4, client_event/3]).
 
 -record(state, {
 		supervisor_pid :: pid(),
@@ -27,8 +27,8 @@ start_link(Options) ->
 
 %% -------------------------------------------------------------------
 
-client_request(Client, Request, Pid) ->
-	gen_server:cast(Pid, {client_request, Client, Request}),
+client_request(Client, Id, Request, Pid) ->
+	gen_server:cast(Pid, {client_request, Client, Id, Request}),
 	ok.
 
 client_response(_Client, _Id, _Response, _Pid) ->
@@ -81,7 +81,7 @@ handle_call(_, _From, State) ->
 
 %% -------------------------------------------------------------------
 
-handle_cast({client_request, _Client, _Request} = Message, State) ->
+handle_cast({client_request, _Client, _Id, _Request} = Message, State) ->
 	[FirstWorker | OtherWorkers] = State#state.worker_pids,
 	gen_server:cast(FirstWorker, Message),
 	{noreply, State#state{worker_pids = OtherWorkers ++ [FirstWorker]}};

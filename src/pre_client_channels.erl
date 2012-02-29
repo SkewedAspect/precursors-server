@@ -52,8 +52,8 @@ init({_Channel, _Module, _Info} = State) ->
 
 %% -------------------------------------------------------------------
 
-handle_event({request, Client, Channel, _Id, Request} = Msg, {Channel, Module, Info} = State) ->
-	Out = Module:client_request(Client, Request, Info),
+handle_event({request, Client, Channel, Id, Request} = Msg, {Channel, Module, Info} = State) ->
+	Out = Module:client_request(Client, Id, Request, Info),
 	handle_return(Out, Msg, State);
 
 handle_event({response, Client, Channel, Id, Response} = Msg, {Channel, Module, Info} = State) ->
