@@ -5,11 +5,18 @@
 	udp_socket
 }).
 
+-record(character_info, {
+	id :: any(),
+	name :: binary()
+}).
+
 -record(client_info, {
-	connection,
-	channel_manager,
-	user_id,
-	username
+	connection :: pid(),
+	channel_manager :: pid(),
+	user_id :: any(),
+	username :: binary(),
+	show_account :: 'hidden' | 'public',
+	character :: #character_info{}
 }).
 
 -type(message_type() :: 'request' | 'response' | 'event').
