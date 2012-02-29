@@ -1,10 +1,3 @@
--record(client_connection, {
-	pid,
-	ssl_socket,
-	tcp_socket,
-	udp_socket
-}).
-
 -record(character_info, {
 	id :: any(),
 	name :: binary()
@@ -19,12 +12,26 @@
 	character :: #character_info{}
 }).
 
+-type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()] | null | true | false).
+
+
+%%-----------------------------------------------------------------------------------
+%% These records should ONLY be used by pre_client_connection and pre_tcp_transient!
+
+-record(client_connection, {
+	pid,
+	ssl_socket,
+	tcp_socket,
+	udp_socket
+}).
+
 -type(message_type() :: 'request' | 'response' | 'event').
 -type(message_id() :: any()).
--type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()] | null | true | false).
 -record(envelope, {
 	type :: message_type(),
 	id :: message_id(),
 	channel :: binary(),
 	contents :: json()
 }).
+
+%%-----------------------------------------------------------------------------------
