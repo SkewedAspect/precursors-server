@@ -9,7 +9,7 @@
 -define(CHANNEL, <<"ping">>).
 
 % api
--export([init/0]).
+-export([register_hooks/0]).
 
 % pre_client_channels
 -export([client_request/4, client_response/4, client_event/3]).
@@ -18,7 +18,7 @@
 %% api
 %% -------------------------------------------------------------------
 
-init() ->
+register_hooks() ->
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, []).
 
 %% -------------------------------------------------------------------
