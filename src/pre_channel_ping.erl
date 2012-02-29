@@ -19,6 +19,7 @@
 %% -------------------------------------------------------------------
 
 register_hooks() ->
+	?debug("Registering client hooks."),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, []).
 
 %% -------------------------------------------------------------------
