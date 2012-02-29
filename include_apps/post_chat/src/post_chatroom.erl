@@ -41,7 +41,7 @@
 -include_lib("precursors_server/include/log.hrl").
 -include_lib("precursors_server/include/pre_client.hrl").
 %% API
--export([start_link/0]).
+-export([start_link/3]).
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
@@ -50,15 +50,15 @@
 	name :: string(),
 	chatters :: [pid()],
 	controllers :: [pid()],
-	mode = user :: 'user' | 'system' | 'plugin'
+	mode = user :: 'user' | 'system' | 'plugin',
 	mode_meta
 }).
 
 -record(system_opts, {
 	display = shown :: 'shown' | 'hidden',
-	leavable = 'leavers' | 'no_leavers',
-	kicking = 'kick' | 'no_kick',
-	muting = 'mute' | 'no_mute'
+	leavable = leavers :: 'leavers' | 'no_leavers',
+	kicking = kick :: 'kick' | 'no_kick',
+	muting = mute :: 'mute' | 'no_mute'
 }).
 
 %% ==================================================================
@@ -71,6 +71,9 @@
 start_link(Name, Mode, ModeMeta) ->
   gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta}], []).
 
+send_command(Pid, Command, Payload) ->
+	gen_server:cast(Pid, {command, Command, Payload}).
+
 %% ==================================================================
 %% gen_server
 %% ==================================================================
@@ -79,13 +82,13 @@ init({Name, Mode, ModeMeta}) ->
 	State = #state{name = Name, mode = Mode},
 	case Mode of
 		user when is_record(ModeMeta, client_info) ->
-			#client_info{client_connection = Conn} = ModeMeta,
+			#client_info{connection = Conn} = ModeMeta,
 			Chatters = [ModeMeta],
 			Controller = [Conn],
 			State0 = State#state{chatters = Chatters, controllers = Controller},
 			{ok, State0};
 		plugin when is_record(ModeMeta, client_info) ->
-			#client_info{client_connection = Conn} = ModeMeta,
+			#client_info{connection = Conn} = ModeMeta,
 			Chatters = [Conn],
 			State0 = State#state{chatters = Chatters},
 			{ok, State0};
@@ -111,7 +114,7 @@ build_system_opts([shown | Tail], Rec) ->
 
 build_system_opts([leavers | Tail], Rec) ->
 	Rec0 = Rec#system_opts{leavable = leavers},
-	build_sytem_opts(Tail, Rec0);
+	build_system_opts(Tail, Rec0);
 
 build_system_opts([no_leavers | Tail], Rec) ->
 	Rec0 = Rec#system_opts{leavable = no_leavers},
