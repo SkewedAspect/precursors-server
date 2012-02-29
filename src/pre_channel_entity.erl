@@ -1,7 +1,7 @@
 %%% @doc Dictates the background content loaded by the client, and dispatches events for entities in a given zone. (?)
 %%% FIXME: This module should not actually be used! It's a useful example of how to build a channel, though.
 
--module(pre_channel_level).
+-module(pre_channel_entity).
 -behavior(gen_server).
 
 -include("log.hrl").
@@ -54,17 +54,17 @@ client_disconnect_hook(undefined, _ClientPid) ->
 init(supervisor_start) ->
 	ChildSpec = {
 		?MODULE,
-		{pre_channel_level_worker, start_link, []},
+		{pre_channel_entity_worker, start_link, []},
         transient,
 		brutal_kill,
 		worker,
-		[pre_channel_level_worker]
+		[pre_channel_entity_worker]
 	},
 	{ok, {{simple_one_for_one, 2, 2}, [ChildSpec]}};
 
 init(Options) ->
 	InitialWorkers = proplists:get_value(workers, Options, 1),
-	{ok, Supervisor} = supervisor:start_link({local, pre_channel_level_sup}, ?MODULE, supervisor_start),
+	{ok, Supervisor} = supervisor:start_link({local, pre_channel_entity_sup}, ?MODULE, supervisor_start),
 	WorkerPids = [begin
 		{ok, Pid} = supervisor:start_child(Supervisor, []),
 		Pid
