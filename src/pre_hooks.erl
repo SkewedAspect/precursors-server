@@ -21,6 +21,8 @@
 %% ===================================================================
 
 start_link() ->
+	pre_hooks:create_ets(),
+	pre_client_hooks:register_hooks(),
 	gen_server:start_link({local, ?MODULE}, ?MODULE, {}, []).
 
 add_hook(Hook, Mod, Func) ->

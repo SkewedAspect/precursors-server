@@ -35,10 +35,9 @@ start_link(Args) ->
 init(Args) ->
 	ListenerArgs = proplists:get_value(listener, Args, []),
 	ListenerKid = ?CHILD(pre_client_sup, supervisor, [ListenerArgs]),
+	HooksKid = ?CHILD(pre_hooks, supervisor, []),
 	Kids = [
-		ListenerKid
+		ListenerKid,
+		HooksKid
 	],
-	pre_hooks:create_ets(),
-	pre_hooks:start_link(),
-	pre_client_hooks:register_hooks(),
 	{ok, { {one_for_one, 5, 10}, Kids} }.
