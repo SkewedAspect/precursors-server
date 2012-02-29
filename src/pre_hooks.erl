@@ -109,7 +109,11 @@ handle_cast(_, State) ->
 %% -------------------------------------------------------------------
 
 handle_info({'DOWN', _Monref, process, Pid, _Reason}, State) ->
-	ets:delete(?MODULE, Pid),
+	QH = qlc:q([HookKey ||
+		#hook{key = #hook_key{pid = APid} = HookKey} <- ets:table(?MODULE),
+		APid == Pid]),
+	HookKeys = qlc:e(QH),
+	lists:map(fun(Key) -> ets:delete(?MODULE, Key) end, HookKeys),
 	{noreply, State};
 
 handle_info(_, State) ->
