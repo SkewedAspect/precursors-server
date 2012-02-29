@@ -1,7 +1,7 @@
 #!/usr/bin/env escript
 %% -*- erlang -*-
 %%! -sname check-dev-server
--define(ESC, [27]).
+-define(ESC, 27).
 main(_) ->
 	Cookie = 'PreServDev',
 	%Hostname = net_adm:dns_hostname(net_adm:localhost()),
@@ -10,6 +10,6 @@ main(_) ->
 	ServerNode = list_to_atom("precursors_server_dev@" ++ Hostname),
 	erlang:set_cookie(node(), Cookie),
 	case net_adm:ping(ServerNode) of
-		pong -> io:format("~s[32mServer node ~s[1;32m~s~s[0;32m is up.~s[m\n", [?ESC, ?ESC, ServerNode, ?ESC, ?ESC]);
-		pang -> io:format("~s[31mServer node ~s[1;31m~s~s[0;31m is DOWN!~s[m\n", [?ESC, ?ESC, ServerNode, ?ESC, ?ESC])
+		pong -> io:format("~c[32mServer node ~c[1;32m~s~c[0;32m is up.~c[m\n", [?ESC, ?ESC, ServerNode, ?ESC, ?ESC]);
+		pang -> io:format("~c[31mServer node ~c[1;31m~s~c[0;31m is DOWN!~c[m\n", [?ESC, ?ESC, ServerNode, ?ESC, ?ESC])
 	end.
