@@ -4,8 +4,9 @@
 -include("log.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
+-record(hook_key, {pid, hook}).
 -record(hook, {
-	pid, hook, mod, func, info, nodes, mon
+	key :: #hook_key{}, mod, func, info, nodes, mon
 }).
 
 % public api
@@ -22,8 +23,9 @@
 
 start_link() ->
 	pre_hooks:create_ets(),
+	Result = gen_server:start_link({local, ?MODULE}, ?MODULE, {}, []),
 	pre_client_hooks:register_hooks(),
-	gen_server:start_link({local, ?MODULE}, ?MODULE, {}, []).
+	Result.
 
 add_hook(Hook, Mod, Func) ->
 	add_hook(Hook, Mod, Func, undefined, global).
@@ -42,9 +44,10 @@ trigger_hooks(Hook, Args) ->
 	trigger_hooks(Hook, Args, first).
 
 trigger_hooks(Hook, Args, Mode) ->
+	?debug("trigger_hooks/3 ~s ~s ~s", [Hook, Args, Mode]),
 	Node = node(),
 	QH = qlc:q([HookRec ||
-		#hook{hook = AHook, nodes = ANodes} = HookRec <- ets:table(?MODULE),
+		#hook{key = #hook_key{hook = AHook}, nodes = ANodes} = HookRec <- ets:table(?MODULE),
 		AHook == Hook, (ANodes == global orelse lists:member(Node, ANodes))]),
 	Hooks = qlc:e(QH),
 	Acc = case Mode of
@@ -57,6 +60,7 @@ async_trigger_hooks(Hook, Args) ->
 	async_trigger_hooks(Hook, Args, first).
 
 async_trigger_hooks(Hook, Args, Mode) ->
+	?debug("async_trigger_hooks/3 ~s ~s ~s", [Hook, Args, Mode]),
 	spawn(fun() -> trigger_hooks(Hook, Args, Mode) end).
 
 create_ets() ->
@@ -92,7 +96,7 @@ handle_call(_, _, State) ->
 
 handle_cast({add_hook, Pid, Hook, Mod, Func, Info, Nodes}, State) ->
 	Monref = erlang:monitor(process, Pid),
-	Rec = #hook{pid = Pid, hook = Hook, mod = Mod, func = Func, info = Info,
+	Rec = #hook{key = #hook_key{pid = Pid, hook = Hook}, mod = Mod, func = Func, info = Info,
 		nodes = Nodes, mon = Monref},
 	ets:insert(?MODULE, [Rec]),
 	{noreply, State};
