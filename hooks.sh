@@ -1,5 +1,15 @@
 #!/bin/bash
 
+function included_apps_do {
+	initPwd=`pwd`
+	for file in include_apps/*
+	do
+		cd $file
+		../../rebar $1
+		cd $initPwd
+	done
+}
+
 function pre_compile {
 	if [ ! -d ebin ]; then
 		mkdir ebin
@@ -14,6 +24,9 @@ function pre_compile {
 		ln -sf ../priv precursors_server/priv
 		ln -sf ../deps precursors_server/deps
 	fi
+
+	# compile the included apps
+	included_apps_do "compile"
 	
 	# record what commit/version the repository is at
 	PRECURSORS_COMMIT=""
@@ -39,6 +52,12 @@ function pre_compile {
 -define(PRECURSORS_COMMIT, $PRECURSORS_COMMIT)." > include/commit_ver.hrl
 }
 
+function pre_clean {
+	rm -rf precursors_server
+	rm -f include/commit_ver.hrl
+	included_apps_do "clean"
+}
+
 function post_compile {
 	cat success_message
 }
@@ -49,6 +68,5 @@ case $1 in
 	"post_compile")
 		post_compile;;
 	"pre_clean")
-		rm -rf precursors_server
-		rm -f include/commit_ver.hrl;;
+		pre_clean;;
 esac

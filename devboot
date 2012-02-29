@@ -38,6 +38,12 @@ for deps_file in $deps
 do
 	morepa="$morepa -pa deps/$deps_file/ebin"
 done
+# and included apps too
+deps=`ls included_apps`
+for deps_file in $deps
+do
+	morepa="$morepa -pa deps/$deps_file/ebin"
+done
 
 if [ ! -f "rel/precursors_server/releases/1/precursors_server.boot" ]
 then

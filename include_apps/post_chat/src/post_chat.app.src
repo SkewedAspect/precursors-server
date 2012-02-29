@@ -1,0 +1,13 @@
+{application, post_chat,
+ [
+  {description, "Chat system for precursors server"},
+  {vsn, "0.0.1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+                  precursors_server
+                 ]},
+  {mod, { post_chat_app, []}},
+  {env, []}
+ ]}.
