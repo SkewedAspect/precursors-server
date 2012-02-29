@@ -19,7 +19,7 @@ register_hooks() ->
 client_login_hook(undefined, ClientRecord) ->
 	?debug("Client logged in: ~p", [ClientRecord]),
 	#client_info{connection = Connection} = ClientRecord,
-	LevelUrl = <<"scenes/cnk.json">>,
+	LevelUrl = <<"zones/test/TestArea.json">>,
 	LoadLevel = {struct, [
 		{type, <<"setZone">>},
 		{level, LevelUrl}
