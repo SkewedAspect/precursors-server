@@ -4,9 +4,9 @@
 -include("log.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
--record(hook_key, {pid, hook}).
+-record(hook_key, {pid, hook, mod}).
 -record(hook, {
-	key :: #hook_key{}, mod, func, info, nodes, mon
+	key :: #hook_key{}, func, info, nodes, mon
 }).
 
 % public api
@@ -97,7 +97,7 @@ handle_call(_, _, State) ->
 
 handle_cast({add_hook, Pid, Hook, Mod, Func, Info, Nodes}, State) ->
 	Monref = erlang:monitor(process, Pid),
-	Rec = #hook{key = #hook_key{pid = Pid, hook = Hook}, mod = Mod, func = Func, info = Info,
+	Rec = #hook{key = #hook_key{pid = Pid, hook = Hook, mod = Mod}, func = Func, info = Info,
 		nodes = Nodes, mon = Monref},
 	ets:insert(?MODULE, [Rec]),
 	{noreply, State};
@@ -142,7 +142,7 @@ run_hooks([], _Args, first) ->
 	{error, not_handled};
 
 run_hooks([HookRec | Tail], Args, Acc) ->
-	#hook{mod = Mod, func = Func, info = Info} = HookRec,
+	#hook{key = #hook_key{mod = Mod}, func = Func, info = Info} = HookRec,
 	try erlang:apply(Mod, Func, [Info | Args]) of
 		{ok, Val} when Acc == first ->
 			{ok, Val};
@@ -153,7 +153,7 @@ run_hooks([HookRec | Tail], Args, Acc) ->
 			run_hooks(Tail, Args, Acc)
 	catch
 		What:Why ->
-			?notice("Hook errored:  ~p:~p.  Hook:  ~p", [What, Why, HookRec]),
+			?notice("Hook errored:  ~p:~p;  Hook:  ~p;  Args:  ~p", [What, Why, HookRec, [Info | Args]]),
 			run_hooks(Tail, Args, Acc)
 	end;
 
