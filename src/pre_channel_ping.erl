@@ -11,6 +11,9 @@
 % api
 -export([register_hooks/0]).
 
+% hooks
+-export([client_login_hook/2]).
+
 % pre_client_channels
 -export([client_request/4, client_response/4, client_event/3]).
 
@@ -20,7 +23,7 @@
 
 register_hooks() ->
 	?debug("Registering client hooks."),
-	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, []).
+	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]).
 
 %% -------------------------------------------------------------------
 %% pre_client_channels
@@ -66,4 +69,5 @@ request_type(_) ->
 client_login_hook(undefined, ClientRecord) ->
 	?debug("Client ~p logged in; registering 'ping' channel.", [ClientRecord]),
 	#client_info{channel_manager = ChannelManager} = ClientRecord,
-	pre_client_channels:set_sup_channel(ChannelManager, ?CHANNEL, ?MODULE, []).
+	pre_client_channels:set_sup_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
+	{ok, undefined}.
