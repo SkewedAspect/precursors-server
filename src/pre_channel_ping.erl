@@ -33,7 +33,6 @@ client_request(Client, Id, Request, Info) ->
 	client_request(request_type(Request), Client, Id, Request, Info).
 
 client_request(<<"ping">>, Client, Id, _Request, _Info) ->
-	?debug("Servicing ping request! YAY!"),
 	#client_info{connection = Connection} = Client,
 	{MegaSecs, Secs, MicroSecs} = now(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
@@ -42,19 +41,16 @@ client_request(<<"ping">>, Client, Id, _Request, _Info) ->
 		{timestamp, Timestamp}
 	]},
 	pre_client_connection:send(Connection, tcp, {response, Id}, ?CHANNEL, PingResponse),
-	ok;
+	{ok, []};
 
 client_request(RequestType, Client, Id, Request, _Info) ->
-	?debug("Ping channel received unrecognized ~p request! (~p, ~p, ~p)", [RequestType, Client, Id, Request]),
-	ok.
+	{ok, []}.
 
 client_response(Client, Id, Response, _Info) ->
-	?debug("Ping channel received unrecognized response! (~p, ~p, ~p)", [Client, Id, Response]),
-	ok.
+	{ok, []}.
 
 client_event(Client, Event, _Info) ->
-	?debug("Ping channel received unrecognized event! (~p, ~p)", [Client, Event]),
-	ok.
+	{ok, []}.
 
 %% -------------------------------------------------------------------
 
@@ -69,5 +65,5 @@ request_type(_) ->
 client_login_hook(undefined, ClientRecord) ->
 	?debug("Client ~p logged in; registering 'ping' channel.", [ClientRecord]),
 	#client_info{channel_manager = ChannelManager} = ClientRecord,
-	pre_client_channels:set_sup_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
+	pre_client_channels:set_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
 	{ok, undefined}.
