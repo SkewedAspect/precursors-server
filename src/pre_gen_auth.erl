@@ -62,6 +62,7 @@
 
 -include("log.hrl").
 -include("internal_auth.hrl").
+-include_lib("stdlib/include/qlc.hrl").
 
 -ifdef(TEST).
 	-compile([export_all]).
@@ -73,6 +74,8 @@
 % API
 -export([start_link/0, start_link/1, behavior_info/1, add_backend/3,
 	authenticate/2, get_user/2, remove_backend/2]).
+% when self as backend
+-export([handle_authentication/3]).
 
 -record(state, {
 	callback,
@@ -95,7 +98,7 @@
 
 %% @doc Starts the authentication system with only the local auther.
 -spec(start_link/0 :: () -> {'ok', pid()}).
-start_link() -> start_link([{pre_gen_auth, 100, self}]).
+start_link() -> start_link([{pre_gen_auth, 100, ?MODULE}]).
 
 %% @doc Starts the authentication system with a list of the given authers.
 -type(callback_module() :: atom()).
@@ -151,6 +154,26 @@ behavior_info(exports) ->
 	{terminate, 2}];
 behavior_info(_) ->
 	undefined.
+
+%% @hidden
+handle_authentication(Username, Password, ?MODULE) ->
+%	MatchSpec = [
+%		{#user_auth{username = '$1', password = '$2', _ = '_'},
+%		[
+%			{'=:=', '$1', Username},
+%			{'=:=', '$2', Password}
+%		],
+%		['$1']
+%	],
+	Rec = #user_auth{username = Username, _ = '_'},
+	case mnesia:dirty_match_object(Rec) of
+		[] ->
+			undefined;
+		[#user_auth{password = DP} | _] when DP =:= Password ->
+			{deny, "invalid password"};
+		_ ->
+			allow
+	end.
 
 %% ==================================================================
 %% gen_event callbacks
