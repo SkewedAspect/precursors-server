@@ -32,6 +32,7 @@ start_link(Args) ->
 %% Supervisor callbacks
 %% ===================================================================
 
+%% @hidden
 init(Args) ->
 	ListenerArgs = proplists:get_value(listener, Args, []),
 	ListenerKid = ?CHILD(pre_client_sup, supervisor, [ListenerArgs]),

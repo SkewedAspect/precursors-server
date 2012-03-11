@@ -1,3 +1,5 @@
+%% @doc Listener for new client connections, spawning a transient process
+%% to see if it's a legit connection.
 -module(pre_tcp_listener).
 -behavior(gen_server).
 
@@ -15,18 +17,33 @@
 %% =====
 %% API
 %% =====
+
+-type(poolsize_opt() :: {'poolsize', pos_integer()}).
+-type(port_opt() :: {'port', pos_integer()}).
+-type(start_option() :: poolsize_opt() | port_opt()).
+-type(start_options() :: [start_option()]).
+
+%% @doc {@link start/1} with default options.
+-spec(start/0 :: () -> {'ok', pid()}).
 start() -> start([]).
 
+%% @doc Start unlinked to the calling process.
+-spec(start/1 :: (Args :: start_options()) -> {'ok', pid()}).
 start(Args) -> gen_server:start({local, ?MODULE}, ?MODULE, Args, []).
 
+%% @doc {@link start_link/1} with default options.
+-spec(start_link/0 :: () -> {'ok', pid()}).
 start_link() -> start_link([]).
 
+%% @doc Start linked to the calling process.
+-spec(start_link/1 :: (Args :: start_options()) -> {'ok', pid()}).
 start_link(Args) -> gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% =====
 %% init
 %% =====
 
+%% @hidden
 init(Args) ->
 	process_flag(trap_exit, true),
 	Port = proplists:get_value(port, Args, 6007),
@@ -47,6 +64,7 @@ init(Args) ->
 %% handle_call
 %% =====
 
+%% @hidden
 handle_call(Req, _From, State) ->
 	?debug("Unhandled call:  ~p", [Req]),
 	{reply, unknown, State}.
@@ -55,6 +73,7 @@ handle_call(Req, _From, State) ->
 %% handle_cast
 %% =====
 
+%% @hidden
 handle_cast(Req, State) ->
 	?debug("Unhandled cast:  ~p", [Req]),
 	{noreply, State}.
@@ -63,6 +82,7 @@ handle_cast(Req, State) ->
 %% handle_info
 %% =====
 
+%% @hidden
 handle_info({'EXIT', Pid, Reason}, State) ->
 	?debug("tcp acceptor died due to ~p", [Reason]),
 	#state{acceptors = Acceptors, listener = Sock} = State,
@@ -79,6 +99,7 @@ handle_info(Req, State) ->
 %% terminate
 %% =====
 
+%% @hidden
 terminate(Cause, _State) when Cause =:= normal; Cause =:= shutdown ->
 	ok;
 terminate(Cause, _State) ->
@@ -89,6 +110,7 @@ terminate(Cause, _State) ->
 %% code_change
 %% =====
 
+%% @hidden
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
@@ -106,6 +128,9 @@ spawn_acceptors(Sock, Num, Acc) when Num > 0 ->
 	Pid = spawn_link(?MODULE, spawn_acceptor, [Sock]),
 	spawn_acceptors(Sock, Num - 1, [Pid | Acc]).
 
+%% @doc Used internally to start a new acceptor, aka transient tcp
+%% connection.
+-spec(spawn_acceptor/1 :: (ListenSock :: any()) -> none()).
 spawn_acceptor(ListenSock) ->
 	case gen_tcp:accept(ListenSock) of
 		{ok, Sock} ->

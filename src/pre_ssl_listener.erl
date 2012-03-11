@@ -54,6 +54,7 @@ start_link(Args) -> gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 %% init
 %% =====
 
+%% @hidden
 init(Args) ->
 	process_flag(trap_exit, true),
 	Port = proplists:get_value(port, Args, 6006),
@@ -82,6 +83,7 @@ init(Args) ->
 %% handle_call
 %% =====
 
+%% @hidden
 handle_call(Req, _From, State) ->
 	?debug("Unhandled call:  ~p", [Req]),
 	{reply, unknown, State}.
@@ -90,6 +92,7 @@ handle_call(Req, _From, State) ->
 %% handle_cast
 %% =====
 
+%% @hidden
 handle_cast(Req, State) ->
 	?debug("Unhandled cast:  ~p", [Req]),
 	{noreply, State}.
@@ -98,6 +101,7 @@ handle_cast(Req, State) ->
 %% handle_info
 %% =====
 
+%% @hidden
 handle_info({'EXIT', Pid, Cause}, #state{acceptors = Acceptors} = State) ->
 	case Cause of
 		Normies when Normies =:= normal; Normies =:= shutdown -> ok;
@@ -115,6 +119,7 @@ handle_info(Req, State) ->
 %% terminate
 %% =====
 
+%% @hidden
 terminate(Cause, _State) when Cause =:= normal; Cause =:= shutdown ->
 	ok;
 terminate(Cause, _State) ->
@@ -125,6 +130,7 @@ terminate(Cause, _State) ->
 %% code_change
 %% =====
 
+%% @hidden
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
@@ -141,6 +147,8 @@ spawn_acceptors(ListSock, Size, Acc) ->
 	Pid = spawn_link(?MODULE, spawn_acceptor, [ListSock]),
 	spawn_acceptors(ListSock, Size, [Pid | Acc]).
 
+%% @doc This is used internally to start a new process to accept
+%% connections.
 spawn_acceptor(Socket) ->
 	case ssl:transport_accept(Socket) of
 		{ok, NewSocket} ->

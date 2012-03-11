@@ -1,4 +1,5 @@
-%%% @doc Responds to ping requests.
+%% @doc Responds to ping requests.  Something else must register for the
+%% client connection hook using {@link register_hooks/0}.
 
 -module(pre_channel_ping).
 
@@ -21,6 +22,8 @@
 %% api
 %% -------------------------------------------------------------------
 
+%% @doc Add a hook to be triggered when a client logs in.  The hook adds
+%% the ping channel to the client.
 register_hooks() ->
 	?debug("Registering client hooks."),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]).
@@ -29,6 +32,7 @@ register_hooks() ->
 %% pre_client_channels
 %% -------------------------------------------------------------------
 
+%% @hidden
 client_request(Client, Id, Request, Info) ->
 	client_request(request_type(Request), Client, Id, Request, Info).
 
@@ -46,14 +50,17 @@ client_request(?CHANNEL, Client, Id, _Request, _Info) ->
 client_request(RequestType, Client, Id, Request, _Info) ->
 	{ok, []}.
 
+%% @hidden
 client_response(Client, Id, Response, _Info) ->
 	{ok, []}.
 
+%% @hidden
 client_event(Client, Event, _Info) ->
 	{ok, []}.
 
 %% -------------------------------------------------------------------
 
+%% @hidden
 request_type({struct, Request}) ->
 	proplists:get_value(<<"type">>, Request);
 
@@ -62,6 +69,7 @@ request_type(_) ->
 
 %% -------------------------------------------------------------------
 
+%% @doc The hook which adds the channel to the client.
 client_login_hook(undefined, ClientRecord) ->
 	?debug("Client ~p logged in; registering 'ping' channel.", [ClientRecord]),
 	#client_info{channel_manager = ChannelManager} = ClientRecord,

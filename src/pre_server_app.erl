@@ -13,9 +13,11 @@
 %% Application callbacks
 %% ===================================================================
 
+%% @hidden
 start(_StartType, _StartArgs) ->
     pre_server_sup:start_link().
 
+%% @doc Stops the app.
 stop(_State) ->
     ok.
 

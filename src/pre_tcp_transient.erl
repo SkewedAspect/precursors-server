@@ -1,3 +1,6 @@
+%% @doc Isolates a new tcp connection until it is able to identify itself
+%% as a valid client.  It then either disconnects, or gives control of the
+%% socket to the correct client connection.
 -module(pre_tcp_transient).
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
@@ -22,9 +25,13 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
+%% @doc Starts linked to the calling process.
+-spec(start_link/1 :: (Socket :: any()) -> {'ok', pid()}).
 start_link(Socket) ->
 	gen_server:start_link(?MODULE, Socket, []).
 
+%% @doc Starts unlinked to the calling process.
+-spec(start/1 :: (Socket :: any()) -> {'ok', pid()}).
 start(Socket) ->
 	gen_server:start(?MODULE, Socket, []).
 
@@ -32,14 +39,17 @@ start(Socket) ->
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
+%% @hidden
 init(Socket) ->
 	?info("New transient TCP:  ~p", [Socket]),
 	{ok, {Socket, 10}, 500}.
 
+%% @hidden
 handle_call(Request, From, State) ->
 	?debug("Unhandled call from ~p:  ~p", [From, Request]),
 	{noreply, ok, State}.
 
+%% @hidden
 handle_cast(start_accept, {Socket, _}) ->
 	inet:setopts(Socket, [{active, once}]),
 	{noreply, {Socket, 10}, 5000};
@@ -48,6 +58,7 @@ handle_cast(Msg, State) ->
 	?debug("Unhandled cast:  ~p", [Msg]),
 	{noreply, State}.
 
+%% @hidden
 handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 	case netstring:decode(Packet, InCont) of
 		{[Binary | Tail], Cont} ->
@@ -80,9 +91,11 @@ handle_info(Info, State) ->
 	?debug("Unhandled info:  ~p", [Info]),
 	{noreply, State}.
 
+%% @hidden
 terminate(_Reason, _State) ->
 	ok.
 
+%% @hidden
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 

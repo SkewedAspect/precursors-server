@@ -24,7 +24,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2,udp/2,set_tcp/5,send/5,json_to_envelope/1]).
+-export([start_link/2,start/2,set_tcp/5,send/5,json_to_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -37,18 +37,27 @@
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
+%% @doc Starts a new client connection using the given socket and cookie.
+-spec(start_link/2 :: (Socket :: any(), Cookie :: binary()) -> {'ok', pid()}).
 start_link(Socket, Cookie) ->
 	gen_server:start_link(?MODULE, {Socket, Cookie}, []).
 
+%% @doc Same as {@link start_link/2} only is not linked to the calling
+%% process.
+-spec(start/2 :: (Socket :: any(), Cookie :: binary()) -> {'ok', pid()}).
 start(Socket, Cookie) ->
 	gen_server:start(?MODULE, {Socket, Cookie}, {}).
 
-udp(Pid, Msg) ->
-	gen_server:cast(Pid, Msg).
-
+%% @doc A transient tcp connection will use this to inform the client
+%% connection that a client has successfully connected and authed with
+%% a cookie.
+-spec(set_tcp/5 :: (Pid :: pid(), Socket :: any(), Message :: json(),
+	Bins :: [binary()], Cont :: any()) -> 'ok').
 set_tcp(Pid, Socket, Message, Bins, Cont) ->
 	gen_server:cast(Pid, {set_tcp, Socket, Message, Bins, Cont}).
 
+%% @doc Send a message out to the client over a given channel.  If the
+%% type is 'request', an id is automatically generated.
 -spec(send/5 :: (Pid :: pid(), Socket :: 'udp' | 'ssl' | 'tcp', Type :: 'request' | {'response', message_id()}
 		| 'event' | {'request', message_id()}, Channel :: binary(), Json :: json()) -> 'ok' | message_id()).
 send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
@@ -63,6 +72,7 @@ send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket
 %% gen_server Function Definitions
 %% ------------------------------------------------------------------
 
+%% @hidden
 init({Socket, Cookie}) ->
 	?info("New client connection"),
 	ssl:setopts(Socket, [{active, once}]),
@@ -83,6 +93,7 @@ init({Socket, Cookie}) ->
 %% handle_call
 %% ------------------------------------------------------------------
 
+%% @hidden
 handle_call(_Request, _From, State) ->
 	{noreply, ok, State}.
 
@@ -90,6 +101,7 @@ handle_call(_Request, _From, State) ->
 %% handle_cast
 %% ------------------------------------------------------------------
 
+%% @hidden
 handle_cast({send, tcp, Type, Channel, Json}, #state{tcp_socket = undefined} = State) ->
 	?warning("Tried to send ~p message for channel ~p over TCP before getting TCP sync info: ~p", [Type, Channel, Json]),
 	{noreply, State};
@@ -146,6 +158,7 @@ handle_cast(_Msg, State) ->
 %% handle_info
 %% ------------------------------------------------------------------
 
+%% @hidden
 handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket, ssl_netstring = Cont} = State) ->
 	{Bins, SSLNetstring} = parse_netstring(Packet, Cont),
 	State1 = State#state{ssl_netstring = SSLNetstring},
@@ -212,6 +225,7 @@ handle_info(Info, State) ->
 %% terminate
 %% ------------------------------------------------------------------
 
+%% @hidden
 terminate(_Reason, _State) ->
 	ok.
 
@@ -219,6 +233,7 @@ terminate(_Reason, _State) ->
 %% code_change
 %% ------------------------------------------------------------------
 
+%% @hidden
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
@@ -365,6 +380,8 @@ envelope_to_json(Envelope) ->
 		Id -> {struct, [{<<"id">>, Id} | Props]}
 	end.
 
+%% @doc Takes a json and turns it into an envelope record.
+-spec(json_to_envelope/1 :: (Json :: binary()) -> #envelope{}).
 json_to_envelope(Json) when is_binary(Json) ->
 	json_to_envelope(mochijson2:decode(Json));
 
