@@ -72,7 +72,7 @@
 	code_change/3, format_status/2]).
 % API
 -export([start_link/0, start_link/1, behavior_info/1, add_backend/3,
-	authentication/2, get_user/2]).
+	authenticate/2, get_user/2, remove_backend/2]).
 
 -record(state, {
 	callback,
@@ -105,7 +105,7 @@ start_link() -> start_link([{pre_gen_auth, 100, self}]).
 -type(backends() :: [backend()]).
 -spec(start_link/1 :: (Auths :: backends()) -> {'ok', pid()}).
 start_link(Auths) ->
-	Out = gen_event:start_link(?MODULE),
+	Out = gen_event:start_link({local, ?MODULE}),
 	AddRes = [gen_event:add_handler(?MODULE, {?MODULE, {Priority, Callback}}, {Callback, Args}) ||
 		{Callback, Priority, Args} <- Auths],
 	?info("Adding authentication backends:  ~p", [AddRes]),
@@ -115,12 +115,12 @@ start_link(Auths) ->
 %% Authentication backends are queried in order of priority, lowest to
 %% highest.  Query stops at the first backend that returns a definitive
 %% allow or deny.
--spec(authentication/2 :: (Username :: string(), Password :: string()) ->
+-spec(authenticate/2 :: (Username :: string(), Password :: string()) ->
 	'allow' | {'deny', string()}).
-authentication(Username, Password) ->
+authenticate(Username, Password) ->
 	Handlers = gen_event:which_handlers(?MODULE),
-	Handlers0 = lists:keysort(2, Handlers),
-	authentication(Username, Password, Handlers0).
+	%Handlers0 = lists:keysort(2, Handlers),
+	authenticate(Handlers, Username, Password).
 
 %% @doc As the specific authentication backend for all information they
 %% have on the given user.
@@ -135,6 +135,13 @@ get_user(Username, Handler) ->
 	Args :: any()) -> 'ok' | {'EXIT', any()} | {'error', any()}).
 add_backend(Callback, Priority, Args) ->
 	gen_event:add_handler(?MODULE, {?MODULE, {Priority, Callback}}, {Callback, Args}).
+
+%% @doc Removes a backend from the list.
+-spec(remove_backend/2 :: (Callback :: atom(), Priority :: integer()) ->
+	'ok').
+remove_backend(Callback, Priority) ->
+	gen_event:delete_handler(?MODULE, {?MODULE, {Priority, Callback}}, removed),
+	ok.
 
 %% @hidden
 behavior_info(exports) ->
@@ -162,7 +169,7 @@ init({Callback, Args}) ->
 			{error, Else}
 	end;
 
-init(self) ->
+init(?MODULE) ->
 	build_tables(),
 	{ok, undefined}.
 
@@ -182,7 +189,7 @@ handle_event(Event, State) ->
 %% @hidden
 handle_call({authentication, Username, Password}, undefined) ->
 	% TODO mnesia backed
-	{reply, undefined, undefined};
+	{ok, undefined, undefined};
 
 handle_call({authentication, Username, Password}, State) ->
 	#state{callback = Callback, substate = Substate, error_count = Errs} = State,
@@ -198,24 +205,24 @@ handle_call({authentication, Username, Password}, State) ->
 			?notice("backed ~s returned it's 3rd and final error ~p", [Callback, Out]),
 			remove_handler;
 		Errs ->
-			{reply, Out, State};
+			{ok, Out, State};
 		_ ->
 			?notice("backend ~s returned an error ~p; this is error ~p", [Callback, Out, Errcount]),
-			{reply, Out, State#state{error_count = Errcount}}
+			{ok, Out, State#state{error_count = Errcount}}
 	end;
 
 handle_call({get_user, Username}, undefined) ->
 	% TODO mnesia backed
-	{reply, undefined, undefined};
+	{ok, undefined, undefined};
 
 handle_call({get_user, Username}, State) ->
 	#state{callback = Callback, substate = Substate} = State,
 	Out = Callback:get_user(Username, Substate),
-	{reply, Out, State};
+	{ok, Out, State};
 
 handle_call(Req, State) ->
 	?info("unhandled call:  ~p", [Req]),
-	{reply, {error, invalid}, State}.
+	{ok, {error, invalid}, State}.
 
 %% ------------------------------------------------------------------
 %% handle_info
@@ -256,21 +263,21 @@ format_status(Opt, [PDict, State]) ->
 %% Internal Functions
 %% ==================================================================
 
-authentication([], _Username, _Password) ->
+authenticate([], _Username, _Password) ->
 	% if no-one knows, deny
 	{deny, "No backends definitive"};
 
-authentication([Handler | Tail], Username, Password) ->
+authenticate([Handler | Tail], Username, Password) ->
 	case gen_event:call(?MODULE, Handler, {authentication, Username, Password}) of
 		allow ->
 			allow;
 		{deny, Msg} ->
 			{deny, Msg};
 		undefined ->
-			authentication(Tail, Username, Password);
+			authenticate(Tail, Username, Password);
 		Else ->
 			?info("Handler ~p returned an bad value ~p", [Handler, Else]),
-			authentication(Tail, Username, Password)
+			authenticate(Tail, Username, Password)
 	end.
 
 build_tables() ->
