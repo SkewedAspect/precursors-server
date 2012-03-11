@@ -1,6 +1,9 @@
 %% because the loggers rarely include everything I'd like to see,
 %% this wraps 'em up.
 
+-type(json() :: binary() | [json()] | {'struct', [{binary(), json()}]} | 
+	integer() | float()).
+
 -ifdef(TEST).
 
 -include_lib("eunit/include/eunit.hrl").

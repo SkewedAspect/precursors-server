@@ -40,6 +40,7 @@
 %% <li>Username :: string()</li>
 %% <li>BackendInfo :: any()</li>
 %% <li>UserInfo :: any()</li>
+%% </ul>
 %%
 %% Return any information the backend may have on the user.  `undefined' is
 %% taken to mean there was no information.

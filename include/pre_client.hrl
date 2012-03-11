@@ -12,11 +12,9 @@
 	character :: #character_info{}
 }).
 
--type(json() :: integer() | float() | binary() | {struct, [{binary(), json()}]} | [json()] | null | true | false).
-
-
-%%-----------------------------------------------------------------------------------
-%% These records should ONLY be used by pre_client_connection and pre_tcp_transient!
+%%-----------------------------------------------------------------------
+%% These records should ONLY be used by pre_client_connection and
+%% pre_tcp_transient!
 
 -record(client_connection, {
 	pid,
@@ -34,4 +32,4 @@
 	contents :: json()
 }).
 
-%%-----------------------------------------------------------------------------------
+%%-----------------------------------------------------------------------
