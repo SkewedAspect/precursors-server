@@ -170,6 +170,7 @@ init(self) ->
 %% handle_event
 %% ------------------------------------------------------------------
 
+%% @hidden
 handle_event(Event, State) ->
 	?debug("Ignoring event:  ~p", [Event]),
 	{ok, State}.
@@ -178,6 +179,7 @@ handle_event(Event, State) ->
 %% handle_call
 %% ------------------------------------------------------------------
 
+%% @hidden
 handle_call({authentication, Username, Password}, undefined) ->
 	% TODO mnesia backed
 	{reply, undefined, undefined};
@@ -219,6 +221,7 @@ handle_call(Req, State) ->
 %% handle_info
 %% ------------------------------------------------------------------
 
+%% @hidden
 handle_info(Msg, State) ->
 	?info("unhandled info:  ~p", [Msg]),
 	{noreply, State}.
@@ -227,6 +230,7 @@ handle_info(Msg, State) ->
 %% terminate
 %% ------------------------------------------------------------------
 
+%% @hidden
 terminate(Why, State) ->
 	?info("Going down:  ~p", [Why]),
 	#state{callback = Callback, substate = Substate} = State,
@@ -236,6 +240,7 @@ terminate(Why, State) ->
 %% code_change
 %% ------------------------------------------------------------------
 
+%% @hidden
 code_change(_Oldvsn, State, _Extra) ->
 	{ok, State}.
 
@@ -243,6 +248,7 @@ code_change(_Oldvsn, State, _Extra) ->
 %% format_status
 %% ------------------------------------------------------------------
 
+%% @hidden
 format_status(Opt, [PDict, State]) ->
 	[{data, [{"State", State}]}].
 
