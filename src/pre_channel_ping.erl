@@ -32,7 +32,7 @@ register_hooks() ->
 client_request(Client, Id, Request, Info) ->
 	client_request(request_type(Request), Client, Id, Request, Info).
 
-client_request(<<"ping">>, Client, Id, _Request, _Info) ->
+client_request(?CHANNEL, Client, Id, _Request, _Info) ->
 	#client_info{connection = Connection} = Client,
 	{MegaSecs, Secs, MicroSecs} = now(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
