@@ -9,7 +9,8 @@
 	user_id :: any(),
 	username :: binary(),
 	show_account :: 'hidden' | 'public',
-	character :: #character_info{}
+	character :: #character_info{},
+	entity :: {pid(), term()}
 }).
 
 %%-----------------------------------------------------------------------

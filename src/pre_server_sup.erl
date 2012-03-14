@@ -37,8 +37,14 @@ init(Args) ->
 	ListenerArgs = proplists:get_value(listener, Args, []),
 	ListenerKid = ?CHILD(pre_client_sup, supervisor, [ListenerArgs]),
 	HooksKid = ?CHILD(pre_hooks, supervisor, []),
+	EntityManagerArgs = proplists:get_value(entity_engine, Args, []),
+	EntityManagerKid = ?CHILD(pre_entity, supervisor, [EntityManagerArgs]),
+	EntityChannelArgs = proplists:get_value(entity_channel, Args, []),
+	EntityChannelKid = ?CHILD(pre_channel_entity, supervisor, [EntityChannelArgs]),
 	Kids = [
 		ListenerKid,
-		HooksKid
+		HooksKid,
+		EntityManagerKid,
+        EntityChannelKid
 	],
 	{ok, { {one_for_one, 5, 10}, Kids} }.

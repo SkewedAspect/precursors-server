@@ -1,19 +1,16 @@
-%%% @doc The entity channel - forwards updates from nearby entity to the client.
+%%% @doc The entity engine - manages entity processes and forwards events to a given entity's logic callback module.
 
--module(pre_channel_entity).
+-module(pre_entity).
 -behavior(gen_server).
 
 -include("log.hrl").
--include("pre_client.hrl").
-
-% Because this saves us _so_ much code.
--define(CHANNEL, <<"entity">>).
+-include("pre_entity.hrl").
 
 % gen_server
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 % pre_client_channels
--export([client_request/4, client_response/4, client_event/3]).
+-export([client_request/4]).
 
 -record(state, {
 	supervisor_pid :: pid(),
@@ -36,40 +33,28 @@ start_link(Options) ->
 
 %% -------------------------------------------------------------------
 
-%% @hidden
-client_request(Client, Id, Request, Pid) ->
-	gen_server:cast(Pid, {client_request, Client, Id, Request}),
-	ok.
-
-%% @hidden
-client_response(_Client, _Id, _Response, _Pid) ->
-	%gen_server:cast(Pid, {client_response, Client, Id, Response}),
-	ok.
-
-%% @hidden
-client_event(_Client, _Event, _Pid) ->
-	%gen_server:cast(Pid, {client_event, Client, Event}),
+client_request({Pid, EntityID}, RequestType, RequestID, Request) ->
+	gen_server:cast(Pid, {client_request, EntityID, RequestType, RequestID, Request}),
 	ok.
 
 %% -------------------------------------------------------------------
 %% gen_server
 %% -------------------------------------------------------------------
 
-%% @hidden
 init(supervisor_start) ->
 	ChildSpec = {
 		?MODULE,
-		{pre_channel_entity_worker, start_link, []},
+		{pre_entity_worker, start_link, []},
         transient,
 		brutal_kill,
 		worker,
-		[pre_channel_entity_worker]
+		[pre_entity_worker]
 	},
 	{ok, {{simple_one_for_one, 2, 2}, [ChildSpec]}};
 
 init(Options) ->
 	InitialWorkers = proplists:get_value(workers, Options, 1),
-	{ok, Supervisor} = supervisor:start_link({local, pre_channel_entity_sup}, ?MODULE, supervisor_start),
+	{ok, Supervisor} = supervisor:start_link({local, pre_entity_sup}, ?MODULE, supervisor_start),
 	WorkerPids = [begin
 		{ok, Pid} = supervisor:start_child(Supervisor, []),
 		Pid
@@ -79,17 +64,10 @@ init(Options) ->
 
 %% -------------------------------------------------------------------
 
-%% @hidden
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
 
 %% -------------------------------------------------------------------
-
-%% @hidden
-handle_cast({client_request, _Client, _Id, _Request} = Message, State) ->
-	[FirstWorker | OtherWorkers] = State#state.worker_pids,
-	gen_server:cast(FirstWorker, Message),
-	{noreply, State#state{worker_pids = OtherWorkers ++ [FirstWorker]}};
 
 handle_cast(client_connected, State) ->
 	ClientCount = State#state.client_count + 1,
@@ -104,17 +82,14 @@ handle_cast(_, State) ->
 
 %% -------------------------------------------------------------------
 
-%% @hidden
 handle_info(_, State) ->
     {noreply, State}.
 
 %% -------------------------------------------------------------------
 
-%% @hidden
 terminate(Reason, _State) ->
 	?info("Terminating due to ~p.", [Reason]),
 	ok.
 
-%% @hidden
 code_change(_OldVersion, State, _Extra) ->
 	{reply, State}.
