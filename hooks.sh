@@ -2,7 +2,7 @@
 
 function included_apps_do {
 	initPwd=`pwd`
-	for file in include_apps/*
+	for file in included_apps/*
 	do
 		cd $file
 		../../rebar $1
