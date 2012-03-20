@@ -88,11 +88,19 @@ acting_as_backend_test_() ->
 		end},
 
 		{"user in mnesia, bad pw", fun() ->
-			?assert(false)
+			meck:expect(mnesia, dirty_match_object, fun(_) ->
+				[#user_auth{password = "goodpass"}]
+			end),
+			Out = pre_gen_auth:handle_authentication("gerald", "badpass", pre_gen_auth),
+			?assertEqual({deny, "invalid password"}, Out)
 		end},
 
 		{"user in mnesia everything's awesome", fun() ->
-			?assert(false)
+			meck:expect(mnesia, dirty_match_object, fun(_) ->
+				[#user_auth{password = "goodpass"}]
+			end),
+			Out = pre_gen_auth:handle_authentication("gerald", "goodpass", pre_gen_auth),
+			?assertEqual(allow, Out)
 		end}
 
 	] end}.

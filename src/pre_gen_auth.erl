@@ -169,7 +169,7 @@ handle_authentication(Username, Password, ?MODULE) ->
 	case mnesia:dirty_match_object(Rec) of
 		[] ->
 			undefined;
-		[#user_auth{password = DP} | _] when DP =:= Password ->
+		[#user_auth{password = DP} | _] when DP =/= Password ->
 			{deny, "invalid password"};
 		_ ->
 			allow
