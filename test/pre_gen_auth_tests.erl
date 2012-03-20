@@ -83,7 +83,7 @@ acting_as_backend_test_() ->
 			meck:expect(mnesia, dirty_match_object, fun(_) ->
 				[]
 			end),
-			Out = pre_gen_auth:handle_authentication("gerald", "herber", undefined),
+			Out = pre_gen_auth:handle_authentication("gerald", "herber", pre_gen_auth),
 			?assertEqual(undefined, Out)
 		end},
 
