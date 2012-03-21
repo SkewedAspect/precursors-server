@@ -14,7 +14,7 @@
 		code_change/3]).
 
 % External AI
--export([start_link/0, get_user/2, handle_authentication/3]).
+-export([start_link/1, get_user/2, handle_authentication/3]).
 
 
 % -----------------------------------------------------------------------------
@@ -28,36 +28,38 @@
 %% External API
 %% ----------------------------------------------------------------------------
 
-start_link() ->
-	Result = gen_server:start_link(?MODULE, [], []),
+start_link(Args) ->
+	Result = gen_server:start_link(?MODULE, {gen_server, Args}, []),
 	?debug("start_link result: ~p", [Result]),
 	Result.
 
 
-handle_authentication(Username, Password, BackendInfo) ->
-	gen_server:cast({auth, {Username, Password}, BackendInfo}).
+handle_authentication(Username, Password, Pid) ->
+	gen_server:cast({auth, {Username, Password}, Pid}).
 
 
-get_user(Username, BackendInfo) ->
-	gen_server:cast({user, Username}, BackendInfo).
+get_user(Username, Pid) ->
+	gen_server:cast({user, Username}, Pid).
 
 
 %% ----------------------------------------------------------------------------
 %% gen_server
 %% ----------------------------------------------------------------------------
 
-init([]) ->
+init({gen_server, Args}) ->
+	{ok, Args};
+
+init(Args) ->
 	?debug("Starting MongoDB Auth Plugin"),
-	pre_gen_auth:add_backend(?MODULE, 1, self()),
-	State = #state{},
-	{ok, State}.
+	Pid = mongo_auth_sup:start_server(Args),
+	{ok, Pid}.
 
 % -----------------------------------------------------------------------------
 
-handle_call({user, Username}, _From, State) ->
+handle_call({user, _Username}, _From, _State) ->
 	undefined;
 
-handle_call({auth, {Username, Password}}, _From, State) ->
+handle_call({auth, {_Username, _Password}}, _From, _State) ->
 	{deny, "Reasons not yet implemented."};
 
 handle_call(_, _From, State) ->

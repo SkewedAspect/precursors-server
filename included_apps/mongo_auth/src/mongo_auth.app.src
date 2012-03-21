@@ -13,7 +13,7 @@
 				mongodb
             ]
 		},
-		{mod, {mongo_auth, []}},
+		{mod, {mongo_auth_app, []}},
 		{env, []}
 	]
 }.
