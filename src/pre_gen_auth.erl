@@ -73,9 +73,9 @@
 	code_change/3, format_status/2]).
 % API
 -export([start_link/0, start_link/1, behavior_info/1, add_backend/3,
-	authenticate/2, get_user/2, remove_backend/2]).
+	authenticate/2, get_user/3, remove_backend/2]).
 % when self as backend
--export([handle_authentication/3]).
+-export([handle_authentication/3, get_user/2]).
 
 -record(state, {
 	callback,
@@ -127,10 +127,11 @@ authenticate(Username, Password) ->
 
 %% @doc As the specific authentication backend for all information they
 %% have on the given user.
--spec(get_user/2 :: (Username :: string(),
-	Handler :: {integer(), atom()}) -> any()).
-get_user(Username, Handler) ->
-	Handler0 = {?MODULE, Handler},
+-spec(get_user/3 :: (Username :: string(),
+	Handler :: atom(),
+	Priority :: integer()) -> any()).
+get_user(Username, Handler, Priority) ->
+	Handler0 = {?MODULE, {Priority, Handler}},
 	gen_event:call(?MODULE, Handler0, {get_user, Username}).
 
 %% @doc Add a backend to an already running authentication manager.
@@ -156,7 +157,7 @@ behavior_info(_) ->
 	undefined.
 
 %% @hidden
-handle_authentication(Username, Password, ?MODULE) ->
+handle_authentication(Username, Password, undefined) ->
 %	MatchSpec = [
 %		{#user_auth{username = '$1', password = '$2', _ = '_'},
 %		[
@@ -173,6 +174,14 @@ handle_authentication(Username, Password, ?MODULE) ->
 			{deny, "invalid password"};
 		_ ->
 			allow
+	end.
+
+%% @hidden
+get_user(Username, undefined) ->
+	Rec = #user_auth{username = Username, _ = '_'},
+	case mnesia:dirty_match_object(Rec) of
+		[] -> undefined;
+		[X] -> X
 	end.
 
 %% ==================================================================
