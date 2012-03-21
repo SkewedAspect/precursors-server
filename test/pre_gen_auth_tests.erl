@@ -66,8 +66,9 @@ acting_as_manager_test_() ->
 				{user_auth, "gerald"}
 			end),
 			pre_gen_auth:add_backend(alonzo_pierce, 1, substate),
-			Out = pre_get_auth:get_user("gerald", alonzo_pierce, 1),
-			?assertEqual({user_auth, "gerald"}, Out)
+			Out = pre_gen_auth:get_user("gerald", alonzo_pierce, 1),
+			?assertEqual({user_auth, "gerald"}, Out),
+			meck:unload(alonzo_pierce)
 		end}
 
 	] end}.
