@@ -45,6 +45,6 @@ init(Args) ->
 		ListenerKid,
 		HooksKid,
 		EntityManagerKid,
-        EntityChannelKid
+		EntityChannelKid
 	],
 	{ok, { {one_for_one, 5, 10}, Kids} }.
