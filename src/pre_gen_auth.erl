@@ -122,8 +122,8 @@ start_link(Auths) ->
 	'allow' | {'deny', string()}).
 authenticate(Username, Password) ->
 	Handlers = gen_event:which_handlers(?MODULE),
-	%Handlers0 = lists:keysort(2, Handlers),
-	authenticate(Handlers, Username, Password).
+	Handlers0 = lists:keysort(2, Handlers),
+	authenticate(Handlers0, Username, Password).
 
 %% @doc As the specific authentication backend for all information they
 %% have on the given user.

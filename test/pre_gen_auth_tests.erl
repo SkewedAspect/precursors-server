@@ -68,7 +68,52 @@ acting_as_manager_test_() ->
 			pre_gen_auth:add_backend(alonzo_pierce, 1, substate),
 			Out = pre_gen_auth:get_user("gerald", alonzo_pierce, 1),
 			?assertEqual({user_auth, "gerald"}, Out),
-			meck:unload(alonzo_pierce)
+			meck:unload(alonzo_pierce),
+			pre_gen_auth:remove_backend(alonzo_pierce, 1)
+		end},
+
+		{"faulty backend", fun() ->
+			meck:new(failmode),
+			meck:expect(failmode, init, fun(substate) ->
+				{ok, substate}
+			end),
+			Self = self(),
+			meck:expect(failmode, handle_authentication, fun("gerald", "herber", substate) ->
+				Self ! truth,
+				{error, the_pain}
+			end),
+			pre_gen_auth:add_backend(failmode, 1, substate),
+			[?assertMatch({deny,_Msg}, pre_gen_auth:authenticate("gerald", "herber")) ||
+				_ <- lists:seq(1,4)],
+			?assert(receive_truths(3)),
+			meck:unload(failmode),
+			pre_gen_auth:remove_backend(failmode, 1)
+		end},
+
+		{"backend fallthrough", fun() ->
+			meck:new(know_nothing),
+			meck:new(smartypants),
+			meck:expect([know_nothing, smartypants], init, fun(substate) ->
+				{ok, substate}
+			end),
+			pre_gen_auth:add_backend(know_nothing, 1, substate),
+			pre_gen_auth:add_backend(smartypants, 2, substate),
+			Self = self(),
+			meck:expect(know_nothing, handle_authentication, fun("gerald", "herber", substate) ->
+				Self ! truth,
+				undefined
+			end),
+			meck:expect(smartypants, handle_authentication, fun("gerald", "herber", substate) ->
+				Self ! truth,
+				allow
+			end),
+			Out = pre_gen_auth:authenticate("gerald", "herber"),
+			?assertEqual(allow, Out),
+			?assert(receive_truths(2)),
+			pre_gen_auth:remove_backend(know_nothing, 1),
+			pre_gen_auth:remove_backend(smartypants, 2),
+			meck:unload(know_nothing),
+			meck:unload(smartypants)
 		end}
 
 	] end}.
