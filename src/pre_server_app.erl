@@ -15,7 +15,8 @@
 
 %% @hidden
 start(_StartType, _StartArgs) ->
-    pre_server_sup:start_link().
+		AppArgs = application:get_all_env(precursors_server),
+    pre_server_sup:start_link(AppArgs).
 
 %% @doc Stops the app.
 stop(_State) ->

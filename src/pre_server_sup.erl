@@ -6,7 +6,7 @@
 -include("log.hrl").
 
 %% API
--export([start_link/0]).
+-export([start_link/0,start_link/1]).
 
 %% Supervisor callbacks
 -export([init/1]).
@@ -36,12 +36,20 @@ start_link(Args) ->
 init(Args) ->
 	ListenerArgs = proplists:get_value(listener, Args, []),
 	ListenerKid = ?CHILD(pre_client_sup, supervisor, [ListenerArgs]),
+
 	HooksKid = ?CHILD(pre_hooks, supervisor, []),
+
 	EntityManagerArgs = proplists:get_value(entity_engine, Args, []),
 	EntityManagerKid = ?CHILD(pre_entity, supervisor, [EntityManagerArgs]),
+
 	EntityChannelArgs = proplists:get_value(entity_channel, Args, []),
 	EntityChannelKid = ?CHILD(pre_channel_entity, supervisor, [EntityChannelArgs]),
+
+	AuthManagerArgs = proplists:get_value(auth_backends, Args, []),
+	AuthManagerKid = ?CHILD(pre_gen_auth, worker, [AuthManagerArgs]),
+
 	Kids = [
+		AuthManagerKid,
 		ListenerKid,
 		HooksKid,
 		EntityManagerKid,
