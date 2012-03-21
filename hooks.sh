@@ -27,7 +27,7 @@ function pre_compile {
 
 	# compile the included apps
 	included_apps_do "compile"
-	
+
 	# record what commit/version the repository is at
 	PRECURSORS_COMMIT=""
 	if [ -d ".hg" ]
@@ -62,6 +62,11 @@ function post_compile {
 	cat success_message
 }
 
+function post_get_deps {
+	# get the deps of the included apps
+	included_apps_do "get-deps"
+}
+
 case $1 in
 	"pre_compile")
 		pre_compile;;
@@ -69,4 +74,6 @@ case $1 in
 		post_compile;;
 	"pre_clean")
 		pre_clean;;
+	"post_get_deps")
+		post_get_deps;;
 esac
