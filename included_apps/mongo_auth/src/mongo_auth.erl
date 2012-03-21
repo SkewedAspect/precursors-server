@@ -5,7 +5,7 @@
 %% Licensed under the MIT license; see the LICENSE file for details.
 %% ----------------------------------------------------------------------------
 -module(mongo_auth).
--behavior(pre_gen_auth).
+%-behavior(pre_gen_auth).
 
 % -----------------------------------------------------------------------------
 
@@ -22,7 +22,7 @@
 -include_lib("precursors_server/include/log.hrl").
 -include_lib("precursors_server/include/internal_auth.hrl").
 
--record(state, {servers = dict:new()}).
+-record(state, {}).
 
 %% ----------------------------------------------------------------------------
 %% External API
@@ -35,11 +35,11 @@ start_link() ->
 
 
 handle_authentication(Username, Password, BackendInfo) ->
-	allow.
+	gen_server:cast({auth, {Username, Password}, BackendInfo}).
 
 
 get_user(Username, BackendInfo) ->
-	undefined.
+	gen_server:cast({user, Username}, BackendInfo).
 
 
 %% ----------------------------------------------------------------------------
@@ -47,12 +47,18 @@ get_user(Username, BackendInfo) ->
 %% ----------------------------------------------------------------------------
 
 init([]) ->
-	?debug("Starting WeatherPlugin"),
-	erkbot_event:add_plugin(?MODULE, self()),
+	?debug("Starting MongoDB Auth Plugin"),
+	pre_gen_auth:add_backend(?MODULE, 1, self()),
 	State = #state{},
 	{ok, State}.
 
 % -----------------------------------------------------------------------------
+
+handle_call({user, Username}, _From, State) ->
+	undefined;
+
+handle_call({auth, {Username, Password}}, _From, State) ->
+	{deny, "Reasons not yet implemented."};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
