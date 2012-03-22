@@ -296,12 +296,30 @@ service_control_message(Type, _, Request, State) ->
 
 service_control_message(request, <<"login">>, Id, Request, State) ->
 	?info("starting authentication"),
-	% TODO actually ask an authentication system if they should be let in.
+	?info("Request: ~p", [Request]),	
+	% Check with authentication backends
+	Username = proplists:get_value(<<"user">>, Request),
+	Password= proplists:get_value(<<"password">>, Request),
+	?info("Authenticating user: ~p", [Username]),
+	case pre_gen_auth:authenticate(Username, Password) of
+		allow ->
+			Reason = undefined,
+			Confirm = true;
+		{deny, Msg} ->
+			Reason = list_to_binary(Msg),
+			Confirm = false;
+		_ ->
+			?warning("Authentication failed for unkown reason."),
+			Reason = <<"An unkown error has occured.">>,
+			Confirm = false
+	end,
+
 	% Send login response
 	#state{cookie = Cookie, udp_socket = UdpSocket, client_info = ClientInfo} = State,
 	{ok, UdpPort} = inet:port(UdpSocket),
 	LoginRep = {struct, [
-		{confirm, true},
+		{confirm, Confirm},
+		{reason, Reason},
 		{cookie, Cookie},
 		{udpPort, UdpPort},
 		{tcpPort, 6007}
@@ -311,10 +329,10 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 	OutBin = wrap_for_send(Response),
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
 	?debug("Login response ssl:send result:  ~p", [SendRes]),
+
 	% Record login information in state
 	AESKey = base64:decode(proplists:get_value(<<"key">>, Request)),
 	AESVector = base64:decode(proplists:get_value(<<"vector">>, Request)),
-	Username = proplists:get_value(<<"user">>, Request),
 	State#state{
 		cookie = Cookie,
 		udp_remote_info = undefined,
