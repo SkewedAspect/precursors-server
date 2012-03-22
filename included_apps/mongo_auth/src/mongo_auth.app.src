@@ -10,7 +10,8 @@
                 mnesia,
 				inets,
                 lager,
-				mongodb
+				mongodb,
+				erlsha2
             ]
 		},
 		{mod, {mongo_auth_app, []}},
