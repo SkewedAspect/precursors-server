@@ -35,11 +35,11 @@ start_link(Args) ->
 
 
 handle_authentication(Username, Password, Pid) ->
-	gen_server:cast({auth, {Username, Password}, Pid}).
+	gen_server:call(Pid, {auth, {Username, Password}}).
 
 
 get_user(Username, Pid) ->
-	gen_server:cast({user, Username}, Pid).
+	gen_server:call(Pid, {user, Username}).
 
 
 %% ----------------------------------------------------------------------------
@@ -57,11 +57,11 @@ init(Args) ->
 
 % -----------------------------------------------------------------------------
 
-handle_call({user, _Username}, _From, _State) ->
-	undefined;
+handle_call({user, _Username}, _From, State) ->
+	{reply, undefined, State};
 
-handle_call({auth, {_Username, _Password}}, _From, _State) ->
-	{deny, "Reasons not yet implemented."};
+handle_call({auth, {_Username, _Password}}, _From, State) ->
+	{reply, {deny, "Reasons not yet implemented."}, State};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
