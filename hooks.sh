@@ -1,12 +1,11 @@
 #!/bin/bash
 
 function included_apps_do {
-	initPwd=`pwd`
 	for file in included_apps/*
 	do
-		cd $file
-		../../rebar $1
-		cd $initPwd
+		pushd $file
+		../../rebar "$@"
+		popd
 	done
 }
 
@@ -64,7 +63,7 @@ function post_compile {
 
 function post_get_deps {
 	# get the deps of the included apps
-	included_apps_do "get-deps"
+	included_apps_do "get-deps" base_dir=../..
 }
 
 case $1 in
