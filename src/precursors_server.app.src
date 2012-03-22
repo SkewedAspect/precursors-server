@@ -8,8 +8,7 @@
                   stdlib,
                   mnesia,
                   lager,
-                  ssl,
-				  mongo_auth
+                  ssl
                  ]},
   {mod, {pre_server_app, []}},
   {env, []}
