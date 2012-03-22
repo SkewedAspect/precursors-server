@@ -51,6 +51,7 @@ init({gen_server, Args}) ->
 
 init(Args) ->
 	?debug("Starting MongoDB Auth Plugin"),
+	ok = start_app(mongo_auth),
 	Pid = mongo_auth_sup:start_server(Args),
 	{ok, Pid}.
 
@@ -87,6 +88,14 @@ code_change(_OldVersion, State, _Extra) ->
 %% ----------------------------------------------------------------------------
 %% Internal API
 %% ----------------------------------------------------------------------------
+
+start_app(App) ->
+	case application:start(App) of
+		ok -> ok;
+		{error, {not_started, Dependency}} ->
+			ok = start_app(Dependency),
+			start_app(App)
+	end.
 
 %TODO: Do something.
 
