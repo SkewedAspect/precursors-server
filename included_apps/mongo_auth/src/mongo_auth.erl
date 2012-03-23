@@ -51,9 +51,11 @@ get_user(Username, Pid) ->
 
 init({gen_server, Args}) ->
 	
-	%TODO: Get this from our configuration
+
+	% Yes, this may seem redundant, but it allows for future configuration.
+	[Host] = Args,
+	
 	% Connect to mongodb
-	Host = {localhost, 27017},
 	Pool = resource_pool:new (mongo:connect_factory (Host), 10),
 	State = #state{
 		host = Host,
@@ -109,7 +111,12 @@ code_change(_OldVersion, State, _Extra) ->
 handle_auth(Username, Password, State) ->
 	case get_account_info(Username, State) of
 		{error, Reason} ->
-			{deny, Reason};
+			case is_atom(Reason) of
+				true ->
+					{deny, "Database Error: " ++ atom_to_list(Reason)};
+				false ->
+					{deny, "Database Error: " ++ Reason}
+			end;
 
 		{Account} ->
 			?info("Got Account Record: ~p", [Account]),
