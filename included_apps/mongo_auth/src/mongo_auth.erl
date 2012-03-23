@@ -51,29 +51,41 @@ get_user(Username, Pid) ->
 %% gen_server
 %% ----------------------------------------------------------------------------
 
-init({gen_server, Args}) ->
-	
+init({gen_server, [Host] = _Args}) ->
+	State = #state{
+		host = Host
+	},
+	init(connect, State);
 
-	% Yes, this may seem redundant, but it allows for future configuration.
-	[Host, {Username, Password}] = Args,
-	
-	% Connect to mongodb
-	Pool = resource_pool:new (mongo:connect_factory (Host), 10),
+init({gen_server, [Host, {Username, Password}] = _Args}) ->
 	State = #state{
 		host = Host,
-		conn_pool = Pool,
 		username = bson:utf8(Username),
 		password = bson:utf8(Password)
 	},
-	{ok, State};
+	init(connect, State);
 
+init({gen_server, _Args}) ->
+	State = #state{host=["localhost", 27017]},
+	init(connect, State);
 
 init(Args) ->
 	?debug("Starting MongoDB Auth Plugin"),
 	ok = start_app(mongo_auth),
+
 	% Start our gen_server
 	Pid = mongo_auth_sup:start_server(Args),
 	{ok, Pid}.
+
+
+init(connect, State) ->
+	% Connect to mongodb
+	Host = State#state.host,
+	Pool = resource_pool:new (mongo:connect_factory (Host), 10),
+	NewState = State#state{
+		conn_pool = Pool
+	},
+	{ok, NewState}.
 
 % -----------------------------------------------------------------------------
 
@@ -114,6 +126,8 @@ code_change(_OldVersion, State, _Extra) ->
 %% @doc Authenticate user against mongo
 handle_auth(Username, Password, State) ->
 	case get_account_info(Username, State) of
+		{error, not_found} ->
+			undefined;
 		{error, Reason} ->
 			case is_atom(Reason) of
 				true ->
@@ -141,7 +155,7 @@ handle_auth(Username, Password, State) ->
 %% @doc Retrieve user information from mongo
 handle_userinfo(Username, State) ->
 	case get_account_info(Username, State) of
-		{error, Reason} ->
+		{error, _Reason} ->
 			undefined;
 
 		Account ->
@@ -154,6 +168,7 @@ handle_userinfo(Username, State) ->
 start_app(App) ->
 	case application:start(App) of
 		ok -> ok;
+		{error, {already_started, App}} -> ok;
 		{error, {not_started, Dependency}} ->
 			ok = start_app(Dependency),
 			start_app(App)
@@ -194,6 +209,8 @@ get_account_info(Username, State) ->
 			case Results of
 				{failure, Reason} ->
 					{error, Reason};
+				{ok, {}} ->
+					{error, not_found};
 				{ok, Account} ->
 					Account
 			end

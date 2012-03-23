@@ -9,7 +9,7 @@
 -export([init/1]).
 
 %% Helper macro for declaring children of supervisor
--define(CHILD(I, Type, Args), {I, {I, start_link, [Args]}, permanent, 5000, Type, [I]}).
+-define(CHILD(I, Type, Args), {I, {I, start_link, Args}, permanent, 5000, Type, [I]}).
 
 %% ===================================================================
 %% API functions
@@ -19,8 +19,7 @@ start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
 start_server(Args) ->
-	ServerDef = ?CHILD(mongo_auth, worker, Args),
-    {ok, ServerPid} = supervisor:start_child(?MODULE, ServerDef),
+    {ok, ServerPid} = supervisor:start_child(?MODULE, [Args]),
 	ServerPid.
 
 %% ===================================================================
@@ -28,4 +27,5 @@ start_server(Args) ->
 %% ===================================================================
 
 init([]) ->
-	{ok, {{one_for_one, 5, 10}, []}}.
+	Child = ?CHILD(mongo_auth, worker, []),
+	{ok, {{simple_one_for_one, 5, 10}, [Child]}}.
