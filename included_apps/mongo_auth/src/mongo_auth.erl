@@ -24,7 +24,9 @@
 
 -record(state, {
 			host,
-			conn_pool
+			conn_pool,
+			username,
+			password
 		}).
 
 %% ----------------------------------------------------------------------------
@@ -53,13 +55,15 @@ init({gen_server, Args}) ->
 	
 
 	% Yes, this may seem redundant, but it allows for future configuration.
-	[Host] = Args,
+	[Host, {Username, Password}] = Args,
 	
 	% Connect to mongodb
 	Pool = resource_pool:new (mongo:connect_factory (Host), 10),
 	State = #state{
 		host = Host,
-		conn_pool = Pool
+		conn_pool = Pool,
+		username = bson:utf8(Username),
+		password = bson:utf8(Password)
 	},
 	{ok, State};
 
@@ -168,12 +172,22 @@ get_db(Pool) ->
 
 %% @doc Retrieve the account record from the database
 get_account_info(Username, State) ->
-	#state{conn_pool = Pool} = State,
+	#state{
+		conn_pool = Pool,
+		username = Authname,
+		password = Password
+	} = State,
 	case get_db(Pool) of
 		error ->
 				{error, "Error contacting database."};
 		Conn ->
 			Results = mongo:do(safe, master, Conn, precursors_server, fun() -> 
+				Authed = case Authname of
+					undefined ->
+						ok;
+					_ ->
+						mongo:auth(Authname, Password)
+				end,
 				mongo:find_one(accounts, {name, Username}) 
 			end),
 			
