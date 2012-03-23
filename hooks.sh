@@ -63,7 +63,7 @@ function post_compile {
 
 function post_get_deps {
 	# get the deps of the included apps
-	included_apps_do "get-deps" base_dir=../..
+	included_apps_do "get-deps" deps_dir="../../deps"
 }
 
 case $1 in
