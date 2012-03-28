@@ -38,6 +38,8 @@
 -module(post_chatroom).
 -behaviour(gen_server).
 
+-define(timeout, 1000).
+
 -include_lib("precursors_server/include/log.hrl").
 -include_lib("precursors_server/include/pre_client.hrl").
 %% API
@@ -48,8 +50,9 @@
 
 -record(state, {
 	name :: string(),
-	chatters :: [pid()],
+	chatters :: [{pid(), string()}],
 	controllers :: [pid()],
+	squelched = [] :: [pid()],
 	mode = user :: 'user' | 'system' | 'plugin',
 	mode_meta
 }).
@@ -73,6 +76,33 @@ start_link(Name, Mode, ModeMeta) ->
 
 send_command(Pid, Command, Payload) ->
 	gen_server:cast(Pid, {command, Command, Payload}).
+
+% and so we can issue commands more easily.  The general idiom is:
+% function(RoomPid, IssuingClientInfo, Command[, Arg1..., ArgN]) ->
+% 	das res
+
+leave(Room, Client) ->
+	gen_server:call(Room, {leave, Client}, ?timeout).
+
+join(Room, Client) ->
+	join(Room, Client, "").
+
+join(Room, Client, Password) ->
+	gen_server:call(Room, {join, Client, Password}, ?timeout).
+
+kick(Room, Client, Target) ->
+	gen_server:call(Room, {kick, Client, Target}, ?timeout).
+
+mute(Room, Client, Target) ->
+	gen_server:call(Room, {mute, Client, Target}, ?timeout).
+
+unmute(Room, Client, Target) ->
+	gen_server:call(Room, {unmute, Client, Target}, ?timeout).
+
+message(Room, Client, Message) ->
+	gen_server:call(Room, {message, Client, Message}, ?timeout).
+
+
 
 %% ==================================================================
 %% gen_server
@@ -139,6 +169,130 @@ build_system_opts([no_mute | Tail], Rec) ->
 %% ------------------------------------------------------------------
 %% handle_call
 %% ------------------------------------------------------------------
+
+pid_to_bin(P) ->
+	list_to_binary(pid_to_list(P)).
+
+broadcast(_Message, []) ->
+	ok;
+broadcast(Message, [{C,_} | Tail]) ->
+	pre_client_connection:send(C, tcp, event, <<"chat">>, Message),
+	broadcast(Message, Tail).
+	
+remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
+	Controllers0 = lists:delete(Conn, Controllers),
+	Chatters0 = lists:filter(fun({P,_}) -> P =/= Conn end, Chatters),
+	MidOut = case {Controllers0, Chatters0} of
+		{[], [{New, NewName} | _]} ->
+			Message = mochijson2:encode({struct, [
+				{<<"command">>, <<"new_controller">>},
+				{<<"room">>, pid_to_bin(RoomPid)},
+				{<<"controller">>, NewName}
+			]}),
+			broadcast(Message, Chatters0),
+			{[New], Chatters0};
+		Out -> Out
+	end,
+	LeaveMsg = mochijson2:encode({struct, [
+		{<<"command">>, <<"chatter_left">>},
+		{<<"room">>, pid_to_bin(RoomPid)},
+		{<<"leaver">>, Name}
+	]}),
+	broadcast(LeaveMsg, Chatters0),
+	MidOut.
+
+handle_call({leave, Client}, From, #state{mode = system, mode_meta = 
+	#system_opts{leavable = no_leavers}} = State) ->
+	{reply, {error, no_leavers}, State};
+
+handle_call({leave, Client}, From, State) ->
+	#state{chatters = Chatters, controllers = Controllers} = State,
+	#client_info{connection = Conn} = Client,
+	case [N || {P,N} <- Chatters, P =:= Conn] of
+		[] ->
+			{reply, {error, not_member}, State};
+		[Name] ->
+			{Chatters0, Controllers0} = remove_chatter(Conn, Name, Chatters, Controllers, self()),
+			case {Chatters0, State#state.mode} of
+				{_, system} ->
+					{reply, ok, State#state{chatters = Chatters0, controllers = Controllers0}};
+				{[], _PluginOrUser} ->
+					{stop, normal, ok, State#state{chatters = Chatters0, controllers = Controllers0}};
+				{_, plugin} ->
+					{reply, ok, State#state{chatters = Chatters0, controllers = []}};
+				{_, user} ->
+					{reply, ok, State#state{chatters = Chatters0, controllers = Controllers0}}
+			end
+	end;
+
+handle_call({join, Client, Password}, From, State) ->
+	% TODO make the password mean something
+	#state{chatters = Chatters} = State,
+	#client_info{connection = Conn, username = Name} = Client,
+	Chatters0 = [{Conn, Name} | Chatters],
+	Msg = mochijson2:encode({struct, [
+		{<<"command">>, <<"chatter_joined">>},
+		{<<"room">>, pid_to_bin(self())},
+		{<<"joiner">>, Name}
+	]}),
+	broadcast(Msg, Chatters0),
+	{reply, ok, State#state{chatters = Chatters0}};
+
+handle_call({kick, Client, Target}, From, #state{mode = system, mode_meta = #system_opts{kicking = no_kicking}} = State) ->
+	{reply, {error, no_kicking}, State};
+
+handle_call({kick, Client, Target}, From, State) ->
+	#client_info{connection = Conn} = Client,
+	case lists:member(Conn, State#state.controllers) of
+		false ->
+			{reply, {error, not_controller}, State};
+		true ->
+			% code reuse is fun!
+			case lists:keyfind(Target, 2, State#state.chatters) of
+				false ->
+					{reply, {error, no_target}, State};
+				TargetPid ->
+					FakeClient = Client#client_info{connection = TargetPid},
+					handle_call({leave, FakeClient}, From, State)
+			end
+	end;
+
+handle_call({mute, Client, Target}, From, #state{mode = system, mode_meta = #system_opts{muting = no_mute}} = State) ->
+	{reply, {error, no_muting}, State};
+
+handle_call({mute, Client, Target}, From, State) ->
+	#client_info{connection = Conn} = Client,
+	TargetPid = lists:keyfind(Target, 2, State#state.chatters),
+	IsChatter = lists:member(TargetPid, State#state.chatters),
+	IsController = lists:member(Client, State#state.controllers),
+	case {IsChatter, IsController} of
+		{false, _} ->
+			{reply, {error, no_target}, State};
+		{_, false} ->
+			{reply, {error, not_controller}, State};
+		{_,_} ->
+			Squelched = [TargetPid | State#state.squelched],
+			Msg = mochijson2:encode({struct, [
+				{<<"command">>, <<"muted">>},
+				{<<"room">>, pid_to_bin(self())}
+			]}),
+			broadcast(Msg, [{TargetPid, "name"}]),
+			{reply,ok,State#state{squelched = Squelched}}
+	end;
+
+handle_call({unmute, Client, Target}, From, State) ->
+	TargetPid = lists:keyfind(Target, 2, State#state.chatters),
+	#state{squelched = Squelched} = State,
+	case lists:delete(TargetPid, Squelched) of
+		Squelched ->
+			{reply, {error, not_muted}, State};
+		NewSquelched ->
+			State0 = State#state{squelched = NewSquelched},
+			{reply, ok, State0}
+	end;
+
+handle_call({message, Client, Message}, From, State) ->
+	{reply, {error, nyi}, State};
 
 handle_call(_Request, _From, State) ->
   {noreply, ok, State}.
