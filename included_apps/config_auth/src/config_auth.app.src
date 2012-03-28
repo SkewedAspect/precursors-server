@@ -1,0 +1,20 @@
+{application, config_auth,
+	[
+		{description, "Config based authentication plugin"},
+		{vsn, "1"},
+		{registered, []},
+		{applications, 
+			[
+				kernel,
+                stdlib,
+                mnesia,
+				inets,
+                lager
+            ]
+		},
+		{mod, {config_auth_app, []}},
+		{env, []}
+	]
+}.
+
+% vim: ft=erlang
