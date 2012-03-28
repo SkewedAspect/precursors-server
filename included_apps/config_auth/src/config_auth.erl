@@ -71,15 +71,11 @@ init({gen_server, Args}) ->
 			{allow, Else}
 	end,
 
-	?info("Auth is: ~p", [Auth]),
-
-	State = #state{
-		auth = Auth 
-	},
+	State = #state{auth = Auth},
 	{ok, State};
 
 init(Args) ->
-	?debug("Starting MongoDB Auth Plugin"),
+	?debug("Starting Config Auth Plugin"),
 	ok = start_app(config_auth),
 
 	% Start our gen_server
@@ -123,38 +119,32 @@ code_change(_OldVersion, State, _Extra) ->
 %% Internal API
 %% ----------------------------------------------------------------------------
 
-%% @doc Authenticate user against mongo
-handle_auth(Username, Password, State) ->
-	UserBin = binary_to_atom(Username, latin1),
-	case State#state.auth of
-		{allow, all} ->
-			allow;
+%% @doc Authenticate user against config
+handle_auth(_Username, _Password, #state{auth = {allow,all}}) ->
+				allow;
 
-		{deny, all} ->
+handle_auth(_Username, _Password, #state{auth = {deny, all}}) ->
 			{deny, "Authorization Denied."};
 
-		{allow, Allowed} ->
+handle_auth(Username, Password, #state{auth = {allow, Allowed}})->
+	UserBin = binary_to_list(Username),
 			case lists:member(UserBin, Allowed) of
 				true ->
-					?info("allow: Allowing member."),
 					allow;
 				false ->	
-					?info("allow: member not in list."),
 					{deny, "Authorization Denied."}
 			end;
 
-		{deny, Denied} ->
+handle_auth(Username, _Password, #state{auth = {deny, Denied}})->
+	UserBin = binary_to_list(Username),
 			case lists:member(UserBin, Denied) of
 				true ->
-					?info("deny: Denying member."),
 					{deny, "Authorization Denied."};
 				false ->	
-					?info("deny: member not in list."),
 					allow
-			end
-	end.
+			end.
 
-%% @doc Retrieve user information from mongo
+%% @doc We have no user info
 handle_userinfo(Username, State) ->
 	undefined.
 
