@@ -1,6 +1,6 @@
 %%% @doc The entity engine worker - calculates the state of a collection of entities and forwards events to a given entity's logic callback module.
 
--module(pre_entity_worker).
+-module(pre_entity_engine).
 -behavior(gen_server).
 
 -include("log.hrl").

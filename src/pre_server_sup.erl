@@ -39,11 +39,11 @@ init(Args) ->
 
 	HooksKid = ?CHILD(pre_hooks, supervisor, []),
 
-	EntityManagerArgs = proplists:get_value(entity_engine, Args, []),
-	EntityManagerKid = ?CHILD(pre_entity, supervisor, [EntityManagerArgs]),
+	EntityManagerArgs = proplists:get_value(entity_engine_sup, Args, []),
+	EntityManagerKid = ?CHILD(pre_entity_engine_sup, supervisor, [EntityManagerArgs]),
 
-	EntityChannelArgs = proplists:get_value(entity_channel, Args, []),
-	EntityChannelKid = ?CHILD(pre_channel_entity, supervisor, [EntityChannelArgs]),
+	EntityChannelArgs = proplists:get_value(channel_entity_sup, Args, []),
+	EntityChannelKid = ?CHILD(pre_channel_entity_sup, supervisor, [EntityChannelArgs]),
 
 	AuthManagerArgs = proplists:get_value(auth_backends, Args, []),
 	AuthManagerKid = ?CHILD(pre_gen_auth, worker, [AuthManagerArgs]),

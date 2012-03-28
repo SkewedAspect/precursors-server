@@ -15,7 +15,7 @@
 }).
 
 -record(entity, {
-	id :: {pid(), term()},
+	id :: entity_id(),
 	client :: #client_info{},
 	pos :: #vector{},
 	pos_vel :: #vector{},
