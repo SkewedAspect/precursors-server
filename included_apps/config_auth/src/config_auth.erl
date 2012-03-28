@@ -5,7 +5,7 @@
 %% Licensed under the MIT license; see the LICENSE file for details.
 %% ----------------------------------------------------------------------------
 -module(config_auth).
-%-behavior(pre_gen_auth).
+-behavior(pre_gen_auth).
 
 % -----------------------------------------------------------------------------
 
@@ -76,7 +76,7 @@ init({gen_server, Args}) ->
 
 init(Args) ->
 	?debug("Starting Config Auth Plugin"),
-	ok = start_app(config_auth),
+	ok = pre_util:start_app(config_auth),
 
 	% Start our gen_server
 	Pid = config_auth_sup:start_server(Args),
@@ -126,7 +126,7 @@ handle_auth(_Username, _Password, #state{auth = {allow,all}}) ->
 handle_auth(_Username, _Password, #state{auth = {deny, all}}) ->
 			{deny, "Authorization Denied."};
 
-handle_auth(Username, Password, #state{auth = {allow, Allowed}})->
+handle_auth(Username, _Password, #state{auth = {allow, Allowed}})->
 	UserBin = binary_to_list(Username),
 			case lists:member(UserBin, Allowed) of
 				true ->
@@ -145,16 +145,5 @@ handle_auth(Username, _Password, #state{auth = {deny, Denied}})->
 			end.
 
 %% @doc We have no user info
-handle_userinfo(Username, State) ->
+handle_userinfo(_Username, _State) ->
 	undefined.
-
-%TODO: This should be moved out into a header.
-%% @doc Start an application, including it's dependancies
-start_app(App) ->
-	case application:start(App) of
-		ok -> ok;
-		{error, {already_started, App}} -> ok;
-		{error, {not_started, Dependency}} ->
-			ok = start_app(Dependency),
-			start_app(App)
-	end.
