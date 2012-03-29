@@ -1,14 +1,14 @@
 %% @doc Holds the channels for a client connection.  Backed by gen_event.
 %% Uses a simple callback model.  
 %%
-%% Each client gets it's own {@module}, but a channel can point to the
-%% same gen_server, or event simply have an internally handled state for
+%% Each client gets its own {@module}, but a channel can point to the
+%% same gen_server, or even simply have an internally handled state for
 %% each client.  An hook is fired when a client connects, so that is a
-%% prime opportunity for a supervisor style process to
-%% {@link set_channel/4} or {@link set_sup_channel} for a supervisored
+%% prime opportunity for a supervisor-style process to call
+%% {@link set_channel/4}, or {@link set_sup_channel} for a supervised
 %% handler.
 %%
-%% The module passed into {@link set_channel/4} or {@link set_sup_channel}
+%% The module passed into {@link set_channel/4} or {@link set_sup_channel} must
 %% implement 3 functions:  client_request/4, client_response/4, and
 %% client_event/3.
 %% 
