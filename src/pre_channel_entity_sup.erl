@@ -66,7 +66,15 @@ init(Options) ->
 	pre_hooks:add_hook(client_disconnected, ?MODULE, client_disconnect_hook, undefined, [node()]),
 
 	?debug("Starting fake entity event timer."),
-	Timer = timer:send_interval(2000, {entity_event, [{position, [3, 2, 1]}]}),
+	Timer = timer:send_interval(2000, {entity_event, [
+		{id, list_to_binary(erlang:ref_to_list(make_ref()))},
+		{modelDef, {struct, [
+			{model, <<"Ships/ares">>}
+		]}},
+		{state, {struct, [
+			{position, [0, 0, 100]}
+		]}}
+	]}),
 	?info("Timer started: ~p", [Timer]),
 
 	State = #state{supervisor_pid = Supervisor, worker_pids = WorkerPids},
@@ -102,7 +110,7 @@ handle_cast(_, State) ->
 %% -------------------------------------------------------------------
 
 %% @hidden
-handle_info({entity_event, _Stuff} = Message, State) ->
+handle_info({entity_event, _Content} = Message, State) ->
 	State1 = broadcast_event(Message, State),
 	{noreply, State1};
 
