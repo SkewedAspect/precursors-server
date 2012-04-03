@@ -33,8 +33,8 @@ start_link() ->
 init([]) ->
 	EntityID = #entity_id_internal{
 		internal_id = make_ref(),
-			callback_module = entity_test
-		},
+		callback_module = entity_test
+	},
 	Entity = #entity{id = EntityID},
 	Entities = dict:store(EntityID, Entity, dict:new()),
 	State = #state{entities = Entities},
