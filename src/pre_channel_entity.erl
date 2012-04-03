@@ -55,9 +55,9 @@ handle_cast({client_disconnected, ClientPid, Reason}, State) ->
 	?debug("Client process ~p disconnected for reason ~p; removing from list.", [ClientPid, Reason]),
     {noreply, State#state{clients = proplists:delete(ClientPid, Clients)}};
 
-handle_cast({entity_event, Stuff}, State) ->
-	?info("Entity event: ~p", [Stuff]),
-	broadcast_message(Stuff, State),
+handle_cast({entity_event, Content}, State) ->
+	?info("Entity event: ~p", [Content]),
+	broadcast_event(Content, State),
     {noreply, State};
 
 handle_cast(_, State) ->
@@ -79,8 +79,9 @@ code_change(_OldVersion, State, _Extra) ->
 
 %% -------------------------------------------------------------------
 
-broadcast_message(Message, State) ->
-	FullMessage = {struct, [{type, entity_update} | Message]},
-	[pre_client_connection:send(Pid, udp, event, entity, Message)
+broadcast_event(Content, State) ->
+	%XXX: TESTING
+	FullMessage = {struct, [{type, full} | Content]},
+	[pre_client_connection:send(Pid, udp, event, entity, FullMessage)
 		|| {Pid, _EntityInfo} <- State#state.clients],
 	State.
