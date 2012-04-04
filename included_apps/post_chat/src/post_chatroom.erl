@@ -42,6 +42,8 @@
 
 -include_lib("precursors_server/include/log.hrl").
 -include_lib("precursors_server/include/pre_client.hrl").
+-include_lib("stdlib/include/qlc.hrl").
+
 %% API
 -export([
 	start_link/3,
@@ -86,7 +88,18 @@ start_link(Name, Mode, ModeMeta) ->
 	start_link(Name, Mode, ModeMeta, undefined).
 
 start_link(Name, Mode, ModeMeta, Password) ->
-  gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta, Password}], []).
+	Res = qlc:e(qlc:q([
+		E || {_ListPid, _Pid, RoomName, RoomMode} = E <- ets:table(post_chatrooms),
+		RoomName =:= Name, RoomMode =:= Mode
+	])),
+	case {Res, Mode} of
+		{[], player} ->
+  		gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta, Password}], []);
+		{[{_Lpid, RPid, _} | _], player} ->
+			{ok, RPid};
+		{_, system} ->
+  		gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta, Password}], [])
+	end.
 
 send_command(Pid, Command, Payload) ->
 	gen_server:cast(Pid, {command, Command, Payload}).

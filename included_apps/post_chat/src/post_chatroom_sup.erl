@@ -1,4 +1,4 @@
--module(post_chat_sup).
+-module(post_chatroom_sup).
 
 -behaviour(supervisor).
 
@@ -9,26 +9,24 @@
 -export([init/1]).
 
 %% Helper macro for declaring children of supervisor
--define(CHILD(I, Type, Args), {I, {I, start_link, Args}, permanent, 5000, Type, [I]}).
+-define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
 
 %% ===================================================================
 %% API functions
 %% ===================================================================
 
 start_link(Rooms) ->
-	supervisor:start_link({local, ?MODULE}, ?MODULE, Rooms).
+	{ok, Pid} = Out = supervisor:start_link({local, ?MODULE}, ?MODULE, []),
+	[begin
+		Args = tuple_to_list(Room),
+		supervisor:start_child(Pid, Args)
+	end || Room <- Rooms],
+	Out.
 
 %% ===================================================================
 %% Supervisor callbacks
 %% ===================================================================
 
-init(Rooms) ->
-	ets:new(post_chatrooms, [named_table, public]),
-
-	Chatrooms = ?CHILD(post_chatrooms_sup, supervisor, Rooms),
-
-	ChannelMgr = ?CHILD(post_chat_channeler, worker, Rooms),
-
-	Children = [Chatrooms, ChannelMgr],
-
-	{ok, {one_for_one, 5, 10}, Children}.
+init([]) ->
+	Child = {id, {post_chatroom, start_link, []}, permanent, brutal_kill,worker,[post_chatroom]},
+	{ok, { simple_one_for_one, 5, 10}, [Child]}.
