@@ -6,21 +6,23 @@
 	z :: float()
 }).
 
-% A quaternion (a + bi + cj + dk)
+% A quaternion (w + xi + yj + zk)
 -record(quaternion, {
-	a :: float(),
-	b :: float(),
-	c :: float(),
-	d :: float()
+	w :: float(),
+	x :: float(),
+	y :: float(),
+	z :: float()
 }).
 
 -record(entity, {
 	id :: entity_id(),
 	client :: #client_info{},
-	pos :: #vector{},
-	pos_vel :: #vector{},
-	pos_acc :: #vector{},
-	orient :: #quaternion{},
-	orient_vel :: #quaternion{},
-	orient_acc :: #quaternion{}
+	position :: #vector{},
+	position_vel :: #vector{},
+	position_acc_abs :: #vector{},
+	position_acc_rel :: #vector{},
+	orientation :: #quaternion{},
+	orientation_vel :: #quaternion{},
+	orientation_acc_abs :: #quaternion{},
+	orientation_acc_rel :: #quaternion{}
 }).

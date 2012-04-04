@@ -72,7 +72,20 @@ init(Options) ->
 			{model, <<"Ships/ares">>}
 		]}},
 		{state, {struct, [
-			{position, [0, 0, 100]}
+			{position, [0, 100, -10]},
+			{position_vel, [0, 0, 0]},
+			{position_acc_abs, [0, 0, 0]},
+			{position_acc_rel, [0, 100, 0]},
+			%{orientation, [1, 0, 0, 0]},
+			%{orientation, [0.9063077870366499, 0.42261826174069944, 0.0, 0.0]},
+			{orientation, [0.9990482215818578, 0.043619387365336, 0.0, 0.0]},
+			%{orientation_vel, [0.9063077870366499, 0.42261826174069944, 0.0, 0.0]},
+			%{orientation_vel, [0.9990482215818578, 0.043619387365336, 0.0, 0.0]},
+			%{orientation_vel, [0.9961946980917455, 0.08715574274765817, 0.0, 0.0]},
+			{orientation_vel, [1, 0, 0, 0]},
+			{orientation_acc_abs, [1, 0, 0, 0]},
+			{orientation_acc_rel, [1, 0, 0, 0]},
+			{behavior, <<"Physical">>}
 		]}}
 	]}),
 	?info("Timer started: ~p", [Timer]),
