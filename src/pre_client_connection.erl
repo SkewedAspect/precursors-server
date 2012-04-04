@@ -127,7 +127,7 @@ handle_cast({send, udp, Type, Channel, Json}, #state{udp_remote_info = undefined
 
 handle_cast({send, udp, Type, Channel, Json}, State) ->
 	#state{udp_socket = Socket, udp_remote_info = {Ip, Port}, aes_key = AESKey, aes_vector = AESVector} = State,
-	Bin = build_message(Type, Channel, Json, AESKey, AESVector),
+	Bin = build_message(Type, Channel, Json, AESKey, AESVector, no_netstring),
 	gen_udp:send(Socket, Ip, Port, Bin),
 	{noreply, State};
 
@@ -362,26 +362,32 @@ generate_id() ->
 build_message(Type, Channel, Json) ->
 	build_message(Type, Channel, Json, undefined, undefined).
 
-build_message({Type, Id}, Channel, Json, AESKey, AESVector) ->
-	Response = #envelope{id = Id, type = Type, contents = Json, channel = Channel},
-	wrap_for_send(Response, AESKey, AESVector);
-
 build_message(Type, Channel, Json, AESKey, AESVector) ->
-	build_message({Type, generate_id()}, Channel, Json, AESKey, AESVector).
+	build_message(Type, Channel, Json, AESKey, AESVector, true).
+
+build_message({Type, Id}, Channel, Json, AESKey, AESVector, UseNetstring) ->
+	Response = #envelope{id = Id, type = Type, contents = Json, channel = Channel},
+	wrap_for_send(Response, AESKey, AESVector, UseNetstring);
+
+build_message(Type, Channel, Json, AESKey, AESVector, UseNetstring) ->
+	build_message({Type, generate_id()}, Channel, Json, AESKey, AESVector, UseNetstring).
 
 wrap_for_send(Recthing) ->
-	wrap_for_send(Recthing, undefined, undefined).
+	wrap_for_send(Recthing, undefined, undefined, true).
 
-wrap_for_send(Recthing, AESKey, AESVector) ->
+wrap_for_send(Recthing, AESKey, AESVector, UseNetstring) ->
 	Json = envelope_to_json(Recthing),
 	JsonEnc = mochijson2:encode(Json),
 	Binary = list_to_binary(lists:flatten(JsonEnc)),
-	case {AESKey, AESVector} of
+	EncryptedIfNeeded = case {AESKey, AESVector} of
 		{undefined, undefined} ->
-			netstring:encode(Binary);
+			Binary;
 		{_, _} ->
-			Encrypted = aes_encrypt(Binary, AESKey, AESVector),
-			netstring:encode(Encrypted)
+			aes_encrypt(Binary, AESKey, AESVector)
+	end,
+	case UseNetstring of
+		true -> netstring:encode(EncryptedIfNeeded);
+		_ -> EncryptedIfNeeded
 	end.
 
 %% ------------------------------------------------------------------

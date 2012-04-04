@@ -1,6 +1,6 @@
 %%% @doc The entity engine worker - calculates the state of a collection of entities and forwards events to a given entity's logic callback module.
 
--module(pre_entity_worker).
+-module(pre_entity_engine).
 -behavior(gen_server).
 
 -include("log.hrl").
@@ -33,8 +33,8 @@ start_link() ->
 init([]) ->
 	EntityID = #entity_id_internal{
 		internal_id = make_ref(),
-			callback_module = entity_test
-		},
+		callback_module = entity_test
+	},
 	Entity = #entity{id = EntityID},
 	Entities = dict:store(EntityID, Entity, dict:new()),
 	State = #state{entities = Entities},

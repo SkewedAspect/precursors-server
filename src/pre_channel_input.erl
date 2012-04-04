@@ -34,7 +34,7 @@ client_request(Client, RequestID, Request, _Info) ->
 	#client_info{
 		entity = EntityID
 	} = Client,
-	pre_entity:client_request(request_type(Request), EntityID, RequestID, Request).
+	pre_entity_engine_sup:client_request(request_type(Request), EntityID, RequestID, Request).
 
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.

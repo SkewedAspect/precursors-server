@@ -1,5 +1,5 @@
-%% @doc Responds to ping requests.  Something else must register for the
-%% client connection hook using {@link register_hooks/0}.
+%%% @doc Responds to ping requests.  Something else must register for the
+%%% client connection hook using {@link register_hooks/0}.
 
 -module(pre_channel_ping).
 
@@ -19,7 +19,7 @@
 -export([client_request/4, client_response/4, client_event/3]).
 
 %% -------------------------------------------------------------------
-%% api
+%% API
 %% -------------------------------------------------------------------
 
 %% @doc Add a hook to be triggered when a client logs in.  The hook adds

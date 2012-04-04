@@ -71,7 +71,7 @@ init({gen_server, _Args}) ->
 
 init(Args) ->
 	?debug("Starting MongoDB Auth Plugin"),
-	ok = start_app(mongo_auth),
+	ok = pre_util:start_app(mongo_auth),
 
 	% Start our gen_server
 	Pid = mongo_auth_sup:start_server(Args),
@@ -116,6 +116,7 @@ terminate(Reason, _State) ->
 	?info("Terminating due to ~p.", [Reason]),
 	ok.
 
+
 code_change(_OldVersion, State, _Extra) ->
 	{reply, State}.
 
@@ -152,6 +153,7 @@ handle_auth(Username, Password, State) ->
 			end
 	end.
 
+
 %% @doc Retrieve user information from mongo
 handle_userinfo(Username, State) ->
 	case get_account_info(Username, State) of
@@ -163,16 +165,6 @@ handle_userinfo(Username, State) ->
 			Account
 	end.
 
-%TODO: This should be moved out into a header.
-%% @doc Start an application, including it's dependancies
-start_app(App) ->
-	case application:start(App) of
-		ok -> ok;
-		{error, {already_started, App}} -> ok;
-		{error, {not_started, Dependency}} ->
-			ok = start_app(Dependency),
-			start_app(App)
-	end.
 
 %% @doc Gets a connection to the mongo database
 get_db(Pool) ->
@@ -184,6 +176,7 @@ get_db(Pool) ->
 			?error("Error connecting to the mongo database: ~p", [Reason]),
 			error
 	end.
+
 
 %% @doc Retrieve the account record from the database
 get_account_info(Username, State) ->
@@ -216,16 +209,20 @@ get_account_info(Username, State) ->
 			end
 	end.
 
-%% @doc
+
+%% @doc Generate hash from the password and salt
 generate_hash(Password, Salt) ->
 	Digest = erlsha2:sha256(<<Password/binary, Salt/binary>>),
 	bin_to_hex_string(Digest).
 
+
 bin_to_hex_string(Bin) ->
 	bin_to_hex_string(Bin, []).
 
+
 bin_to_hex_string(<<>>, Acc) ->
 	lists:flatten(lists:reverse(Acc));
+
 
 bin_to_hex_string(<<First/integer, Rest/binary>>, Acc) ->
 	bin_to_hex_string(Rest, [io_lib:format("~2.16.0b", [First]) | Acc]).
