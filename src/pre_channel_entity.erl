@@ -12,7 +12,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
--type(position() :: #vector{}).
+-type(position() :: vector:vec()).
 -type(entity_info() :: {position(), entity_id()}).
 
 -record(state, {
@@ -48,7 +48,7 @@ handle_cast({client_connected, ClientInfo}, State) ->
 		connection = ConnectionPID,
 		entity = EntityID
 	} = ClientInfo,
-	{noreply, State#state{clients = [{ConnectionPID, {#vector{}, EntityID}} | Clients]}};
+	{noreply, State#state{clients = [{ConnectionPID, {vector:vec(), EntityID}} | Clients]}};
 
 handle_cast({client_disconnected, ClientPid, Reason}, State) ->
 	Clients = State#state.clients,
