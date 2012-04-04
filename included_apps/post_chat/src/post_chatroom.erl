@@ -43,7 +43,17 @@
 -include_lib("precursors_server/include/log.hrl").
 -include_lib("precursors_server/include/pre_client.hrl").
 %% API
--export([start_link/3]).
+-export([
+	start_link/3,
+	send_command/3,
+	leave/2,
+	join/2,
+	join/3,
+	kick/3,
+	mute/3,
+	unmute/3,
+	message/3
+]).
 %% gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 	code_change/3]).
@@ -54,6 +64,7 @@
 	controllers :: [pid()],
 	squelched = [] :: [pid()],
 	mode = user :: 'user' | 'system' | 'plugin',
+	password,
 	mode_meta
 }).
 
@@ -72,7 +83,10 @@
 %% given to users.  Mode is the type of chat room.  ModeMeta depends on
 %% the mode.
 start_link(Name, Mode, ModeMeta) ->
-  gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta}], []).
+	start_link(Name, Mode, ModeMeta, undefined).
+
+start_link(Name, Mode, ModeMeta, Password) ->
+  gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta, Password}], []).
 
 send_command(Pid, Command, Payload) ->
 	gen_server:cast(Pid, {command, Command, Payload}).
@@ -108,8 +122,8 @@ message(Room, Client, Message) ->
 %% gen_server
 %% ==================================================================
 
-init({Name, Mode, ModeMeta}) ->
-	State = #state{name = Name, mode = Mode},
+init({Name, Mode, ModeMeta, Password}) ->
+	State = #state{name = Name, mode = Mode, password = Password},
 	case Mode of
 		user when is_record(ModeMeta, client_info) ->
 			#client_info{connection = Conn} = ModeMeta,
@@ -201,11 +215,11 @@ remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
 	broadcast(LeaveMsg, Chatters0),
 	MidOut.
 
-handle_call({leave, Client}, From, #state{mode = system, mode_meta = 
+handle_call({leave, _Client}, _From, #state{mode = system, mode_meta = 
 	#system_opts{leavable = no_leavers}} = State) ->
 	{reply, {error, no_leavers}, State};
 
-handle_call({leave, Client}, From, State) ->
+handle_call({leave, Client}, _From, State) ->
 	#state{chatters = Chatters, controllers = Controllers} = State,
 	#client_info{connection = Conn} = Client,
 	case [N || {P,N} <- Chatters, P =:= Conn] of
@@ -225,8 +239,8 @@ handle_call({leave, Client}, From, State) ->
 			end
 	end;
 
-handle_call({join, Client, Password}, From, State) ->
-	% TODO make the password mean something
+handle_call({join, Client, Password}, _From, #state{password = Stateword} = State)
+	when Stateword =/= undefined orelse Password =:= Stateword ->
 	#state{chatters = Chatters} = State,
 	#client_info{connection = Conn, username = Name} = Client,
 	Chatters0 = [{Conn, Name} | Chatters],
@@ -238,7 +252,10 @@ handle_call({join, Client, Password}, From, State) ->
 	broadcast(Msg, Chatters0),
 	{reply, ok, State#state{chatters = Chatters0}};
 
-handle_call({kick, Client, Target}, From, #state{mode = system, mode_meta = #system_opts{kicking = no_kicking}} = State) ->
+handle_call({join, _Client, _Password}, _From, State) ->
+	{reply, {error, bad_password}, State};
+
+handle_call({kick, _Client, _Target}, _From, #state{mode = system, mode_meta = #system_opts{kicking = no_kicking}} = State) ->
 	{reply, {error, no_kicking}, State};
 
 handle_call({kick, Client, Target}, From, State) ->
@@ -257,14 +274,14 @@ handle_call({kick, Client, Target}, From, State) ->
 			end
 	end;
 
-handle_call({mute, Client, Target}, From, #state{mode = system, mode_meta = #system_opts{muting = no_mute}} = State) ->
+handle_call({mute, _Client, _Target}, _From, #state{mode = system, mode_meta = #system_opts{muting = no_mute}} = State) ->
 	{reply, {error, no_muting}, State};
 
-handle_call({mute, Client, Target}, From, State) ->
+handle_call({mute, Client, Target}, _From, State) ->
 	#client_info{connection = Conn} = Client,
 	TargetPid = lists:keyfind(Target, 2, State#state.chatters),
 	IsChatter = lists:member(TargetPid, State#state.chatters),
-	IsController = lists:member(Client, State#state.controllers),
+	IsController = lists:member(Conn, State#state.controllers),
 	case {IsChatter, IsController} of
 		{false, _} ->
 			{reply, {error, no_target}, State};
@@ -280,19 +297,39 @@ handle_call({mute, Client, Target}, From, State) ->
 			{reply,ok,State#state{squelched = Squelched}}
 	end;
 
-handle_call({unmute, Client, Target}, From, State) ->
+handle_call({unmute, Client, Target}, _From, State) ->
 	TargetPid = lists:keyfind(Target, 2, State#state.chatters),
 	#state{squelched = Squelched} = State,
-	case lists:delete(TargetPid, Squelched) of
-		Squelched ->
+	#client_info{connection = Conn} = Client,
+	IsController = lists:member(Conn, State#state.controllers),
+	case {IsController, lists:delete(TargetPid, Squelched)} of
+		{false, _} ->
+			{reply, {error, not_controller}, State};
+		{true, Squelched} ->
 			{reply, {error, not_muted}, State};
-		NewSquelched ->
+		{true, NewSquelched} ->
 			State0 = State#state{squelched = NewSquelched},
 			{reply, ok, State0}
 	end;
 
-handle_call({message, Client, Message}, From, State) ->
-	{reply, {error, nyi}, State};
+handle_call({message, Client, Message}, _From, State) ->
+	#state{chatters = Chatters, squelched = Squelched} = State,
+	#client_info{connection = ConnPid} = Client,
+	case lists:member(ConnPid, Squelched) of
+		true ->
+			{reply, {error, muted}, State};
+		false ->
+			Json = {struct, [
+				{<<"command">>, <<"message">>},
+				{<<"room">>, pid_to_bin(self())},
+				{<<"message">>, Message}
+			]},
+			proc_lib:spawn(fun() ->
+				[pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json) ||
+					{Pid, _} <- Chatters]
+			end),
+			{reply, ok, State}
+	end;
 
 handle_call(_Request, _From, State) ->
   {noreply, ok, State}.

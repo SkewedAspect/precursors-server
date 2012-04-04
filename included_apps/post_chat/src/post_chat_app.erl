@@ -10,7 +10,12 @@
 %% ===================================================================
 
 start(_StartType, _StartArgs) ->
-	post_chat_sup:start_link().
+	GlobalChat = {global, system, [shown, no_leavers, no_kick, no_mute], undefined},
+	Rooms = case application:get_env(post_chat, rooms) of
+		undefined -> [];
+		{ok, R} -> R
+	end,
+	post_chat_sup:start_link([GlobalChat | Rooms]).
 
 stop(_State) ->
 	ok.
