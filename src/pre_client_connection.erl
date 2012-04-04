@@ -58,8 +58,12 @@ set_tcp(Pid, Socket, Message, Bins, Cont) ->
 
 %% @doc Send a message out to the client over a given channel.  If the
 %% type is 'request', an id is automatically generated.
--spec(send/5 :: (Pid :: pid(), Socket :: 'udp' | 'ssl' | 'tcp', Type :: 'request' | {'response', message_id()}
+-spec(send/5 :: (Pid :: pid() | #client_info{}, Socket :: 'udp' | 'ssl' | 'tcp', Type :: 'request' | {'response', message_id()}
 		| 'event' | {'request', message_id()}, Channel :: binary(), Json :: json()) -> 'ok' | message_id()).
+send(ClientInfo, S, R, C, J) when is_record(ClientInfo, client_info) ->
+	Pid = ClientInfo#client_info.connection,
+	send(Pid, S, R, C, J);
+
 send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
 	Id = generate_id(),
 	send(Pid, Socket, {request, Id}, Channel, Json),
