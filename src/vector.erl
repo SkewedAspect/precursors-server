@@ -146,4 +146,5 @@ is_zero({_, _, _}) ->
 
 %%% @doc Convert radians to degrees.
 rad2deg(Radians) ->
-	(180/math:pi()) / Radians.
+	Radians * (180/math:pi()).
+

@@ -11,7 +11,9 @@
 
 % external api 
 -export([quat_to_list/1, list_to_quat/1, add/2, subtract/2, multiply/2, divide/2, norm/1, length/1]).
--export([unit/1, conjugate/1, inverse/1, reciprocal/1, compose/2, relative_to/2, is_zero/1]).
+-export([unit/1, conjugate/1, inverse/1, reciprocal/1, compose/2, relative_to/2, rotate/2]).
+-export([from_axis_angle/2, from_axis_angle/3, from_body_rates/1, from_body_rates/2]).
+-export([from_euler/1, from_euler/2, is_zero/1]).
 
 -export_type([quat/0]).
 
@@ -26,6 +28,7 @@
 % -------------------------------------------------------------------------
 
 -define(NORMALIZED_TOLERANCE, 0.0000001).
+-define(IDENTITY, {1, 0, 0, 0}).
 
 % -------------------------------------------------------------------------
 
@@ -126,6 +129,17 @@ unit(QLS, {_, _, _, _} = Quat) ->
 % -------------------------------------------------------------------------
 
 %% @doc
+conjugate({W, X, Y, Z}) ->
+	{W, -X, -Y, -Z}.
+
+
+%% @doc
+inverse({_, _, _, _} = Quat) ->
+	divide(conjugate(Quat), norm(Quat)).
+
+% -------------------------------------------------------------------------
+
+%% @doc
 reciprocal({_, _, _, _} = Quat) ->
 	divide(conjugate(Quat), squared_norm(quat)).
 
@@ -141,14 +155,77 @@ relative_to({_, _, _, _} = Target, {_, _, _, _} = Reference) ->
 
 % -------------------------------------------------------------------------
 
-%% @doc
-conjugate({W, X, Y, Z}) ->
-	{W, -X, -Y, -Z}.
+%% @doc Rotates the vector by Rotation.
+rotate({X, Y, Z}, {_, _, _, _} = Rotation) ->
+	{_, X1, Y1, Z1} = relative_to({0, X, Y, Z}, Rotation),
+	{X1, Y1, Z1}.
+
+%% @doc Converts from and axis and angle (radians), to a quaternion.
+from_axis_angle({_, _, _} = Axis, Angle) when is_number(Angle) ->
+	from_axis_angle(radians, Axis, Angle).
 
 
-%% @doc
-inverse({_, _, _, _} = Quat) ->
-	divide(conjugate(Quat), norm(Quat)).
+%% @doc Converts from and axis and angle (radians), to a quaternion.
+from_axis_angle(radians, {_, _, _} = Axis, Angle) when is_number(Angle) ->
+	ComplexFactor = math:sin(Angle / 2),
+	{X, Y, Z} = vector:multiply(ComplexFactor, Axis),
+	{math:cos(Angle / 2), X, Y, Z};
+
+%% @doc Converts from and axis and angle (degrees), to a quaternion.
+from_axis_angle(degrees, Axis, Angle) when is_number(Angle) ->
+	DegAngle = deg2rad(Angle),
+	from_axis_angle(radians, {_, _, _} = Axis, DegAngle).
+
+%% @doc Converts from body rates (radians) to a quaternion.
+from_body_rates({_, _, _} = Vec) ->
+	from_body_rates(radians, Vec).
+
+
+%% @doc Converts from body rates (radians) to a quaternion.
+from_body_rates(radians, {X, Y, Z} = Vec) ->
+	case vector:is_zero(Vec) of
+		true ->
+			?IDENTITY;
+
+		_ ->
+			Vec = {Y, Z, X},
+			Speed = vector:norm(Vec),
+			Axis = vector:divide(Speed, Vec),
+			from_axis_angle(Axis, Speed)
+	end;
+
+%% @doc Converts from body rates (degrees) to a quaternion.
+from_body_rates(degrees, {X, Y, Z}) ->
+	from_body_rates(radians, {deg2rad(X), deg2rad(Y), deg2rad(Z)}). 
+
+%% @doc Converts from a vector of euler angles (radians) to a quaternion.
+from_euler({_, _, _} = Vec) ->
+	from_euler(radians, Vec).
+
+
+%% @doc Converts from a vector of euler angles (radians) to a quaternion.
+from_euler(radians, {Yaw, Pitch, Roll}) ->
+	HalfYaw = Yaw / 2,
+	HalfPitch = Pitch / 2,
+	HalfRoll = Roll / 2,
+
+	{
+		math:cos(HalfPitch) * math:cos(HalfRoll) * math:cos(HalfYaw) +
+				math:sin(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw), 
+
+		math:sin(HalfPitch) * math:cos(HalfRoll) * math:cos(HalfYaw) -
+				math:cos(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw), 
+		
+		math:cos(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw) +
+				math:sin(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw), 
+		
+		math:cos(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw) +
+				math:sin(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw) 
+	};
+
+%% @doc Converts from a vector of euler angles (degrees) to a quaternion.
+from_euler(degrees, {Yaw, Pitch, Roll}) ->
+	from_euler(radians, {deg2rad(Yaw), deg2rad(Pitch), deg2rad(Roll)}).
 
 % -------------------------------------------------------------------------
 
@@ -158,3 +235,15 @@ is_zero({0, 0, 0, 0}) ->
 
 is_zero({_, _, _, _}) ->
 	false.
+
+%% ------------------------------------------------------------------------
+%% Internal API
+%% ------------------------------------------------------------------------
+
+%%% @doc Convert radians to degrees.
+rad2deg(Radians) ->
+	Radians * (180/math:pi()).
+
+%%% @doc Convert radians to degrees.
+deg2rad(Degrees) ->
+	Degrees * (math:pi()/180).
