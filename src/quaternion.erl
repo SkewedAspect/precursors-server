@@ -160,6 +160,8 @@ rotate({X, Y, Z}, {_, _, _, _} = Rotation) ->
 	{_, X1, Y1, Z1} = relative_to({0, X, Y, Z}, Rotation),
 	{X1, Y1, Z1}.
 
+% -------------------------------------------------------------------------
+
 %% @doc Converts from and axis and angle (radians), to a quaternion.
 from_axis_angle({_, _, _} = Axis, Angle) when is_number(Angle) ->
 	from_axis_angle(radians, Axis, Angle).
@@ -175,6 +177,8 @@ from_axis_angle(radians, {_, _, _} = Axis, Angle) when is_number(Angle) ->
 from_axis_angle(degrees, Axis, Angle) when is_number(Angle) ->
 	DegAngle = deg2rad(Angle),
 	from_axis_angle(radians, {_, _, _} = Axis, DegAngle).
+
+% -------------------------------------------------------------------------
 
 %% @doc Converts from body rates (radians) to a quaternion.
 from_body_rates({_, _, _} = Vec) ->
@@ -197,6 +201,8 @@ from_body_rates(radians, {X, Y, Z} = Vec) ->
 %% @doc Converts from body rates (degrees) to a quaternion.
 from_body_rates(degrees, {X, Y, Z}) ->
 	from_body_rates(radians, {deg2rad(X), deg2rad(Y), deg2rad(Z)}). 
+
+% -------------------------------------------------------------------------
 
 %% @doc Converts from a vector of euler angles (radians) to a quaternion.
 from_euler({_, _, _} = Vec) ->
