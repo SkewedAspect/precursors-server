@@ -13,10 +13,9 @@
 %% -------------------------------------------------------------------
 
 client_request(_RequestType, RequestID, _Request, Entity) ->
-	#entity{} = Entity,
-	Response = <<"Bumcovers.">>,
 	ClientInfo = Entity#entity.client,
 	Connection = ClientInfo#client_info.connection,
+	Response = <<"Bumcovers.">>,
 	pre_client_connection:send(Connection, tcp, {response, RequestID}, <<"input">>, Response),
 	{ok, Response, Entity}.
 	%{noreply, Entity}.
