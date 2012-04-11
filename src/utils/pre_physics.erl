@@ -9,3 +9,63 @@
 
 % -------------------------------------------------------------------------
 
+% external api 
+-export([simulate/2]).
+
+% -------------------------------------------------------------------------
+
+-include("log.hrl").
+-include("pre_physics.hrl").
+
+%% ------------------------------------------------------------------------
+%% External API
+%% ------------------------------------------------------------------------
+
+%% @doc Simulate physical movement of the 'physical' object represented by State, over the given StepSize.
+simulate(StepSize, State) ->
+	#physical{
+		position = Position,
+		position_vel = PositionVel,
+		position_acc_abs = PositionAccAbs,
+		position_acc_rel = PositionAccRel,
+		orientation = Orientation,
+		orientation_vel = OrientationVel,
+		orientation_acc_abs = OrientationAccAbs,
+		orientation_acc_rel = OrientationAccRel,
+	} = State,
+
+	% ---------------------------------------------------------------------
+
+	% Calculate total overall orientational accelleration, in world space
+	OrientationAcc = quaternion:compose(OrientationAccAbs, quaternion:reorient(OrientationAccRel, Orientation)),
+
+	% Calculate new orientational velocity, in world space
+	NewOrientationVel = quaternion:compose(OrientationVel, quaternion:scale_rotation(OrientationAcc, StepSize)),
+
+	% Calculate new orientation, in world space
+	NewOrientation = quaternion:compose(NewOrientation, quaternion:scale_rotation(NewOrientationVel, StepSize)),
+
+	% ---------------------------------------------------------------------
+	
+	% Calculate total overall positional accelleration, in world space
+	PositionAcc = vector:add(PositionAccAbs, quaternion:rotate(PositionAccRel, NewOrientation)),
+
+	% Calculate new positional velocity, in world space
+	NewPositionVel = vector:add(PositionVel, vector:multiply(PositionAcc, StepSize)),
+
+	% Calculate new position, in world space
+	NewPosition = vector:add(Position, vector:multiply(NewPositionVel, StepSize)),
+
+	% ---------------------------------------------------------------------
+
+	% Return a new record, with updates state
+	#physical{
+		position = NewPosition,
+		position_vel = NewPositionVel,
+		position_acc_abs = PositionAccAbs,
+		position_acc_rel = PositionAccRel,
+		orientation = NewOrientation,
+		orientation_vel = NewOrientationVel,
+		orientation_acc_abs = OrientationAccAbs,
+		orientation_acc_rel = OrientationAccRel,
+	}.
