@@ -14,7 +14,7 @@
 % gen_server
 -export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([client_connect_hook/2, client_disconnect_hook/3]).
+-export([client_connect_hook/2, client_disconnect_hook/3, client_logged_in_hook/2, fake_update/1]).
 
 -record(state, {
 	supervisor_pid :: pid(),
@@ -64,34 +64,50 @@ init(Options) ->
 	?debug("Registering client hooks."),
 	pre_hooks:add_hook(client_connected, ?MODULE, client_connect_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_disconnected, ?MODULE, client_disconnect_hook, undefined, [node()]),
+	pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]),
 
-	?debug("Starting fake entity event timer."),
-	Timer = timer:send_interval(2000, {entity_event, [
-		{id, list_to_binary(erlang:ref_to_list(make_ref()))},
-		{modelDef, {struct, [
-			{model, <<"Ships/ares">>}
-		]}},
-		{state, {struct, [
-			{position, [0, 100, -10]},
-			{position_vel, [0, 0, 0]},
-			{position_acc_abs, [0, 0, 0]},
-			{position_acc_rel, [0, 100, 0]},
-			%{orientation, [1, 0, 0, 0]},
-			%{orientation, [0.9063077870366499, 0.42261826174069944, 0.0, 0.0]},
-			{orientation, [0.9990482215818578, 0.043619387365336, 0.0, 0.0]},
-			%{orientation_vel, [0.9063077870366499, 0.42261826174069944, 0.0, 0.0]},
-			%{orientation_vel, [0.9990482215818578, 0.043619387365336, 0.0, 0.0]},
-			%{orientation_vel, [0.9961946980917455, 0.08715574274765817, 0.0, 0.0]},
-			{orientation_vel, [1, 0, 0, 0]},
-			{orientation_acc_abs, [1, 0, 0, 0]},
-			{orientation_acc_rel, [1, 0, 0, 0]},
-			{behavior, <<"Physical">>}
-		]}}
-	]}),
-	?info("Timer started: ~p", [Timer]),
+	%?debug("Starting fake entity event timer."),
+	%Timer = timer:apply_interval(4000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]),
+	%?info("Timer started: ~p", [Timer]),
 
 	State = #state{supervisor_pid = Supervisor, worker_pids = WorkerPids},
 	{ok, State}.
+
+%% -------------------------------------------------------------------
+
+fake_update(EntityID) ->
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
+	?MODULE ! {entity_event, [
+		{id, EntityID},
+		{modelDef, {struct, [
+			{model, <<"Ships/ares">>}
+		]}},
+		{timestamp, Timestamp},
+		{state, {struct, [
+			% Flying in a circle.
+			{position, [100, 500, -10]},
+			{position_vel, [0, 30, 0]},
+			{position_acc_abs, [0, 0, 0]},
+			{position_acc_rel, [-9, 0, 0]},
+			{orientation, [1, 0, 0, 0]},
+			{orientation_vel, [0.9887710779360422, 0.0, 0.0, 0.14943813247359922]},
+			{orientation_acc_abs, [1, 0, 0, 0]},
+			{orientation_acc_rel, [1, 0, 0, 0]},
+
+			% Listing lazily to the left!
+			%{position, [0, 200, -10]},
+			%{position_vel, [0, 20, 0]},
+			%{position_acc_abs, [0, 0, 0]},
+			%{position_acc_rel, [0, 1, 3]},
+			%{orientation, [1, 0, 0, 0]},
+			%{orientation_vel, [1, 0, 0, 0]},
+			%{orientation_acc_abs, [1, 0, 0, 0]},
+			%{orientation_acc_rel, [0.9988960616987121, 0.01743579561349186, -0.043612743921365014, -0.0007612632768451531]},
+
+			{behavior, <<"Physical">>}
+		]}}
+	]}.
 
 %% -------------------------------------------------------------------
 
@@ -158,6 +174,11 @@ client_disconnect_hook(undefined, ClientPid, Reason) ->
 	?debug("Client process ~p disconnected for reason ~p; notifying worker processes.", [ClientPid, Reason]),
 	gen_server:cast(?MODULE, {client_disconnected, ClientPid, Reason}),
 	{ok, undefined}.
+
+%% -------------------------------------------------------------------
+
+client_logged_in_hook(undefined, ClientInfo) ->
+	timer:apply_after(6000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]).
 
 %% -------------------------------------------------------------------
 
