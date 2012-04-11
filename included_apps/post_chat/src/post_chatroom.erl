@@ -39,6 +39,7 @@
 -behaviour(gen_server).
 
 -define(timeout, 1000).
+-define(ets, post_chatrooms).
 
 -include_lib("precursors_server/include/log.hrl").
 -include_lib("precursors_server/include/pre_client.hrl").

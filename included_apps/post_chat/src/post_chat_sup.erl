@@ -23,11 +23,11 @@ start_link(Rooms) ->
 %% ===================================================================
 
 init(Rooms) ->
-	ets:new(post_chatrooms, [named_table, public]),
+	ets:new(post_chatrooms, [named_table, public, {keypos, 2}]),
 
 	Chatrooms = ?CHILD(post_chatrooms_sup, supervisor, Rooms),
 
-	ChannelMgr = ?CHILD(post_chat_channeler, worker, Rooms),
+	ChannelMgr = ?CHILD(post_chat_channeler, supervisor, Rooms),
 
 	Children = [Chatrooms, ChannelMgr],
 

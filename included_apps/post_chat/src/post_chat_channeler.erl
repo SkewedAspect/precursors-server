@@ -5,43 +5,23 @@
 % api
 -export([start_link/0,client_login_hook/2]).
 % channel stuf
--export([client_request/4,client_response/4,client_response/4]).
-% gen_server stuff
--export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,
-	code_change/3]).
+-export([client_request/4,client_response/4,client_event/3]).
+% supervisor stuff
+-export([init/1]).
 
 %% public api
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 client_login_hook(undefined, Client) ->
-	gen_server:cast(?MODULE, {set_chat_channel, Client}).
+	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]).
 
 %% gen_server
 init([]) ->
+	process_flag(trap_exit, true),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]),
-	
-	{ok, undefined}.
-
-handle_call(_Msg, _From, State) ->
-	{reply, {error, nyi}, State}.
-
-handle_cast({set_chat_channel, Client}, State) ->
-	pre_client_channels:set_sup_channel(Client#client_info.channel_manager,
-		<<"chat">>, ?MODULE, undefined),
-	{noreply, State};
-
-handle_cast(_Msg, State) ->
-	{noreply, State}.
-
-handle_info(_Msg, State) ->
-	{noreply, State}.
-
-terminate(_,_) ->
-	ok.
-
-code_change(_,State,_) ->
-	{ok, State}.
+	Kid = {id, {pre_client_channels, set_sup_channel, [<<"chat">>, ?MODULE, undefined]}, transient, brutal_kill, worker, [?MODULE]},
+	{ok, {{simple_one_for_one, 3, 5}, [Kid]}}.
 
 %% client channels
 client_request(_Client, _Id, _Request,undefined) ->
