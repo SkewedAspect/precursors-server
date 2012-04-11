@@ -48,7 +48,7 @@ handle_cast({client_connected, ClientInfo}, State) ->
 		connection = ConnectionPID,
 		entity = EntityID
 	} = ClientInfo,
-	{noreply, State#state{clients = [{ConnectionPID, {vector:vec(), EntityID}} | Clients]}};
+	{noreply, State#state{clients = [{ConnectionPID, {{0, 0, 0}, EntityID}} | Clients]}};
 
 handle_cast({client_disconnected, ClientPid, Reason}, State) ->
 	Clients = State#state.clients,
