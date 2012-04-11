@@ -100,7 +100,10 @@ if [ ! -f $CONFIG ] && [ ! -f "${CONFIG}.config" ]; then
 %% If you are comfortable editing erlang application configuration scripts
 %% there is no harm in editing the file.
 [{'precursors_server', [
-	{nodes, ['$CONFIGNODENAME']}
+	{nodes, ['$CONFIGNODENAME']},
+	{auth_backends, [
+		{config_auth, 2, [{allow, ["user"]}]}
+	]}
 ]},
 {'lager', [
 	{handlers, [
