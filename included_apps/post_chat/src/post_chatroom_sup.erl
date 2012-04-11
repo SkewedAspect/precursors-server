@@ -25,14 +25,21 @@
 %% API functions
 %% ===================================================================
 
-start_link(Rooms) ->
+start_link(Rooms) when is_list(Rooms) ->
 	{ok, Pid} = Out = supervisor:start_link({local, ?MODULE}, ?MODULE, []),
-	[begin
-		Args = tuple_to_list(Room),
-		supervisor:start_child(Pid, Args)
-	end || Room <- Rooms],
-	Out.
+	start_rooms(Pid, Rooms),
+	Out;
 
+start_link(Room) ->
+	start_link([Room]).
+
+start_rooms(_Pid, []) ->
+	ok;
+start_rooms(Pid, [Room | Tail]) ->
+	Args = tuple_to_list(Room),
+	supervisor:start_child(Pid, Args),
+	start_rooms(Pid, Tail).
+	
 -spec get_room(Key :: 'id' | 'name', Id :: string()) -> 'undefined' | pid().
 get_room(Key, Id) ->
 	QH = case Key of
@@ -54,4 +61,4 @@ get_room(Key, Id) ->
 
 init([]) ->
 	Child = {id, {post_chatroom, start_link, []}, permanent, brutal_kill,worker,[post_chatroom]},
-	{ok, { simple_one_for_one, 5, 10}, [Child]}.
+	{ok, {{ simple_one_for_one, 5, 10}, [Child]}}.

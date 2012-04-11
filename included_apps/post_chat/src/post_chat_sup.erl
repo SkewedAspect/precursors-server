@@ -25,10 +25,10 @@ start_link(Rooms) ->
 init(Rooms) ->
 	ets:new(post_chatrooms, [named_table, public, {keypos, 2}]),
 
-	Chatrooms = ?CHILD(post_chatrooms_sup, supervisor, Rooms),
+	Chatrooms = ?CHILD(post_chatroom_sup, supervisor, Rooms),
 
-	ChannelMgr = ?CHILD(post_chat_channeler, supervisor, Rooms),
+	ChannelMgr = ?CHILD(post_chat_channeler, supervisor, []),
 
 	Children = [Chatrooms, ChannelMgr],
 
-	{ok, {one_for_one, 5, 10}, Children}.
+	{ok, {{one_for_one, 5, 10}, Children}}.
