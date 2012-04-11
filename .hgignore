@@ -1,5 +1,8 @@
 syntax: glob
 
+# local config
+single.config
+
 # pycharm artifacts
 .idea**
 .idea/**

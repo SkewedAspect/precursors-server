@@ -105,6 +105,7 @@ if [ ! -f $CONFIG ] && [ ! -f "${CONFIG}.config" ]; then
 		{config_auth, 2, [{allow, ["user"]}]}
 	]}
 ]},
+
 {'lager', [
 	{handlers, [
 		{lager_console_backend, [info,true]},
@@ -114,9 +115,12 @@ if [ ! -f $CONFIG ] && [ ! -f "${CONFIG}.config" ]; then
 	]},
 	{crash_log, "crash.log"}
 ]},
+
 {sasl, [
 	{errlog_type, error} % disable SASL progress reports
 ]}].
+
+% vim: ft=erlang
 single.config
 fi
 
