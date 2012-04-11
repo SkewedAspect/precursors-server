@@ -9,8 +9,11 @@
 -include("pre_entity.hrl").
 
 % gen_server
--export([start_link/0]).
+-export([start_link/0, client_connected/2, client_disconnected/3, send_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+
+-type(entity_event_type() :: 'full' | 'update' | 'create' | 'remove').
+-export_type([entity_event_type/0]).
 
 -type(position() :: vector:vec()).
 -type(entity_info() :: {position(), entity_id()}).
@@ -25,6 +28,21 @@
 
 start_link() ->
 	gen_server:start_link(?MODULE, [], []).
+
+%% -------------------------------------------------------------------
+
+client_connected(Pid, ClientInfo) ->
+	gen_server:cast(Pid, {client_connected, ClientInfo}).
+
+%% -------------------------------------------------------------------
+
+client_disconnected(Pid, ClientPid, Reason) ->
+	gen_server:cast(Pid, {client_disconnected, ClientPid, Reason}).
+
+%% -------------------------------------------------------------------
+
+send_event(Pid, Type, Content) ->
+	gen_server:cast(Pid, {entity_event, Type, Content}).
 
 %% -------------------------------------------------------------------
 %% gen_server
@@ -55,9 +73,10 @@ handle_cast({client_disconnected, ClientPid, Reason}, State) ->
 	?debug("Client process ~p disconnected for reason ~p; removing from list.", [ClientPid, Reason]),
     {noreply, State#state{clients = proplists:delete(ClientPid, Clients)}};
 
-handle_cast({entity_event, Content}, State) ->
-	?debug("Entity event: ~p", [Content]),
-	broadcast_event(Content, State),
+handle_cast({entity_event, Type, Content}, State) when Type == full; Type == update; Type == create; Type == remove ->
+	?debug("'~p' entity event: ~p", [Type, Content]),
+	FullEvent = {struct, [{type, Type} | Content]},
+	broadcast_event(FullEvent, State),
     {noreply, State};
 
 handle_cast(_, State) ->
@@ -79,9 +98,7 @@ code_change(_OldVersion, State, _Extra) ->
 
 %% -------------------------------------------------------------------
 
-broadcast_event(Content, State) ->
-	%XXX: TESTING
-	FullMessage = {struct, [{type, full} | Content]},
+broadcast_event(FullMessage, State) ->
 	[pre_client_connection:send(Pid, udp, event, entity, FullMessage)
 		|| {Pid, _EntityInfo} <- State#state.clients],
 	State.

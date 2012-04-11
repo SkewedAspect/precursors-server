@@ -6,15 +6,19 @@
 -behavior(gen_server).
 
 -include("log.hrl").
--include("pre_client.hrl").
+-include("pre_entity.hrl").
 
 % Because this saves us _so_ much code.
 -define(CHANNEL, <<"entity">>).
 
 % gen_server
--export([start_link/1]).
+-export([start_link/1, send_update/2, send_full_update/1, send_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([client_connect_hook/2, client_disconnect_hook/3, client_logged_in_hook/2, fake_update/1]).
+
+-type(workers_option() :: {'workers', non_neg_integer()}).
+-type(start_option() :: workers_option()).
+-type(start_options() :: [start_option()] | 'supervisor_start').
 
 -record(state, {
 	supervisor_pid :: pid(),
@@ -26,14 +30,65 @@
 %% API
 %% -------------------------------------------------------------------
 
--type(workers_option() :: {'workers', non_neg_integer()}).
--type(start_option() :: workers_option()).
--type(start_options() :: [start_option()] | 'supervisor_start').
-
 %% @doc Starts the entity channel master server.
 -spec(start_link/1 :: (Options :: start_options()) -> {'ok', pid()}).
 start_link(Options) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, Options, []).
+
+%% -------------------------------------------------------------------
+
+-spec send_update(EntityID :: entity_id(), StateDelta :: [{atom(), term()}]) -> 'ok'.
+send_update(EntityID, StateDelta) ->
+	Content = [
+		{state, {struct, StateDelta}}
+	],
+	send_event(update, EntityID, Content).
+
+%% -------------------------------------------------------------------
+
+-spec send_full_update(Entity :: #entity{}) -> 'ok'.
+send_full_update(Entity) ->
+	#entity{
+		id = EntityID,
+		physical = Physical,
+		model_def = ModelDef
+	} = Entity,
+
+	#physical{
+		position = Position,
+		position_vel = PositionVel,
+		position_acc_abs = PositionAccAbs,
+		position_acc_rel = PositionAccRel,
+		orientation = Orientation,
+		orientation_vel = OrientationVel,
+		orientation_acc_abs = OrientationAccAbs,
+		orientation_acc_rel = OrientationAccRel
+	} = Physical,
+
+	FullState = [
+		{position, vector:vec_to_list(Position)},
+		{position_vel, vector:vec_to_list(PositionVel)},
+		{position_acc_abs, vector:vec_to_list(PositionAccAbs)},
+		{position_acc_rel, vector:vec_to_list(PositionAccRel)},
+		{orientation, quaternion:quat_to_list(Orientation)},
+		{orientation_vel, quaternion:quat_to_list(OrientationVel)},
+		{orientation_acc_abs, quaternion:quat_to_list(OrientationAccAbs)},
+		{orientation_acc_rel, quaternion:quat_to_list(OrientationAccRel)}
+	],
+
+	Content = [{modelDef, {struct, ModelDef}}, {state, {struct, FullState}}],
+	send_event(full, EntityID, Content).
+
+%% -------------------------------------------------------------------
+
+-spec send_event(EventType :: pre_channel_entity:entity_event_type(), EntityID :: entity_id(),
+	EventContents :: [{atom(), term()}]) -> 'ok'.
+send_event(EventType, EntityID, EventContents) ->
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
+
+	Content = [{id, EntityID}, {timestamp, Timestamp} | EventContents],
+	gen_server:cast(?MODULE, {entity_event, EventType, Content}).
 
 %% -------------------------------------------------------------------
 %% gen_server
@@ -75,42 +130,6 @@ init(Options) ->
 
 %% -------------------------------------------------------------------
 
-fake_update(EntityID) ->
-	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
-	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
-	?MODULE ! {entity_event, [
-		{id, EntityID},
-		{modelDef, {struct, [
-			{model, <<"Ships/ares">>}
-		]}},
-		{timestamp, Timestamp},
-		{state, {struct, [
-			% Flying in a circle.
-			{position, [100, 500, -10]},
-			{position_vel, [0, 30, 0]},
-			{position_acc_abs, [0, 0, 0]},
-			{position_acc_rel, [-9, 0, 0]},
-			{orientation, [1, 0, 0, 0]},
-			{orientation_vel, [0.9887710779360422, 0.0, 0.0, 0.14943813247359922]},
-			{orientation_acc_abs, [1, 0, 0, 0]},
-			{orientation_acc_rel, [1, 0, 0, 0]},
-
-			% Listing lazily to the left!
-			%{position, [0, 200, -10]},
-			%{position_vel, [0, 20, 0]},
-			%{position_acc_abs, [0, 0, 0]},
-			%{position_acc_rel, [0, 1, 3]},
-			%{orientation, [1, 0, 0, 0]},
-			%{orientation_vel, [1, 0, 0, 0]},
-			%{orientation_acc_abs, [1, 0, 0, 0]},
-			%{orientation_acc_rel, [0.9988960616987121, 0.01743579561349186, -0.043612743921365014, -0.0007612632768451531]},
-
-			{behavior, <<"Physical">>}
-		]}}
-	]}.
-
-%% -------------------------------------------------------------------
-
 %% @hidden
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
@@ -118,20 +137,24 @@ handle_call(_, _From, State) ->
 %% -------------------------------------------------------------------
 
 %% @hidden
-handle_cast({client_connected, _ClientInfo} = Message, State) ->
+handle_cast({client_connected, ClientInfo}, State) ->
 	ClientCount = State#state.client_count + 1,
 	[FirstWorker | OtherWorkers] = State#state.worker_pids,
-	gen_server:cast(FirstWorker, Message),
+	pre_channel_entity:client_connected(FirstWorker, ClientInfo),
 	NewState = State#state{
 		worker_pids = OtherWorkers ++ [FirstWorker],
 		client_count = ClientCount
 	},
 	{noreply, NewState};
 
-handle_cast({client_disconnected, _ClientPid, _Reason} = Message, State) ->
+handle_cast({client_disconnected, ClientPid, Reason}, State) ->
 	ClientCount = State#state.client_count - 1,
-	State1 = broadcast_event(Message, State),
+	State1 = broadcast_to_workers(client_disconnected, [ClientPid, Reason], State),
     {noreply, State1#state{client_count = ClientCount}};
+
+handle_cast({entity_event, Type, Content}, State) ->
+	State1 = broadcast_to_workers(send_event, [Type, Content], State),
+	{noreply, State1};
 
 handle_cast(_, State) ->
     {noreply, State}.
@@ -139,8 +162,8 @@ handle_cast(_, State) ->
 %% -------------------------------------------------------------------
 
 %% @hidden
-handle_info({entity_event, _Content} = Message, State) ->
-	State1 = broadcast_event(Message, State),
+handle_info({entity_event, Type, Content}, State) ->
+	State1 = broadcast_to_workers(send_event, [Type, Content], State),
 	{noreply, State1};
 
 handle_info(_, State) ->
@@ -182,7 +205,44 @@ client_logged_in_hook(undefined, ClientInfo) ->
 
 %% -------------------------------------------------------------------
 
-broadcast_event(Message, State) ->
-	[gen_server:cast(Worker, Message)
+broadcast_to_workers(Func, Args, State) ->
+	[apply(pre_channel_entity, Func, [Worker | Args])
 		|| Worker <- State#state.worker_pids],
 	State.
+
+%% -------------------------------------------------------------------
+
+%% @hidden
+fake_update(EntityID) ->
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
+	?MODULE ! {entity_event, full, [
+		{id, EntityID},
+		{modelDef, {struct, [
+			{model, <<"Ships/ares">>}
+		]}},
+		{timestamp, Timestamp},
+		{state, {struct, [
+			% Flying in a circle.
+			{position, [100, 500, -10]},
+			{position_vel, [0, 30, 0]},
+			{position_acc_abs, [0, 0, 0]},
+			{position_acc_rel, [-9, 0, 0]},
+			{orientation, [1, 0, 0, 0]},
+			{orientation_vel, [0.9887710779360422, 0.0, 0.0, 0.14943813247359922]},
+			{orientation_acc_abs, [1, 0, 0, 0]},
+			{orientation_acc_rel, [1, 0, 0, 0]},
+
+			% Listing lazily to the left!
+			%{position, [0, 200, -10]},
+			%{position_vel, [0, 20, 0]},
+			%{position_acc_abs, [0, 0, 0]},
+			%{position_acc_rel, [0, 1, 3]},
+			%{orientation, [1, 0, 0, 0]},
+			%{orientation_vel, [1, 0, 0, 0]},
+			%{orientation_acc_abs, [1, 0, 0, 0]},
+			%{orientation_acc_rel, [0.9988960616987121, 0.01743579561349186, -0.043612743921365014, -0.0007612632768451531]},
+
+			{behavior, <<"Physical">>}
+		]}}
+	]}.
