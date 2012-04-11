@@ -10,10 +10,10 @@
 % -------------------------------------------------------------------------
 
 % external api 
--export([quat_to_list/1, list_to_quat/1, add/2, subtract/2, multiply/2, divide/2, norm/1, length/1]).
--export([unit/1, conjugate/1, inverse/1, reciprocal/1, compose/2, relative_to/2, rotate/2]).
--export([from_axis_angle/2, from_axis_angle/3, from_body_rates/1, from_body_rates/2]).
--export([from_euler/1, from_euler/2, is_zero/1]).
+-export([quat_to_list/1, list_to_quat/1, add/2, subtract/2, multiply/2, divide/2, reorient/2]).
+-export([scale_rotation/2, norm/1, length/1, unit/1, conjugate/1, inverse/1, reciprocal/1]).
+-export([compose/2, relative_to/2, rotate/2, from_axis_angle/2, from_axis_angle/3]).
+-export([from_body_rates/1, from_body_rates/2, from_euler/1, from_euler/2, rad2deg/1, deg2rad/1, is_zero/1]).
 
 -export_type([quat/0]).
 
@@ -87,6 +87,21 @@ divide(0, {_, _, _, _}) ->
 
 divide(Factor, {W, X, Y, Z}) when is_number(Factor) ->
 	{W / Factor, X / Factor, Y / Factor, Z / Factor}.
+
+% -------------------------------------------------------------------------
+
+%% @doc Reorient q1's axis of rotation by rotating it by q2, but leave q1's angle of rotation intact.
+reorient({W, X, Y, Z}, {_, _, _, _}=Q2) ->
+	OriginalRotation = 2 * math:acos(W),
+	Axis = rotate(vector:unit(X, Y, Z), Q2),
+	from_axis_angle(Axis, OriginalRotation).
+
+
+%% @doc Scale the rotation of the quaternion by the given factor. Note: This is not the same as multiplying.
+scale_rotation(Factor, {W, X, Y, Z}) when is_integer(Factor); is_float(Factor) ->
+	OriginalRotation = 2 * math:acos(W),
+	Unit = vector:unit(X, Y, Z),
+	from_axis_angle(Unit, OriginalRotation * Factor).
 
 % -------------------------------------------------------------------------
 
