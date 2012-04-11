@@ -48,7 +48,7 @@ client_event(_Client, _Event, _Info) ->
 
 %% @hidden
 client_request(<<"ping">>, Client, Id, _Request, _Info) ->
-	{MegaSecs, Secs, MicroSecs} = now(),
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
 	PingResponse = {struct, [
 		{confirm, true},
