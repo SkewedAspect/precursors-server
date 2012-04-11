@@ -56,7 +56,7 @@ handle_cast({client_disconnected, ClientPid, Reason}, State) ->
     {noreply, State#state{clients = proplists:delete(ClientPid, Clients)}};
 
 handle_cast({entity_event, Content}, State) ->
-	?info("Entity event: ~p", [Content]),
+	?debug("Entity event: ~p", [Content]),
 	broadcast_event(Content, State),
     {noreply, State};
 
