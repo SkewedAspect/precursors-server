@@ -31,7 +31,7 @@ simulate(StepSize, State) ->
 		orientation = Orientation,
 		orientation_vel = OrientationVel,
 		orientation_acc_abs = OrientationAccAbs,
-		orientation_acc_rel = OrientationAccRel,
+		orientation_acc_rel = OrientationAccRel
 	} = State,
 
 	% ---------------------------------------------------------------------
@@ -43,7 +43,7 @@ simulate(StepSize, State) ->
 	NewOrientationVel = quaternion:compose(OrientationVel, quaternion:scale_rotation(OrientationAcc, StepSize)),
 
 	% Calculate new orientation, in world space
-	NewOrientation = quaternion:compose(NewOrientation, quaternion:scale_rotation(NewOrientationVel, StepSize)),
+	NewOrientation = quaternion:compose(Orientation, quaternion:scale_rotation(NewOrientationVel, StepSize)),
 
 	% ---------------------------------------------------------------------
 	
@@ -67,5 +67,5 @@ simulate(StepSize, State) ->
 		orientation = NewOrientation,
 		orientation_vel = NewOrientationVel,
 		orientation_acc_abs = OrientationAccAbs,
-		orientation_acc_rel = OrientationAccRel,
+		orientation_acc_rel = OrientationAccRel
 	}.
