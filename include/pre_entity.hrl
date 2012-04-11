@@ -4,5 +4,6 @@
 -record(entity, {
 	id :: entity_id(),
 	client :: #client_info{},
-	physical :: #physical{}
+	physical :: #physical{},
+	model_def = [{model, <<"Ships/ares">>}] :: [{atom(), term()}]
 }).
