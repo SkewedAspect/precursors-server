@@ -12,7 +12,7 @@
 -define(CHANNEL, <<"entity">>).
 
 % gen_server
--export([start_link/1, send_update/2, send_full_update/1, send_event/3]).
+-export([start_link/1, broadcast_update/2, broadcast_full_update/1, broadcast_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 -export([client_connect_hook/2, client_disconnect_hook/3, client_logged_in_hook/2, fake_update/1]).
 
@@ -37,58 +37,68 @@ start_link(Options) ->
 
 %% -------------------------------------------------------------------
 
--spec send_update(EntityID :: entity_id(), StateDelta :: [{atom(), term()}]) -> 'ok'.
-send_update(EntityID, StateDelta) ->
+-spec broadcast_update(EntityID :: #entity_id{}, StateDelta :: [{atom(), term()}]) -> 'ok'.
+broadcast_update(EntityID, StateDelta) ->
 	Content = [
 		{state, {struct, StateDelta}}
 	],
-	send_event(update, EntityID, Content).
+	broadcast_event(update, EntityID, Content).
 
 %% -------------------------------------------------------------------
 
--spec send_full_update(Entity :: #entity{}) -> 'ok'.
-send_full_update(Entity) ->
-	#entity{
-		id = EntityID,
-		physical = Physical,
-		model_def = ModelDef
-	} = Entity,
+%% @doc Broadcast a full update for the given entity to all eligible clients.
+%%
+%% FIXME: Construct the update in pre_entity_engine, and then send to the clients here!
+-spec broadcast_full_update(Entity :: #entity{}) -> 'ok'.
+broadcast_full_update(Entity) ->
+	pre_entity_engine:get_full_state_async(Entity, fun (FullState) ->
+		begin
+			#entity{
+				id = EntityID,
+				model_def = ModelDef
+			} = Entity,
 
-	#physical{
-		position = Position,
-		position_vel = PositionVel,
-		position_acc_abs = PositionAccAbs,
-		position_acc_rel = PositionAccRel,
-		orientation = Orientation,
-		orientation_vel = OrientationVel,
-		orientation_acc_abs = OrientationAccAbs,
-		orientation_acc_rel = OrientationAccRel
-	} = Physical,
+			Content = [{modelDef, {struct, ModelDef}}, {state, {struct, FullState}}],
+			broadcast_event(full, EntityID, Content)
+		end
+	end).
 
-	FullState = [
-		{position, vector:vec_to_list(Position)},
-		{position_vel, vector:vec_to_list(PositionVel)},
-		{position_acc_abs, vector:vec_to_list(PositionAccAbs)},
-		{position_acc_rel, vector:vec_to_list(PositionAccRel)},
-		{orientation, quaternion:quat_to_list(Orientation)},
-		{orientation_vel, quaternion:quat_to_list(OrientationVel)},
-		{orientation_acc_abs, quaternion:quat_to_list(OrientationAccAbs)},
-		{orientation_acc_rel, quaternion:quat_to_list(OrientationAccRel)}
-	],
-
-	Content = [{modelDef, {struct, ModelDef}}, {state, {struct, FullState}}],
-	send_event(full, EntityID, Content).
+%	#physical{
+%		position = Position,
+%		position_vel = PositionVel,
+%		position_acc_abs = PositionAccAbs,
+%		position_acc_rel = PositionAccRel,
+%		orientation = Orientation,
+%		orientation_vel = OrientationVel,
+%		orientation_acc_abs = OrientationAccAbs,
+%		orientation_acc_rel = OrientationAccRel
+%	} = Physical,
+%
+%	FullState = [
+%		{position, vector:vec_to_list(Position)},
+%		{position_vel, vector:vec_to_list(PositionVel)},
+%		{position_acc_abs, vector:vec_to_list(PositionAccAbs)},
+%		{position_acc_rel, vector:vec_to_list(PositionAccRel)},
+%		{orientation, quaternion:quat_to_list(Orientation)},
+%		{orientation_vel, quaternion:quat_to_list(OrientationVel)},
+%		{orientation_acc_abs, quaternion:quat_to_list(OrientationAccAbs)},
+%		{orientation_acc_rel, quaternion:quat_to_list(OrientationAccRel)}
+%	],
+%
+%	Content = [{modelDef, {struct, ModelDef}}, {state, {struct, FullState}}],
+%	broadcast_event(full, EntityID, Content).
 
 %% -------------------------------------------------------------------
 
--spec send_event(EventType :: pre_channel_entity:entity_event_type(), EntityID :: entity_id(),
-	EventContents :: [{atom(), term()}]) -> 'ok'.
-send_event(EventType, EntityID, EventContents) ->
+-spec broadcast_event(EventType, EntityID, EventContents) -> 'ok' when
+	EventType :: pre_channel_entity:entity_event_type(),
+	EntityID :: #entity_id{},
+	EventContents :: [{atom(), term()}].
+broadcast_event(EventType, EntityID, EventContents) ->
 	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
 
-	Content = [{id, EntityID}, {timestamp, Timestamp} | EventContents],
-	gen_server:cast(?MODULE, {entity_event, EventType, Content}).
+	gen_server:cast(?MODULE, {entity_event, EventType, EntityID, Timestamp, EventContents}).
 
 %% -------------------------------------------------------------------
 %% gen_server
@@ -152,8 +162,9 @@ handle_cast({client_disconnected, ClientPid, Reason}, State) ->
 	State1 = broadcast_to_workers(client_disconnected, [ClientPid, Reason], State),
     {noreply, State1#state{client_count = ClientCount}};
 
-handle_cast({entity_event, Type, Content}, State) ->
-	State1 = broadcast_to_workers(send_event, [Type, Content], State),
+handle_cast({entity_event, Type, EntityID, Timestamp, EventContents}, State) ->
+	Content = [{id, EntityID}, {type, Type}, {timestamp, Timestamp} | EventContents],
+	State1 = broadcast_to_workers(broadcast_event, [Type, Content], State),
 	{noreply, State1};
 
 handle_cast(_, State) ->
@@ -162,9 +173,8 @@ handle_cast(_, State) ->
 %% -------------------------------------------------------------------
 
 %% @hidden
-handle_info({entity_event, Type, Content}, State) ->
-	State1 = broadcast_to_workers(send_event, [Type, Content], State),
-	{noreply, State1};
+handle_info({entity_event, Type, EntityID, Timestamp, EventContents}, State) ->
+	handle_cast({entity_event, Type, EntityID, Timestamp, EventContents}, State);
 
 handle_info(_, State) ->
     {noreply, State}.
@@ -200,7 +210,8 @@ client_disconnect_hook(undefined, ClientPid, Reason) ->
 
 %% -------------------------------------------------------------------
 
-client_logged_in_hook(undefined, ClientInfo) ->
+%% @doc Handle a client login hook call.
+client_logged_in_hook(undefined, _ClientInfo) ->
 	timer:apply_after(6000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]).
 
 %% -------------------------------------------------------------------
@@ -216,8 +227,7 @@ broadcast_to_workers(Func, Args, State) ->
 fake_update(EntityID) ->
 	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
-	?MODULE ! {entity_event, full, [
-		{id, EntityID},
+	?MODULE ! {entity_event, full, EntityID, Timestamp, [
 		{modelDef, {struct, [
 			{model, <<"Ships/ares">>}
 		]}},

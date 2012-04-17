@@ -3,7 +3,10 @@
 	name :: binary()
 }).
 
--type(entity_id() :: {pid(), term()}).
+-record(entity_id, {
+	engine :: pid(),
+	ref :: reference()
+}).
 
 -record(client_info, {
 	connection :: pid(),
@@ -12,7 +15,7 @@
 	username :: binary(),
 	show_account :: 'hidden' | 'public',
 	character :: #character_info{},
-	entity :: entity_id()
+	entity :: #entity_id{}
 }).
 
 %%-----------------------------------------------------------------------

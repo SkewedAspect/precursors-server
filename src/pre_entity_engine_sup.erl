@@ -77,6 +77,9 @@ handle_cast(client_disconnected, State) ->
 	ClientCount = State#state.client_count - 1,
     {noreply, State#state{client_count = ClientCount}};
 
+%TODO: Add entity creation handler, which assigns the new entity to a worker process.
+%TODO: Add entity deletion handler, which finds the corresponding worker process and notifies it of the deletion.
+
 handle_cast(_, State) ->
     {noreply, State}.
 

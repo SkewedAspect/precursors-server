@@ -7,13 +7,8 @@
 -include("pre_entity.hrl").
 
 % gen_server
--export([start_link/0]).
+-export([start_link/0, get_owning_client/1, get_full_state/1, get_full_state_async/2]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
-
--record(entity_id_internal, {
-	internal_id :: term(),
-	callback_module :: atom()
-}).
 
 -record(state, {
 	entities :: term()
@@ -27,13 +22,50 @@ start_link() ->
 	gen_server:start_link(?MODULE, [], []).
 
 %% -------------------------------------------------------------------
+
+%% @doc Get the given entity's current state.
+-spec get_full_state(Entity) -> [{atom(), term()}] when
+	Entity :: #entity{} | #entity_id{}.
+get_full_state(#entity{id = EntityID}) ->
+	get_full_state(EntityID);
+
+get_full_state(#entity_id{} = EntityID) ->
+	#entity_id{engine = Pid} = EntityID,
+	gen_server:call(Pid, {get_full_state, EntityID}).
+
+%% -------------------------------------------------------------------
+
+%% @doc Get the given entity's current state, then call the given function with that state as its (first) argument.
+-spec get_full_state_async(Entity, Function) -> Return when
+	Entity :: #entity{},
+	Function :: {module(), atom()} | {module(), atom(), list()} | fun(([{atom(), term()}]) -> Return),
+	Return :: term().
+get_full_state_async(Entity, {Mod, Func}) ->
+	get_full_state_async(Entity, {Mod, Func, []});
+
+get_full_state_async(Entity, {Mod, Func, Args}) ->
+	spawn(fun () ->
+		apply(Mod, Func, [get_full_state(Entity) | Args])
+	end);
+
+get_full_state_async(Entity, Fun) ->
+	spawn(fun () ->
+		Fun(get_full_state(Entity))
+	end).
+
+%% -------------------------------------------------------------------
+
+get_owning_client(Entity) ->
+	Entity#entity.client.
+
+%% -------------------------------------------------------------------
 %% gen_server
 %% -------------------------------------------------------------------
 
 init([]) ->
-	EntityID = #entity_id_internal{
-		internal_id = make_ref(),
-		callback_module = entity_test
+	EntityID = #entity_id{
+		engine = self(),
+		ref = make_ref()
 	},
 	Entity = #entity{id = EntityID},
 	Entities = dict:store(EntityID, Entity, dict:new()),
@@ -41,6 +73,11 @@ init([]) ->
 	{ok, State}.
 
 %% -------------------------------------------------------------------
+
+handle_call({get_full_state, #entity_id{} = EntityID}, _From, State) ->
+	{ok, FullUpdate, State2} = call_entity_func(get_full_state, EntityID, [], State),
+	%TODO: Possibly add common tuples here.
+	{reply, FullUpdate, State2};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
@@ -79,6 +116,8 @@ terminate(Reason, _State) ->
 	?info("Terminating due to ~p.", [Reason]),
 	ok.
 
+%% -------------------------------------------------------------------
+
 code_change(_OldVersion, State, _Extra) ->
 	{reply, State}.
 
@@ -87,7 +126,7 @@ code_change(_OldVersion, State, _Extra) ->
 call_entity_func(Func, EntityID, Args, State) ->
 	#state{entities = Entities} = State,
 	Entity = dict:fetch(EntityID, Entities),
-	CallbackModule = EntityID#entity_id_internal.callback_module,
+	CallbackModule = Entity#entity.callback_module,
 	Result = apply(CallbackModule, Func, [Entity | Args]),
 	case Result of
 		{Status, Response, Entity2} ->
