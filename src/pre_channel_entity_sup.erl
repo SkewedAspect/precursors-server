@@ -81,31 +81,6 @@ broadcast_full_update(Entity) ->
 		end
 	end).
 
-%	#physical{
-%		position = Position,
-%		position_vel = PositionVel,
-%		position_acc_abs = PositionAccAbs,
-%		position_acc_rel = PositionAccRel,
-%		orientation = Orientation,
-%		orientation_vel = OrientationVel,
-%		orientation_acc_abs = OrientationAccAbs,
-%		orientation_acc_rel = OrientationAccRel
-%	} = Physical,
-%
-%	FullState = [
-%		{position, vector:vec_to_list(Position)},
-%		{position_vel, vector:vec_to_list(PositionVel)},
-%		{position_acc_abs, vector:vec_to_list(PositionAccAbs)},
-%		{position_acc_rel, vector:vec_to_list(PositionAccRel)},
-%		{orientation, quaternion:quat_to_list(Orientation)},
-%		{orientation_vel, quaternion:quat_to_list(OrientationVel)},
-%		{orientation_acc_abs, quaternion:quat_to_list(OrientationAccAbs)},
-%		{orientation_acc_rel, quaternion:quat_to_list(OrientationAccRel)}
-%	],
-%
-%	Content = [{modelDef, {struct, ModelDef}}, {state, {struct, FullState}}],
-%	broadcast_event(full, EntityID, Content).
-
 %% -------------------------------------------------------------------
 
 -spec broadcast_event(EventType, EntityID, EventContents) -> 'ok' when

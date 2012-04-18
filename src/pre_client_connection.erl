@@ -24,46 +24,67 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2,start/2,set_tcp/5,send/5,json_to_envelope/1]).
+-export([start_link/2, start/2, set_tcp/5, send/5, set_inhabited_entity/2, json_to_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
 %% ------------------------------------------------------------------
 
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-	code_change/3]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 %% ------------------------------------------------------------------
 %% API Function Definitions
 %% ------------------------------------------------------------------
 
 %% @doc Starts a new client connection using the given socket and cookie.
--spec(start_link/2 :: (Socket :: any(), Cookie :: binary()) -> {'ok', pid()}).
+
+-spec start_link(Socket, Cookie) -> {'ok', pid()} when
+	Socket :: any(),
+	Cookie :: binary().
+
 start_link(Socket, Cookie) ->
 	gen_server:start_link(?MODULE, {Socket, Cookie}, []).
 
+%% ------------------------------------------------------------------
+
 %% @doc Same as {@link start_link/2} only is not linked to the calling
 %% process.
--spec(start/2 :: (Socket :: any(), Cookie :: binary()) -> {'ok', pid()}).
+
+-spec start(Socket, Cookie) -> {'ok', pid()} when
+	Socket :: any(),
+	Cookie :: binary().
+
 start(Socket, Cookie) ->
 	gen_server:start(?MODULE, {Socket, Cookie}, {}).
+
+%% ------------------------------------------------------------------
 
 %% @doc A transient tcp connection will use this to inform the client
 %% connection that a client has successfully connected and authed with
 %% a cookie.
--spec(set_tcp/5 :: (Pid :: pid(), Socket :: any(), Message :: json(),
-	Bins :: [binary()], Cont :: any()) -> 'ok').
+
+-spec set_tcp(Pid, Socket, Message, Bins, Cont) -> 'ok' when
+	Pid :: pid(),
+	Socket :: any(),
+	Message :: json(),
+	Bins :: [binary()],
+	Cont :: any().
+
 set_tcp(Pid, Socket, Message, Bins, Cont) ->
 	gen_server:cast(Pid, {set_tcp, Socket, Message, Bins, Cont}).
 
+%% ------------------------------------------------------------------
+
 %% @doc Send a message out to the client over a given channel.  If the
 %% type is 'request', an id is automatically generated.
+
 -spec send(Pid, Socket, Type, Channel, Json) -> 'ok' | message_id() when
 	Pid :: pid() | #client_info{},
 	Socket :: 'udp' | 'ssl' | 'tcp',
 	Type :: 'request' | {'response', message_id()} | 'event' | {'request', message_id()},
 	Channel :: binary(),
 	Json :: json().
+
 send(ClientInfo, S, R, C, J) when is_record(ClientInfo, client_info) ->
 	Pid = ClientInfo#client_info.connection,
 	send(Pid, S, R, C, J);
@@ -75,6 +96,17 @@ send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Soc
 
 send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
 	gen_server:cast(Pid, {send, Socket, Type, Channel, Json}).
+
+%% ------------------------------------------------------------------
+
+%% @doc Set the given client's inhabited entity.
+
+-spec set_inhabited_entity(Pid, EntityID) -> 'ok' when
+	Pid :: pid() | #client_info{},
+	EntityID :: #entity_id{}.
+
+set_inhabited_entity(Pid, EntityID) ->
+	gen_server:cast(Pid, {inhabit_entity, EntityID}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -126,7 +158,7 @@ handle_cast({send, ssl, Type, Channel, Json}, State) ->
 	{noreply, State};
 
 handle_cast({send, udp, Type, Channel, Json}, #state{udp_remote_info = undefined} = State) ->
-	?warning("Tried to send ~p message for channel ~p over UDP before getting TCP sync info: ~p", [Type, Channel, Json]),
+	?warning("Tried to send ~p message for channel ~p over UDP before getting UDP sync info: ~p", [Type, Channel, Json]),
 	{noreply, State};
 
 handle_cast({send, udp, Type, Channel, Json}, State) ->
@@ -158,6 +190,13 @@ handle_cast(start_accept_tcp, State) ->
 	ets:insert(client_ets, ClientRec),
 	?info("TCP socket set:  ~p", [Socket]),
 	{noreply, State};
+
+handle_cast({inhabit_entity, EntityID}, State) ->
+	ClientInfo = State#state.client_info,
+	NewState = State#state{
+		client_info = ClientInfo#client_info{entity = EntityID}
+	},
+	{noreply, NewState};
 
 handle_cast(_Msg, State) ->
 	{noreply, State}.
@@ -304,7 +343,7 @@ service_control_message(Type, _, Request, State) ->
 
 service_control_message(request, <<"login">>, Id, Request, State) ->
 	?info("starting authentication"),
-	?info("Request: ~p", [Request]),	
+	?info("Request: ~p", [Request]),
 	% Check with authentication backends
 	Username = proplists:get_value(<<"user">>, Request),
 	Password= proplists:get_value(<<"password">>, Request),
@@ -332,7 +371,7 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 		{udpPort, UdpPort},
 		{tcpPort, 6007}
 	]},
-	Response = #envelope{id = Id, type = response, contents = LoginRep, 
+	Response = #envelope{id = Id, type = response, contents = LoginRep,
 		channel = <<"control">>},
 	OutBin = wrap_for_send(Response),
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
@@ -527,7 +566,7 @@ json_encode_decode_test_() -> [
 		Expected = lists:sort([{<<"id">>, <<"an id">>},
 			{<<"channel">>, <<"goober chan">>}, {<<"type">>, request},
 			{<<"contents">>, <<"this is a string">>}]),
-		Input = #envelope{type = request, channel = <<"goober chan">>, 
+		Input = #envelope{type = request, channel = <<"goober chan">>,
 			id = <<"an id">>, contents = <<"this is a string">>},
 		{struct, Out} = envelope_to_json(Input),
 		Out0 = lists:sort(Out),
