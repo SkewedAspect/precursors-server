@@ -167,7 +167,15 @@ handle_cast({client_disconnected, ClientPid, Reason}, State) ->
     {noreply, State1#state{client_count = ClientCount}};
 
 handle_cast({entity_event, Type, EntityID, Timestamp, EventContents}, State) ->
-	Content = [{id, EntityID}, {type, Type}, {timestamp, Timestamp} | EventContents],
+	#entity_id{
+		engine = EntityEngine,
+		ref = EntityRef
+	} = EntityID,
+	NetworkEntityID = [
+		list_to_binary(erlang:pid_to_list(EntityEngine)),
+		list_to_binary(erlang:ref_to_list(EntityRef))
+	],
+	Content = [{id, NetworkEntityID}, {type, Type}, {timestamp, Timestamp} | EventContents],
 	State1 = broadcast_to_workers(broadcast_event, [Type, Content], State),
 	{noreply, State1};
 
@@ -202,7 +210,15 @@ code_change(_OldVersion, State, _Extra) ->
 client_logged_in_hook(undefined, ClientInfo) ->
 	?debug("Client ~p logged in; sending it to a worker process.", [ClientInfo]),
 	gen_server:cast(?MODULE, {client_logged_in, ClientInfo}),
-	timer:apply_after(6000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]),
+	%timer:apply_after(6000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]),
+	{ok, undefined}.
+
+%% -------------------------------------------------------------------
+
+%% @doc Handle a client inhabited entity hook call.
+client_inhabited_entity_hook(undefined, ClientPid, EntityID) ->
+	?debug("Client ~p inhabited entity ~p; notifying worker process.", [ClientPid, EntityID]),
+	gen_server:cast(?MODULE, {client_disconnected, ClientPid, EntityID}),
 	{ok, undefined}.
 
 %% -------------------------------------------------------------------
