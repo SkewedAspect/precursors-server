@@ -8,6 +8,9 @@
 -include("log.hrl").
 -include("pre_entity.hrl").
 
+% Because this saves us _so_ much code.
+-define(CHANNEL, entity).
+
 % gen_server
 -export([start_link/0, client_connected/2, client_disconnected/3, broadcast_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -56,6 +59,21 @@ handle_call(_, _From, State) ->
 
 %% -------------------------------------------------------------------
 
+handle_cast({client_connected, ClientInfo}, State) ->
+	Clients = State#state.clients,
+	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, ?CHANNEL]),
+	#client_info{
+		channel_manager = ChannelManager,
+		connection = ConnectionPID
+	} = ClientInfo,
+	pre_client_channels:set_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
+	{noreply, State#state{clients = [{ConnectionPID, undefined} | Clients]}};
+
+handle_cast({client_disconnected, ConnectionPID, Reason}, State) ->
+	Clients = State#state.clients,
+	?debug("Client process ~p disconnected for reason ~p; removing from list.", [ConnectionPID, Reason]),
+    {noreply, State#state{clients = proplists:delete(ConnectionPID, Clients)}};
+
 handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	% Update our list of clients, replacing the given client's entity.
 	Clients = lists:keystore(ConnectionPid, 1, State#state.clients, {ConnectionPid, EntityDef}),
@@ -70,6 +88,8 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 handle_cast({entity_event, EntityID, Content}, State) ->
 	?debug("Broadcasting event for entity ~p: ~p", [EntityID, Content]),
 	FullEvent = {struct, Content},
+	%FIXME: Filter this so it only goes to clients within a certain distance!
+	%(ClientEntity#entity.physical#physical.position)
 	broadcast_event(FullEvent, State),
     {noreply, State};
 

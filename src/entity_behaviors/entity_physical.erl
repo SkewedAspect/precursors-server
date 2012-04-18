@@ -6,7 +6,7 @@
 -include("pre_entity.hrl").
 
 % pre_entity
--export([get_full_state/1]).
+-export([get_full_state/1, client_request/5]).
 
 %% -------------------------------------------------------------------
 %% API
@@ -36,3 +36,10 @@ get_full_state(Entity) ->
 	],
 
 	{FullState, Entity}.
+
+%% -------------------------------------------------------------------
+
+client_request(Entity, Channel, RequestType, _RequestID, Request) ->
+	?warning("~p received invalid request ~p on channel ~p! (full request: ~p)",
+		[Entity#entity.id, RequestType, Channel, Request]),
+	{error, invalid_request, Entity}.

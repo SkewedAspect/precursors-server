@@ -14,7 +14,10 @@
 % gen_server
 -export([start_link/1, broadcast_update/2, broadcast_full_update/1, broadcast_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([client_connect_hook/2, client_disconnect_hook/3, client_logged_in_hook/2, fake_update/1]).
+-export([client_disconnect_hook/3, client_logged_in_hook/2, fake_update/1]).
+
+% pre_client_channels
+-export([client_request/4]).
 
 -type(workers_option() :: {'workers', non_neg_integer()}).
 -type(start_option() :: workers_option()).
@@ -39,6 +42,15 @@ start_link(Options) ->
 
 %% -------------------------------------------------------------------
 
+client_request(Client, RequestID, Request, _Info) ->
+	#client_info{
+		entity = EntityID,
+		connection = Connection
+	} = Client,
+	pre_entity_engine:client_request(EntityID, Connection, ?CHANNEL, RequestID, Request).
+
+%% -------------------------------------------------------------------
+
 -spec broadcast_update(EntityID :: #entity_id{}, StateDelta :: [{atom(), term()}]) -> 'ok'.
 
 broadcast_update(EntityID, StateDelta) ->
@@ -50,8 +62,6 @@ broadcast_update(EntityID, StateDelta) ->
 %% -------------------------------------------------------------------
 
 %% @doc Broadcast a full update for the given entity to all eligible clients.
-%%
-%% FIXME: Construct the update in pre_entity_engine, and then send to the clients here!
 
 -spec broadcast_full_update(Entity :: #entity{}) -> 'ok'.
 
@@ -213,10 +223,11 @@ code_change(_OldVersion, State, _Extra) ->
 %% Internal
 %% -------------------------------------------------------------------
 
-%% @doc Handle a client connect hook call.
-client_connect_hook(undefined, ClientInfo) ->
-	?debug("Client ~p connected; sending it to a worker process.", [ClientInfo]),
-	gen_server:cast(?MODULE, {client_connected, ClientInfo}),
+%% @doc Handle a client login hook call.
+client_logged_in_hook(undefined, ClientInfo) ->
+	?debug("Client ~p logged in; sending it to a worker process.", [ClientInfo]),
+	gen_server:cast(?MODULE, {client_logged_in, ClientInfo}),
+	timer:apply_after(6000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]),
 	{ok, undefined}.
 
 %% -------------------------------------------------------------------
@@ -226,12 +237,6 @@ client_disconnect_hook(undefined, ClientPid, Reason) ->
 	?debug("Client process ~p disconnected for reason ~p; notifying worker processes.", [ClientPid, Reason]),
 	gen_server:cast(?MODULE, {client_disconnected, ClientPid, Reason}),
 	{ok, undefined}.
-
-%% -------------------------------------------------------------------
-
-%% @doc Handle a client login hook call.
-client_logged_in_hook(undefined, _ClientInfo) ->
-	timer:apply_after(6000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]).
 
 %% -------------------------------------------------------------------
 

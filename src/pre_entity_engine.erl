@@ -6,8 +6,12 @@
 -include("log.hrl").
 -include("pre_entity.hrl").
 
+% API
+-export([get_owning_client/1, get_full_state/1, get_full_state_async/2]).
+-export([client_request/5, create_entity/2]).
+
 % gen_server
--export([start_link/0, get_owning_client/1, get_full_state/1, get_full_state_async/2]).
+-export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -record(state, {
@@ -69,6 +73,19 @@ get_owning_client(Entity) ->
 	Entity#entity.client.
 
 %% -------------------------------------------------------------------
+
+client_request(EntityID, From, Channel, RequestID, Request) ->
+	#entity_id{engine = Pid} = EntityID,
+	RequestType = request_type(Request),
+	gen_server:cast(Pid, {client_request, EntityID, From, Channel, RequestType, RequestID, Request}),
+	ok.
+
+%% -------------------------------------------------------------------
+
+create_entity(Pid, Behavior) ->
+	gen_server:call(Pid, {create_entity, Behavior}).
+
+%% -------------------------------------------------------------------
 %% gen_server
 %% -------------------------------------------------------------------
 
@@ -93,17 +110,33 @@ handle_call({get_full_state, #entity_id{} = EntityID}, _From, State) ->
 
 	{reply, {Timestamp, [{behavior, ClientBehavior} | FullState]}, State2};
 
+handle_call({create_entity, Behavior}, _From, State) ->
+	EntityID = #entity_id{
+		engine = self(),
+		ref = make_ref()
+	},
+	Entity = #entity{
+		id = EntityID,
+		callback_module = Behavior
+	},
+	Entities = dict:store(EntityID, Entity, State#state.entities),
+	State1 = #state{entities = Entities},
+    {reply, EntityID, State1};
+
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
 
 %% -------------------------------------------------------------------
 
-handle_cast({client_request, EntityID, RequestType, RequestID, Request}, State) ->
-	Result = call_entity_func(client_request, EntityID, [RequestType, RequestID, Request], State),
+handle_cast({client_request, EntityID, From, Channel, RequestType, RequestID, Request}, State) ->
+	Result = client_request_internal(EntityID, Channel, RequestType, RequestID, Request, State),
 	case Result of
-		{ok, _Response, State1} ->
+		{ok, Response, State1} ->
+			FullMessage = {struct, Response},
+			pre_client_connection:send(From, tcp, {response, RequestID}, entity, FullMessage),
 			{noreply, State1};
 		{noreply, State2} ->
+			?warning("Got ~p in response to a client_request! This should always return a response.", [Result]),
 			{noreply, State2}
 	end;
 
@@ -134,6 +167,35 @@ terminate(Reason, _State) ->
 
 code_change(_OldVersion, State, _Extra) ->
 	{reply, State}.
+
+%% -------------------------------------------------------------------
+
+client_request_internal(EntityID, <<"entity">>, <<"full">>, _RequestID, _Request, State) ->
+	#state{entities = Entities} = State,
+	Entity = dict:fetch(EntityID, Entities),
+	#entity{
+		model_def = ModelDef
+	} = Entity,
+	{Timestamp, FullState} = pre_entity_engine:get_full_state(Entity),
+	Response = [
+		{result, ok},
+		{id, EntityID},
+		{timestamp, Timestamp},
+		{modelDef, {struct, ModelDef}},
+		{state, {struct, FullState}}
+	],
+	{ok, Response, State};
+
+client_request_internal(EntityID, Channel, RequestType, RequestID, Request, State) ->
+	call_entity_func(client_request, EntityID, [Channel, RequestType, RequestID, Request], State).
+
+%% -------------------------------------------------------------------
+
+request_type({struct, Request}) ->
+	proplists:get_value(<<"type">>, Request);
+
+request_type(_) ->
+	undefined.
 
 %% -------------------------------------------------------------------
 

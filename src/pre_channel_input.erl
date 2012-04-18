@@ -7,7 +7,7 @@
 -include("pre_client.hrl").
 
 % Because this saves us _so_ much code.
--define(CHANNEL, <<"input">>).
+-define(CHANNEL, input).
 
 % api
 -export([register_hooks/0]).
@@ -34,21 +34,13 @@ client_request(Client, RequestID, Request, _Info) ->
 	#client_info{
 		entity = EntityID
 	} = Client,
-	pre_entity_engine_sup:client_request(request_type(Request), EntityID, RequestID, Request).
+	pre_entity_engine:client_request(EntityID, ?CHANNEL, RequestID, Request).
 
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.
 
 client_event(_Client, _Event, _Info) ->
 	{ok, []}.
-
-%% -------------------------------------------------------------------
-
-request_type({struct, Request}) ->
-	proplists:get_value(<<"type">>, Request);
-
-request_type(_) ->
-	undefined.
 
 %% -------------------------------------------------------------------
 

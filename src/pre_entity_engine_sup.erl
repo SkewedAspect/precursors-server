@@ -6,11 +6,11 @@
 -include("log.hrl").
 -include("pre_entity.hrl").
 
+% API
+-export([start_link/1, create_entity/1]).
+
 % gen_server
--export([start_link/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
-% pre_client_channels
--export([client_request/4]).
 
 -record(state, {
 	supervisor_pid :: pid(),
@@ -33,9 +33,10 @@ start_link(Options) ->
 
 %% -------------------------------------------------------------------
 
-client_request({Pid, EntityID}, RequestType, RequestID, Request) ->
-	gen_server:cast(Pid, {client_request, EntityID, RequestType, RequestID, Request}),
-	ok.
+-spec create_entity(Behavior :: module()) -> #entity_id{} | {error, string()}.
+
+create_entity(Behavior) ->
+	gen_server:call(?MODULE, {create_entity, Behavior}).
 
 %% -------------------------------------------------------------------
 %% gen_server
@@ -63,6 +64,14 @@ init(Options) ->
 	{ok, State}.
 
 %% -------------------------------------------------------------------
+
+handle_call({create_entity, Behavior}, _From, State) ->
+	[FirstWorker | OtherWorkers] = State#state.worker_pids,
+	EntityID = pre_entity_engine:create_entity(FirstWorker, Behavior),
+	NewState = State#state{
+		worker_pids = OtherWorkers ++ [FirstWorker]
+	},
+    {reply, EntityID, NewState};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.

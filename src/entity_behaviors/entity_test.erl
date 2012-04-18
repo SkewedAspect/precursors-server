@@ -6,7 +6,7 @@
 -include("pre_entity.hrl").
 
 % pre_entity
--export([get_client_behavior/1, get_full_state/1, client_request/4, timer_fired/2]).
+-export([get_client_behavior/1, get_full_state/1, client_request/5, timer_fired/2]).
 
 %% -------------------------------------------------------------------
 %% API
@@ -15,23 +15,22 @@
 get_client_behavior(_Entity) ->
 	<<"Physical">>.
 
+%% -------------------------------------------------------------------
+
 get_full_state(Entity) ->
-	{BaseState, Entity1} = entity_base:get_full_state(Entity),
-	{PhysicalState, Entity2} = entity_physical:get_full_state(Entity1),
-
-	FullState = BaseState ++ PhysicalState,
-
-	{FullState, Entity2}.
+	entity_physical:get_full_state(Entity).
 
 %% -------------------------------------------------------------------
 
-client_request(_RequestType, RequestID, _Request, Entity) ->
-	ClientInfo = Entity#entity.client,
-	Connection = ClientInfo#client_info.connection,
-	Response = <<"Bumcovers.">>,
-	pre_client_connection:send(Connection, tcp, {response, RequestID}, <<"input">>, Response),
-	{ok, Response, Entity}.
-	%{noreply, Entity}.
+%client_request(Entity, Channel, RequestType, RequestID, Request) ->
+%	ClientInfo = Entity#entity.client,
+%	Connection = ClientInfo#client_info.connection,
+%	Response = <<"Bumcovers.">>,
+%	pre_client_connection:send(Connection, tcp, {response, RequestID}, <<"entity">>, Response),
+%	{ok, Response, Entity}.
+
+client_request(Entity, Channel, RequestType, RequestID, Request) ->
+	entity_physical:client_request(Entity, Channel, RequestType, RequestID, Request).
 
 %% -------------------------------------------------------------------
 
