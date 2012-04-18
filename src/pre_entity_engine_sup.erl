@@ -33,6 +33,8 @@ start_link(Options) ->
 
 %% -------------------------------------------------------------------
 
+%% @doc Create a new entity using the given entity behavior module.
+
 -spec create_entity(Behavior :: module()) -> #entity_id{} | {error, string()}.
 
 create_entity(Behavior) ->
