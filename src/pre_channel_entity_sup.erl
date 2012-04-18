@@ -31,13 +31,16 @@
 %% -------------------------------------------------------------------
 
 %% @doc Starts the entity channel master server.
+
 -spec(start_link/1 :: (Options :: start_options()) -> {'ok', pid()}).
+
 start_link(Options) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, Options, []).
 
 %% -------------------------------------------------------------------
 
 -spec broadcast_update(EntityID :: #entity_id{}, StateDelta :: [{atom(), term()}]) -> 'ok'.
+
 broadcast_update(EntityID, StateDelta) ->
 	Content = [
 		{state, {struct, StateDelta}}
@@ -49,17 +52,22 @@ broadcast_update(EntityID, StateDelta) ->
 %% @doc Broadcast a full update for the given entity to all eligible clients.
 %%
 %% FIXME: Construct the update in pre_entity_engine, and then send to the clients here!
+
 -spec broadcast_full_update(Entity :: #entity{}) -> 'ok'.
+
 broadcast_full_update(Entity) ->
-	pre_entity_engine:get_full_state_async(Entity, fun (FullState) ->
+	pre_entity_engine:get_full_state_async(Entity, fun (Timestamp, FullState) ->
 		begin
 			#entity{
 				id = EntityID,
 				model_def = ModelDef
 			} = Entity,
 
-			Content = [{modelDef, {struct, ModelDef}}, {state, {struct, FullState}}],
-			broadcast_event(full, EntityID, Content)
+			Content = [
+				{modelDef, {struct, ModelDef}},
+				{state, {struct, FullState}}
+			],
+			broadcast_event(full, EntityID, Content, Timestamp)
 		end
 	end).
 
@@ -94,10 +102,21 @@ broadcast_full_update(Entity) ->
 	EventType :: pre_channel_entity:entity_event_type(),
 	EntityID :: #entity_id{},
 	EventContents :: [{atom(), term()}].
+
 broadcast_event(EventType, EntityID, EventContents) ->
 	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
+	broadcast_event(EventType, EntityID, EventContents, Timestamp).
 
+%% -------------------------------------------------------------------
+
+-spec broadcast_event(EventType, EntityID, EventContents, Timestamp) -> 'ok' when
+	EventType :: pre_channel_entity:entity_event_type(),
+	EntityID :: #entity_id{},
+	EventContents :: [{atom(), term()}],
+	Timestamp :: float().
+
+broadcast_event(EventType, EntityID, EventContents, Timestamp) ->
 	gen_server:cast(?MODULE, {entity_event, EventType, EntityID, Timestamp, EventContents}).
 
 %% -------------------------------------------------------------------

@@ -56,25 +56,10 @@ handle_call(_, _From, State) ->
 
 %% -------------------------------------------------------------------
 
-%TODO: Do we actually have a need for these?
-%handle_cast({client_connected, ClientInfo}, State) ->
-%	Clients = State#state.clients,
-%	?debug("Client ~p connected; adding to list.", [ClientInfo]),
-%	#client_info{
-%		connection = ConnectionPID,
-%		entity = EntityID
-%	} = ClientInfo,
-%	{noreply, State#state{clients = [{ConnectionPID, undefined} | Clients]}};
-%
-%handle_cast({client_disconnected, ConnectionPID, Reason}, State) ->
-%	Clients = State#state.clients,
-%	?debug("Client process ~p disconnected for reason ~p; removing from list.", [ConnectionPID, Reason]),
-%    {noreply, State#state{clients = proplists:delete(ConnectionPID, Clients)}};
-
 handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	% Update our list of clients, replacing the given client's entity.
 	Clients = lists:keystore(ConnectionPid, 1, State#state.clients, {ConnectionPid, EntityDef}),
-	pre_entity_engine_sup:get_full_update_async(EntityDef,
+	pre_entity_engine:get_full_update_async(EntityDef,
 		fun (FullUpdate) ->
 			FullMessage = {struct, [{type, inhabit} | FullUpdate]},
 			pre_client_connection:send(ConnectionPid, udp, event, entity, FullMessage)

@@ -35,22 +35,32 @@ get_full_state(#entity_id{} = EntityID) ->
 
 %% -------------------------------------------------------------------
 
-%% @doc Get the given entity's current state, then call the given function with that state as its (first) argument.
 -spec get_full_state_async(Entity, Function) -> Return when
 	Entity :: #entity{},
-	Function :: {module(), atom()} | {module(), atom(), list()} | fun(([{atom(), term()}]) -> Return),
+	Function :: {module(), atom()} | {module(), atom(), list()} | fun((Timestamp, FullState) -> Return),
+	Timestamp :: float(),
+	FullState :: [{atom(), term()}],
 	Return :: term().
+
+%% @doc Get the given entity's current state, then call the given function with that state as its (first) argument.
+
 get_full_state_async(Entity, {Mod, Func}) ->
 	get_full_state_async(Entity, {Mod, Func, []});
 
 get_full_state_async(Entity, {Mod, Func, Args}) ->
 	spawn(fun () ->
-		apply(Mod, Func, [get_full_state(Entity) | Args])
+		begin
+			{Timestamp, FullState} = get_full_state(Entity),
+			apply(Mod, Func, [Timestamp, FullState | Args])
+		end
 	end);
 
 get_full_state_async(Entity, Fun) ->
 	spawn(fun () ->
-		Fun(get_full_state(Entity))
+		begin
+			{Timestamp, FullState} = get_full_state(Entity),
+			Fun(Timestamp, FullState)
+		end
 	end).
 
 %% -------------------------------------------------------------------
@@ -75,9 +85,13 @@ init([]) ->
 %% -------------------------------------------------------------------
 
 handle_call({get_full_state, #entity_id{} = EntityID}, _From, State) ->
-	{ok, FullUpdate, State2} = call_entity_func(get_full_state, EntityID, [], State),
-	%TODO: Possibly add common tuples here.
-	{reply, FullUpdate, State2};
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
+
+	{FullState, State1} = call_entity_func(get_full_state, EntityID, [], State),
+	{ClientBehavior, State2} = call_entity_func(get_client_behavior, EntityID, [], State1),
+
+	{reply, {Timestamp, [{behavior, ClientBehavior} | FullState]}, State2};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
@@ -129,10 +143,10 @@ call_entity_func(Func, EntityID, Args, State) ->
 	CallbackModule = Entity#entity.callback_module,
 	Result = apply(CallbackModule, Func, [Entity | Args]),
 	case Result of
-		{Status, Response, Entity2} ->
+		{Result1, Result2, Entity2} ->
 			Entities1 = dict:store(EntityID, Entity2, Entities),
-			{Status, Response, State#state{entities = Entities1}};
-		{Status2, Entity3} ->
+			{Result1, Result2, State#state{entities = Entities1}};
+		{Result3, Entity3} ->
 			Entities2 = dict:store(EntityID, Entity3, Entities),
-			{Status2, State#state{entities = Entities2}}
+			{Result3, State#state{entities = Entities2}}
 	end.
