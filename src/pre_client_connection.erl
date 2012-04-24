@@ -193,6 +193,7 @@ handle_cast(start_accept_tcp, State) ->
 
 handle_cast({inhabit_entity, EntityID}, State) ->
 	ClientInfo = State#state.client_info,
+	pre_hooks:async_trigger_hooks(client_inhabited_entity, [self(), EntityID], all),
 	NewState = State#state{
 		client_info = ClientInfo#client_info{entity = EntityID}
 	},
