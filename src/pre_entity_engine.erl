@@ -8,6 +8,7 @@
 
 % API
 -export([get_owning_client/1, get_full_state/1, get_full_state_async/2]).
+-export([get_entity_record/1, get_entity_record_async/2]).
 -export([client_request/5, create_entity/2]).
 
 % gen_server
@@ -40,7 +41,7 @@ get_full_state(#entity_id{} = EntityID) ->
 %% -------------------------------------------------------------------
 
 -spec get_full_state_async(Entity, Function) -> Return when
-	Entity :: #entity{},
+	Entity :: #entity{} | #entity_id{},
 	Function :: {module(), atom()} | {module(), atom(), list()} | fun((Timestamp, FullState) -> Return),
 	Timestamp :: float(),
 	FullState :: [{atom(), term()}],
@@ -64,6 +65,47 @@ get_full_state_async(Entity, Fun) ->
 		begin
 			{Timestamp, FullState} = get_full_state(Entity),
 			Fun(Timestamp, FullState)
+		end
+	end).
+
+%% -------------------------------------------------------------------
+
+%% @doc Get the given entity's current state record.
+-spec get_entity_record(Entity) -> [{atom(), term()}] when
+	Entity :: #entity{} | #entity_id{}.
+get_entity_record(#entity{id = EntityID}) ->
+	get_entity_record(EntityID);
+
+get_entity_record(#entity_id{} = EntityID) ->
+	#entity_id{engine = Pid} = EntityID,
+	gen_server:call(Pid, {get_entity_record, EntityID}).
+
+%% -------------------------------------------------------------------
+
+-spec get_entity_record_async(EntityID, Function) -> Return when
+	EntityID :: #entity_id{},
+	Function :: {module(), atom()} | {module(), atom(), list()} | fun((StateRecord) -> Return),
+	StateRecord :: #entity{},
+	Return :: term().
+
+%% @doc Get the given entity's current state record, then call the given function with that state as its (first) argument.
+
+get_entity_record_async(EntityID, {Mod, Func}) ->
+	get_entity_record_async(EntityID, {Mod, Func, []});
+
+get_entity_record_async(EntityID, {Mod, Func, Args}) ->
+	spawn(fun () ->
+		begin
+			EntityRecord = get_entity_record(EntityID),
+			apply(Mod, Func, [EntityRecord | Args])
+		end
+	end);
+
+get_entity_record_async(EntityID, Fun) ->
+	spawn(fun () ->
+		begin
+			EntityRecord = get_entity_record(EntityID),
+			Fun(EntityRecord)
 		end
 	end).
 
@@ -109,6 +151,12 @@ handle_call({get_full_state, #entity_id{} = EntityID}, _From, State) ->
 	{ClientBehavior, State2} = call_entity_func(get_client_behavior, EntityID, [], State1),
 
 	{reply, {Timestamp, [{behavior, ClientBehavior} | FullState]}, State2};
+
+handle_call({get_entity_record, #entity_id{} = EntityID}, _From, State) ->
+	#state{entities = Entities} = State,
+	Entity = dict:fetch(EntityID, Entities),
+
+	{reply, Entity, State};
 
 handle_call({create_entity, Behavior}, _From, State) ->
 	EntityID = #entity_id{

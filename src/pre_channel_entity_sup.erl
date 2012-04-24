@@ -14,7 +14,7 @@
 % gen_server
 -export([start_link/1, broadcast_update/2, broadcast_full_update/1, broadcast_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([client_disconnect_hook/3, client_logged_in_hook/2, fake_update/1]).
+-export([client_logged_in_hook/2, client_disconnect_hook/3, client_inhabited_entity_hook/3, fake_update/1]).
 
 % pre_client_channels
 -export([client_request/4]).
@@ -133,11 +133,12 @@ init(Options) ->
 	?debug("Registering client hooks."),
 	pre_hooks:add_hook(client_connected, ?MODULE, client_connect_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_disconnected, ?MODULE, client_disconnect_hook, undefined, [node()]),
+	pre_hooks:add_hook(client_inhabited_entity, ?MODULE, client_inhabited_entity_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]),
 
-	%?debug("Starting fake entity event timer."),
-	%Timer = timer:apply_interval(4000, ?MODULE, fake_update, [list_to_binary(erlang:ref_to_list(make_ref()))]),
-	%?info("Timer started: ~p", [Timer]),
+	?info("Starting fake entity event timer."),
+	Timer = timer:apply_interval(4000, ?MODULE, fake_update, [#entity_id{engine = self(), ref = make_ref()}]),
+	?info("Timer started: ~p", [Timer]),
 
 	State = #state{supervisor_pid = Supervisor, worker_pids = WorkerPids},
 	{ok, State}.
@@ -166,16 +167,12 @@ handle_cast({client_disconnected, ClientPid, Reason}, State) ->
 	State1 = broadcast_to_workers(client_disconnected, [ClientPid, Reason], State),
     {noreply, State1#state{client_count = ClientCount}};
 
+handle_cast({client_inhabited_entity, ClientPid, EntityID}, State) ->
+	State1 = broadcast_to_workers(client_inhabited_entity, [ClientPid, EntityID], State),
+    {noreply, State1};
+
 handle_cast({entity_event, Type, EntityID, Timestamp, EventContents}, State) ->
-	#entity_id{
-		engine = EntityEngine,
-		ref = EntityRef
-	} = EntityID,
-	NetworkEntityID = [
-		list_to_binary(erlang:pid_to_list(EntityEngine)),
-		list_to_binary(erlang:ref_to_list(EntityRef))
-	],
-	Content = [{id, NetworkEntityID}, {type, Type}, {timestamp, Timestamp} | EventContents],
+	Content = pre_channel_entity:build_state_event(full, EventContents, EntityID, Timestamp),
 	State1 = broadcast_to_workers(broadcast_event, [Type, Content], State),
 	{noreply, State1};
 
@@ -218,7 +215,7 @@ client_logged_in_hook(undefined, ClientInfo) ->
 %% @doc Handle a client inhabited entity hook call.
 client_inhabited_entity_hook(undefined, ClientPid, EntityID) ->
 	?debug("Client ~p inhabited entity ~p; notifying worker process.", [ClientPid, EntityID]),
-	gen_server:cast(?MODULE, {client_disconnected, ClientPid, EntityID}),
+	gen_server:cast(?MODULE, {client_inhabited_entity, ClientPid, EntityID}),
 	{ok, undefined}.
 
 %% -------------------------------------------------------------------
@@ -240,6 +237,7 @@ broadcast_to_workers(Func, Args, State) ->
 
 %% @hidden
 fake_update(EntityID) ->
+	?info("Sending fake update for entity ~p.", [EntityID]),
 	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
 	?MODULE ! {entity_event, full, EntityID, Timestamp, [

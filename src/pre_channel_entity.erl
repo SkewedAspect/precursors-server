@@ -11,8 +11,10 @@
 % Because this saves us _so_ much code.
 -define(CHANNEL, entity).
 
+% API
+-export([start_link/0, client_connected/2, client_disconnected/3, client_inhabited_entity/3]).
+-export([broadcast_event/3, build_state_event/4, send_update_for_entity/1]).
 % gen_server
--export([start_link/0, client_connected/2, client_disconnected/3, broadcast_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 -type(entity_event_type() :: 'full' | 'update' | 'create' | 'remove').
@@ -41,8 +43,35 @@ client_disconnected(Pid, ClientPid, Reason) ->
 
 %% -------------------------------------------------------------------
 
+client_inhabited_entity(Pid, ClientPid, EntityID) ->
+	pre_entity_engine:get_entity_record_async(EntityID, fun (EntityDef) ->
+		gen_server:cast(Pid, {client_inhabited_entity, ClientPid, EntityDef})
+	end).
+
+%% -------------------------------------------------------------------
+
 broadcast_event(Pid, EntityID, Content) ->
 	gen_server:cast(Pid, {entity_event, EntityID, Content}).
+
+%% -------------------------------------------------------------------
+
+build_state_event(EventType, StateUpdate, EntityID, Timestamp) ->
+	#entity_id{
+		engine = EntityEngine,
+		ref = EntityRef
+	} = EntityID,
+
+	NetworkEntityID = [
+		list_to_binary(erlang:pid_to_list(EntityEngine)),
+		list_to_binary(erlang:ref_to_list(EntityRef))
+	],
+
+	[
+		{type, EventType},
+		{id, NetworkEntityID},
+		{timestamp, Timestamp},
+		{state, {struct, StateUpdate}}
+	].
 
 %% -------------------------------------------------------------------
 %% gen_server
@@ -76,13 +105,20 @@ handle_cast({client_disconnected, ConnectionPID, Reason}, State) ->
 
 handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	% Update our list of clients, replacing the given client's entity.
-	Clients = lists:keystore(ConnectionPid, 1, State#state.clients, {ConnectionPid, EntityDef}),
-	pre_entity_engine:get_full_update_async(EntityDef,
-		fun (FullUpdate) ->
-			FullMessage = {struct, [{type, inhabit} | FullUpdate]},
+	Clients = lists:keyreplace(ConnectionPid, 1, State#state.clients, {ConnectionPid, EntityDef}),
+	pre_entity_engine:get_full_state_async(EntityDef,
+		fun (Timestamp, FullUpdate) ->
+			%FIXME: This should really be of type 'inhabit'...
+			%FullMessage = build_state_event(inhabit, FullUpdate, EntityDef#entity.id, Timestamp),
+			FullMessage = build_state_event(full, FullUpdate, EntityDef#entity.id, Timestamp),
 			pre_client_connection:send(ConnectionPid, udp, event, entity, FullMessage)
 		end
 	),
+
+	?info("Starting entity full update event timer for ~p.", [EntityDef#entity.id]),
+	Timer = timer:apply_interval(4000, ?MODULE, send_update_for_entity, [EntityDef]),
+	?info("Timer started: ~p", [Timer]),
+
 	{noreply, State#state{clients = Clients}};
 
 handle_cast({entity_event, EntityID, Content}, State) ->
@@ -95,6 +131,12 @@ handle_cast({entity_event, EntityID, Content}, State) ->
 
 handle_cast(_, State) ->
     {noreply, State}.
+
+%% -------------------------------------------------------------------
+
+send_update_for_entity(EntityDef) ->
+	?info("Sending update for entity ~p.", [EntityDef#entity.id]),
+	pre_channel_entity_sup:broadcast_full_update(EntityDef).
 
 %% -------------------------------------------------------------------
 
