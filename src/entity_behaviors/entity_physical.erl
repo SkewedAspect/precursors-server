@@ -6,10 +6,19 @@
 -include("pre_entity.hrl").
 
 % pre_entity
--export([get_full_state/1, client_request/5]).
+-export([init/2, get_full_state/1, client_request/5]).
 
 %% -------------------------------------------------------------------
 %% API
+%% -------------------------------------------------------------------
+
+init(EntityID, Behavior) ->
+	#entity{
+		id = EntityID,
+		callback_module = Behavior,
+		physical = #physical{}
+	}.
+
 %% -------------------------------------------------------------------
 
 get_full_state(Entity) ->

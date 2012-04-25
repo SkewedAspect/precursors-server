@@ -6,10 +6,29 @@
 -include("pre_entity.hrl").
 
 % pre_entity
--export([get_client_behavior/1, get_full_state/1, client_request/5, timer_fired/2]).
+-export([init/2, get_client_behavior/1, get_full_state/1, client_request/5, timer_fired/2]).
 
 %% -------------------------------------------------------------------
 %% API
+%% -------------------------------------------------------------------
+
+init(EntityID, Behavior) ->
+	InitialEntity = entity_physical:init(EntityID, Behavior),
+	InitialPhysical = InitialEntity#entity.physical,
+	InitialEntity#entity{
+		physical = InitialPhysical#physical{
+			position = {-100, 700, 10},
+			orientation_vel = quaternion:from_axis_angle(
+				vector:unit({
+					random:uniform(),
+					random:uniform(),
+					random:uniform()
+					}),
+				1.1
+				)
+		}
+	}.
+
 %% -------------------------------------------------------------------
 
 get_client_behavior(Entity) ->
