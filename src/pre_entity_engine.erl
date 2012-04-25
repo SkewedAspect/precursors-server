@@ -9,7 +9,7 @@
 % API
 -export([get_owning_client/1, get_full_state/1, get_full_state_async/2]).
 -export([get_entity_record/1, get_entity_record_async/2]).
--export([client_request/5, create_entity/2]).
+-export([client_request/5, create_entity/2, start_entity_timer/3]).
 
 % gen_server
 -export([start_link/0]).
@@ -128,6 +128,11 @@ create_entity(Pid, Behavior) ->
 	gen_server:call(Pid, {create_entity, Behavior}).
 
 %% -------------------------------------------------------------------
+
+start_entity_timer(EntityID, TimeMS, Info) ->
+	timer:send_interval(TimeMS, {timer_fired, EntityID, Info}).
+
+%% -------------------------------------------------------------------
 %% gen_server
 %% -------------------------------------------------------------------
 
@@ -190,8 +195,8 @@ handle_cast(_, State) ->
 
 %% -------------------------------------------------------------------
 
-handle_info({timer_fired, EntityID, Args}, State) ->
-	Result = call_entity_func(timer_fired, EntityID, Args, State),
+handle_info({timer_fired, EntityID, Info}, State) ->
+	Result = call_entity_func(timer_fired, EntityID, [Info], State),
 	case Result of
 		{ok, _Response, State1} ->
 			{noreply, State1};
