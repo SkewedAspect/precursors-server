@@ -40,10 +40,10 @@ simulate(StepSize, State) ->
 	OrientationAcc = quaternion:compose(OrientationAccAbs, quaternion:reorient(OrientationAccRel, Orientation)),
 
 	% Calculate new orientational velocity, in world space
-	NewOrientationVel = quaternion:compose(OrientationVel, quaternion:scale_rotation(OrientationAcc, StepSize)),
+	NewOrientationVel = quaternion:compose(OrientationVel, quaternion:scale_rotation(StepSize, OrientationAcc)),
 
 	% Calculate new orientation, in world space
-	NewOrientation = quaternion:compose(Orientation, quaternion:scale_rotation(NewOrientationVel, StepSize)),
+	NewOrientation = quaternion:compose(Orientation, quaternion:scale_rotation(StepSize, NewOrientationVel)),
 
 	% ---------------------------------------------------------------------
 	
@@ -51,10 +51,10 @@ simulate(StepSize, State) ->
 	PositionAcc = vector:add(PositionAccAbs, quaternion:rotate(PositionAccRel, NewOrientation)),
 
 	% Calculate new positional velocity, in world space
-	NewPositionVel = vector:add(PositionVel, vector:multiply(PositionAcc, StepSize)),
+	NewPositionVel = vector:add(PositionVel, vector:multiply(StepSize, PositionAcc)),
 
 	% Calculate new position, in world space
-	NewPosition = vector:add(Position, vector:multiply(NewPositionVel, StepSize)),
+	NewPosition = vector:add(Position, vector:multiply(StepSize, NewPositionVel)),
 
 	% ---------------------------------------------------------------------
 

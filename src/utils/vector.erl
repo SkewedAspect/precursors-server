@@ -98,18 +98,12 @@ unit({_, _, _} = Vec) ->
 
 
 %% @doc hidden
-unit(0, {_, _, _} = Vec) ->
+unit(VLS, {_, _, _} = Vec) when VLS < ?NORMALIZED_TOLERANCE; (abs(VLS) - 1) < ?NORMALIZED_TOLERANCE ->
 	Vec;
 
 %% @doc hidden
 unit(VLS, {_, _, _} = Vec) ->
-	Norm = abs(VLS - 1.0),
-	case Norm < ?NORMALIZED_TOLERANCE of
-		true ->
-			Vec;
-		_ ->
-			divide(math:sqrt(VLS), Vec)
-	end.
+	divide(math:sqrt(VLS), Vec).
 
 
 %% @doc Gets the Yaw and Pitch required to point in the direction of the given vector.

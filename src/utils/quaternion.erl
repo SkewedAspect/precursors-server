@@ -93,14 +93,14 @@ divide(Factor, {W, X, Y, Z}) when is_number(Factor) ->
 %% @doc Reorient q1's axis of rotation by rotating it by q2, but leave q1's angle of rotation intact.
 reorient({W, X, Y, Z}, {_, _, _, _}=Q2) ->
 	OriginalRotation = 2 * math:acos(W),
-	Axis = rotate(vector:unit(X, Y, Z), Q2),
+	Axis = rotate(vector:unit({X, Y, Z}), Q2),
 	from_axis_angle(Axis, OriginalRotation).
 
 
 %% @doc Scale the rotation of the quaternion by the given factor. Note: This is not the same as multiplying.
 scale_rotation(Factor, {W, X, Y, Z}) when is_integer(Factor); is_float(Factor) ->
 	OriginalRotation = 2 * math:acos(W),
-	Unit = vector:unit(X, Y, Z),
+	Unit = vector:unit({X, Y, Z}),
 	from_axis_angle(Unit, OriginalRotation * Factor).
 
 % -------------------------------------------------------------------------
