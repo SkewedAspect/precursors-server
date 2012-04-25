@@ -163,10 +163,7 @@ handle_call({create_entity, Behavior}, _From, State) ->
 		engine = self(),
 		ref = make_ref()
 	},
-	Entity = #entity{
-		id = EntityID,
-		callback_module = Behavior
-	},
+	Entity = Behavior:init(EntityID, Behavior),
 	Entities = dict:store(EntityID, Entity, State#state.entities),
 	State1 = #state{entities = Entities},
     {reply, EntityID, State1};
