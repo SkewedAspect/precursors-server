@@ -116,7 +116,7 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	),
 
 	?info("Starting entity full update event timer for ~p.", [EntityDef#entity.id]),
-	Timer = timer:apply_interval(4000, ?MODULE, send_update_for_entity, [EntityDef]),
+	Timer = timer:apply_interval(400, ?MODULE, send_update_for_entity, [EntityDef]),
 	?info("Timer started: ~p", [Timer]),
 
 	{noreply, State#state{clients = Clients}};
