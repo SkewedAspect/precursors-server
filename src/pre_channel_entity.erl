@@ -69,8 +69,8 @@ build_state_event(EventType, StateUpdate, EntityID, Timestamp) ->
 	[
 		{type, EventType},
 		{id, NetworkEntityID},
-		{timestamp, Timestamp},
-		{state, {struct, StateUpdate}}
+		{timestamp, Timestamp}
+		| StateUpdate
 	].
 
 %% -------------------------------------------------------------------
