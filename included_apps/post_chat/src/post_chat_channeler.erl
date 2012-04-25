@@ -11,13 +11,14 @@
 
 %% public api
 start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+	supervisor:start_link({local, ?MODULE}, ?MODULE, [supervisor]).
 
 client_login_hook(undefined, Client) ->
-	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]).
+	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]),
+	{ok, undefined}.
 
-%% gen_server
-init([]) ->
+%% supervisor
+init([supervisor]) ->
 	process_flag(trap_exit, true),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]),
 	Kid = {id, {pre_client_channels, set_sup_channel, [<<"chat">>, ?MODULE, undefined]}, transient, brutal_kill, worker, [?MODULE]},
@@ -25,8 +26,9 @@ init([]) ->
 
 %% client channels
 client_request(Client, _Id, {struct, Request},undefined) ->
-	RoomId = binary_to_list(proplists:get_value(<<"room_id">>, Request, <<>>)),
-	Command = proplists:get_value(<<"command">>, Request),
+	RoomId = proplists:get_value(<<"room">>, Request, <<>>),
+	Command = proplists:get_value(<<"action">>, Request),
+	?info("Chat Message: ~p", [Request]),
 	case Command of
 		<<"leave">> ->
 			room_call(leave, RoomId, Client, []);
@@ -73,9 +75,14 @@ client_request(Client, _Id, {struct, Request},undefined) ->
 %		message(Room, Client, Message) ->
 %			gen_server:call(Room, {message, Client, Message}, ?timeout).
 		_ ->
-			{reply, {struct, [{<<"success">>, false},{<<"message">>,<<"unknown command">>}]}}
+			{reply, {struct, [{<<"success">>, false}, {<<"message">>, <<"unknown command">>}]}}
 	end.
 	
+room_call(message, RoomID, Client, Message) ->
+	?info("Msg: ~p, ~p, ~p", [RoomID, Client, Message]),
+	post_chatroom:message(RoomID, Client, Message),
+	{reply, {struct, [{<<"success">>, true}, {<<"message">>, Message}]}};
+
 room_call(create_room,RoomName,Client,[Mode,Password]) ->
 %	Qh = qlc:q([X || #room_cache{name = N} = X <- ets:table(?ets),
 %		N =:= RoomName]),

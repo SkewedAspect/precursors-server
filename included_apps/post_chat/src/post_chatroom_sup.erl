@@ -60,5 +60,5 @@ get_room(Key, Id) ->
 %% ===================================================================
 
 init([]) ->
-	Child = {id, {post_chatroom, start_link, []}, permanent, brutal_kill,worker,[post_chatroom]},
+	Child = {id, {post_chatroom, start_link, []}, permanent, brutal_kill, worker, [post_chatroom]},
 	{ok, {{ simple_one_for_one, 5, 10}, [Child]}}.

@@ -95,11 +95,11 @@ start_link(Name, Mode, ModeMeta, Password) ->
 	])),
 	case {Res, Mode} of
 		{[], player} ->
-  		gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta, Password}], []);
+  		gen_server:start_link({global, Name}, ?MODULE, [{Name, Mode, ModeMeta, Password}], []);
 		{[{_Lpid, RPid, _} | _], player} ->
 			{ok, RPid};
 		{_, system} ->
-  		gen_server:start_link(?MODULE, [{Name, Mode, ModeMeta, Password}], [])
+  		gen_server:start_link({global, Name}, ?MODULE, [{Name, Mode, ModeMeta, Password}], [])
 	end.
 
 send_command(Pid, Command, Payload) ->
@@ -110,25 +110,25 @@ send_command(Pid, Command, Payload) ->
 % 	das res
 
 leave(Room, Client) ->
-	gen_server:call(Room, {leave, Client}, ?timeout).
+	gen_server:call({global, Room}, {leave, Client}, ?timeout).
 
 join(Room, Client) ->
 	join(Room, Client, "").
 
 join(Room, Client, Password) ->
-	gen_server:call(Room, {join, Client, Password}, ?timeout).
+	gen_server:call({global, Room}, {join, Client, Password}, ?timeout).
 
 kick(Room, Client, Target) ->
-	gen_server:call(Room, {kick, Client, Target}, ?timeout).
+	gen_server:call({global, Room}, {kick, Client, Target}, ?timeout).
 
 mute(Room, Client, Target) ->
-	gen_server:call(Room, {mute, Client, Target}, ?timeout).
+	gen_server:call({global, Room}, {mute, Client, Target}, ?timeout).
 
 unmute(Room, Client, Target) ->
-	gen_server:call(Room, {unmute, Client, Target}, ?timeout).
+	gen_server:call({global, Room}, {unmute, Client, Target}, ?timeout).
 
 message(Room, Client, Message) ->
-	gen_server:call(Room, {message, Client, Message}, ?timeout).
+	gen_server:call({global, Room}, {message, Client, Message}, ?timeout).
 
 
 

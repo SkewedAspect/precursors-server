@@ -122,11 +122,11 @@ start_link() ->
 set_channel(Mgr, Channel, Module, Info) ->
 	gen_event:add_handler(Mgr, {?MODULE, Channel}, {Channel, Module, Info}).
 
-%% @doc Add a new channel to the amnager, supervising the handler should
+%% @doc Add a new channel to the manager, supervising the handler should
 %% it horribly die.
 -spec(set_sup_channel/4 :: (Mgr :: pid(), Channel :: any(),
 	Module :: atom(), Info :: any()) -> 'ok').
-set_sup_channel(Mgr, Channel, Module, Info) ->
+set_sup_channel(Channel, Module, Info, Mgr) ->
 	gen_event:add_sup_handler(Mgr, {?MODULE, Channel}, {Channel, Module, Info}).
 
 %% @doc Remove the channel from the manager.
@@ -230,5 +230,5 @@ handle_return({reply, Payload}, Msg, State) ->
 	handle_return({reply, tcp, Payload}, Msg, State);
 
 handle_return({reply, Socket, Payload}, {request, Client, Channel, Id, _}, State) ->
-	pre_client_connection:send(Id, tcp, {response, Id}, Channel, Payload),
+	pre_client_connection:send(Client, Socket, {response, Id}, Channel, Payload),
 	{ok, State}.
