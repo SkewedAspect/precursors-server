@@ -131,7 +131,6 @@ init(Options) ->
 	end || _ <- lists:seq(1, InitialWorkers)],
 
 	?debug("Registering client hooks."),
-	pre_hooks:add_hook(client_connected, ?MODULE, client_connect_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_disconnected, ?MODULE, client_disconnect_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_inhabited_entity, ?MODULE, client_inhabited_entity_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]),
@@ -152,7 +151,7 @@ handle_call(_, _From, State) ->
 %% -------------------------------------------------------------------
 
 %% @hidden
-handle_cast({client_connected, ClientInfo}, State) ->
+handle_cast({client_logged_in, ClientInfo}, State) ->
 	ClientCount = State#state.client_count + 1,
 	[FirstWorker | OtherWorkers] = State#state.worker_pids,
 	pre_channel_entity:client_connected(FirstWorker, ClientInfo),
@@ -172,8 +171,8 @@ handle_cast({client_inhabited_entity, ClientPid, EntityID}, State) ->
     {noreply, State1};
 
 handle_cast({entity_event, Type, EntityID, Timestamp, EventContents}, State) ->
-	Content = pre_channel_entity:build_state_event(full, EventContents, EntityID, Timestamp),
-	State1 = broadcast_to_workers(broadcast_event, [Type, Content], State),
+	Content = pre_channel_entity:build_state_event(Type, EventContents, EntityID, Timestamp),
+	State1 = broadcast_to_workers(broadcast_event, [EntityID, Content], State),
 	{noreply, State1};
 
 handle_cast(_, State) ->
