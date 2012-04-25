@@ -6,17 +6,22 @@
 -include("pre_entity.hrl").
 
 % pre_entity
--export([init/2, get_full_state/1, client_request/5]).
+-export([init/2, get_full_state/1, client_request/5, timer_fired/2]).
+
+-define(STEP_SIZE, 50).
 
 %% -------------------------------------------------------------------
 %% API
 %% -------------------------------------------------------------------
 
 init(EntityID, Behavior) ->
+	pre_entity_engine:start_entity_timer(EntityID, ?STEP_SIZE, do_physics),
 	#entity{
 		id = EntityID,
 		callback_module = Behavior,
-		physical = #physical{}
+		physical = #physical{
+			last_update = os:timestamp()
+		}
 	}.
 
 %% -------------------------------------------------------------------
@@ -52,3 +57,20 @@ client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 	?warning("~p received invalid request ~p on channel ~p! (full request: ~p)",
 		[Entity#entity.id, RequestType, Channel, Request]),
 	{error, invalid_request, Entity}.
+
+%% -------------------------------------------------------------------
+
+timer_fired(EntityState, do_physics) ->
+	#entity{
+		physical = #physical{
+			last_update = LastUpdate
+		} = LastPhysical
+	} = EntityState,
+	ThisUpdate = os:timestamp(),
+	Physical = pre_physics:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 250000, LastPhysical),
+	EntityState1 = EntityState#entity{
+		physical = Physical#physical{
+			last_update = ThisUpdate
+		}
+	},
+	{noreply, EntityState1}.

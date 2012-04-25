@@ -1,4 +1,5 @@
 -record(physical, {
+	last_update :: erlang:timestamp(),
 	position = {0, 0, 0} :: vector:vec(),
 	position_vel = {0, 0, 0} :: vector:vec(),
 	position_acc_abs = {0, 0, 0} :: vector:vec(),

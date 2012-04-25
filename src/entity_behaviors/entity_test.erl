@@ -24,7 +24,7 @@ init(EntityID, Behavior) ->
 					random:uniform(),
 					random:uniform()
 					}),
-				1.1
+				random:uniform()
 				)
 		}
 	}.
@@ -53,5 +53,5 @@ client_request(Entity, Channel, RequestType, RequestID, Request) ->
 
 %% -------------------------------------------------------------------
 
-timer_fired(_TimerRef, _Entity) ->
-	ok.
+timer_fired(Entity, Tag) ->
+	entity_physical:timer_fired(Entity, Tag).
