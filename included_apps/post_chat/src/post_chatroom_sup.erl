@@ -3,6 +3,7 @@
 -behaviour(supervisor).
 
 -include_lib("stdlib/include/qlc.hrl").
+-include_lib("precursors_server/include/log.hrl").
 
 %% API
 -export([start_link/1,get_room/2]).
@@ -11,7 +12,7 @@
 -export([init/1]).
 
 %% Helper macro for declaring children of supervisor
--define(CHILD(I, Type), {I, {I, start_link, []}, permanent, 5000, Type, [I]}).
+-define(CHILD(I, Type, Args), {I, {I, start_link, [Args]}, permanent, brutal_kill, Type, [I]}).
 -define(ets, post_chatrooms).
 
 -record(room_cache, {
@@ -37,7 +38,9 @@ start_rooms(_Pid, []) ->
 	ok;
 start_rooms(Pid, [Room | Tail]) ->
 	Args = tuple_to_list(Room),
-	supervisor:start_child(Pid, Args),
+	?info("Supervisor: ~p starting Room: ~p", [Pid, Args]),
+	ChildPid = supervisor:start_child(Pid, Args),
+	?info("Room started: ~p", [ChildPid]),
 	start_rooms(Pid, Tail).
 	
 -spec get_room(Key :: 'id' | 'name', Id :: string()) -> 'undefined' | pid().

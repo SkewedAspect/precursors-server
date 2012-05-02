@@ -14,6 +14,7 @@ start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, [supervisor]).
 
 client_login_hook(undefined, Client) ->
+	?info("Client logged in, registering chat channel"),
 	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]),
 	{ok, undefined}.
 
