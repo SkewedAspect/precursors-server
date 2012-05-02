@@ -48,6 +48,10 @@ init(Args) ->
 	AuthManagerArgs = proplists:get_value(auth_backends, Args, []),
 	AuthManagerKid = ?CHILD(pre_gen_auth, worker, [AuthManagerArgs]),
 
+	% Load any plugins
+	PluginsToLoad = proplists:get_value(plugins, Args, []),
+	timer:apply_after(10, pre_util, start_apps, [PluginsToLoad]),
+
 	Kids = [
 		AuthManagerKid,
 		ListenerKid,

@@ -103,7 +103,8 @@ if [ ! -f $CONFIG ] && [ ! -f "${CONFIG}.config" ]; then
 	{nodes, ['$CONFIGNODENAME']},
 	{auth_backends, [
 		{config_auth, 2, [{allow, ["user"]}]}
-	]}
+	]},
+	{plugins, []}
 ]},
 
 {'lager', [

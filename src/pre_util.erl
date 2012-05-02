@@ -9,7 +9,7 @@
 % -----------------------------------------------------------------------------
 
 % gen_server
--export([start_app/1]).
+-export([start_app/1, start_apps/1]).
 
 % -----------------------------------------------------------------------------
 
@@ -33,7 +33,17 @@ start_app(App) ->
 			ok;
 		
 		{error, {not_started, Dependency}} ->
-			?debug("Unstarted Dependancy '~p' detected, starting..."),
+			?debug("Unstarted Dependancy '~p' detected, starting...", [Dependency]),
 			ok = start_app(Dependency),
 			start_app(App)
 	end.
+
+%% @doc Starts a list of applications (generally plugins). (Calls start_app under
+%% the hood.)
+start_apps([]) ->
+	ok;
+
+start_apps([App | Rest]) ->
+	?info("Starting application '~p'.", [App]),
+	start_app(App),
+	start_apps(Rest).
