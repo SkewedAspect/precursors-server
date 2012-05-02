@@ -17,14 +17,14 @@ init(EntityID, Behavior) ->
 	InitialPhysical = InitialEntity#entity.physical,
 	InitialEntity#entity{
 		physical = InitialPhysical#physical{
-			position = {-100, 700, 10},
+			position = {random:uniform() * 200 - 100, 700, 10},
 			orientation_vel = quaternion:from_axis_angle(
 				vector:unit({
 					random:uniform(),
 					random:uniform(),
 					random:uniform()
 					}),
-				random:uniform()
+				random:uniform() * math:pi()
 				)
 		}
 	}.
