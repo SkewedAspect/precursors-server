@@ -135,9 +135,9 @@ init(Options) ->
 	pre_hooks:add_hook(client_inhabited_entity, ?MODULE, client_inhabited_entity_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]),
 
-	?info("Starting fake entity event timer."),
-	Timer = timer:apply_interval(4000, ?MODULE, fake_update, [#entity_id{engine = self(), ref = make_ref()}]),
-	?info("Timer started: ~p", [Timer]),
+	%?info("Starting fake entity event timer."),
+	%Timer = timer:apply_interval(4000, ?MODULE, fake_update, [#entity_id{engine = self(), ref = make_ref()}]),
+	%?info("Timer started: ~p", [Timer]),
 
 	State = #state{supervisor_pid = Supervisor, worker_pids = WorkerPids},
 	{ok, State}.
