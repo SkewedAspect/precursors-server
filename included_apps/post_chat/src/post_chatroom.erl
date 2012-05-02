@@ -350,7 +350,7 @@ handle_call({message, Client, Message}, _From, State) ->
 				[pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json) ||
 					{Pid, _} <- Chatters]
 			end),
-			{reply, ok, State}
+			{ok, State}
 	end;
 
 handle_call(_Request, _From, State) ->

@@ -26,7 +26,61 @@ init([supervisor]) ->
 	{ok, {{simple_one_for_one, 3, 5}, [Kid]}}.
 
 %% client channels
-client_request(Client, _Id, {struct, Request},undefined) ->
+client_event(Client, {struct, Event}, undefined) ->
+	RoomId = proplists:get_value(<<"room">>, Event, <<>>),
+	Command = proplists:get_value(<<"action">>, Event),
+	?info("Chat Message: ~p", [Event]),
+	case Command of
+		<<"leave">> ->
+			room_call(leave, RoomId, Client, []);
+		<<"join">> ->
+			Pass = proplists:get_value(<<"password">>, Event, <<>>),
+			room_call(join, RoomId, Client, [Pass]);
+		<<"message">> ->
+			Message = proplists:get_value(<<"message">>, Event),
+			room_call(message, RoomId, Client, [Message]);
+		<<"create_room">> ->
+			Password = proplists:get_value(<<"password">>, Event, <<>>),
+			Mode = case proplists:get_value(<<"mode">>, Event) of
+				<<"plugin">> -> plugin;
+				_ -> player
+			end,
+			room_call(create_room, RoomId, Client, [Mode,Password]);
+		Targeted when
+					Targeted =:= <<"kick">>;
+					Targeted =:= <<"mute">>;
+					Targeted =:= <<"unmute">>;
+					Targeted =:= <<"promote">>;
+					Targeted =:= <<"demote">> ->
+			Target = proplists:get_value(<<"name">>, Event),
+			Verb = case Targeted of
+				<<"kick">> -> kick;
+				<<"mute">> -> mute;
+				<<"unmute">> -> mute;
+				<<"promote">> -> promote;
+				<<"demote">> -> demote
+			end,
+			room_call(Verb, RoomId, Client, [Target]);
+%		leave(Room, Client) ->
+%			gen_server:call(Room, {leave, Client}, ?timeout).
+%		join(Room, Client) ->
+%			join(Room, Client, "").
+%		join(Room, Client, Password) ->
+%			gen_server:call(Room, {join, Client, Password}, ?timeout).
+%		kick(Room, Client, Target) ->
+%			gen_server:call(Room, {kick, Client, Target}, ?timeout).
+%		mute(Room, Client, Target) ->
+%			gen_server:call(Room, {mute, Client, Target}, ?timeout).
+%		unmute(Room, Client, Target) ->
+%			gen_server:call(Room, {unmute, Client, Target}, ?timeout).
+%		message(Room, Client, Message) ->
+%			gen_server:call(Room, {message, Client, Message}, ?timeout).
+		_ ->
+			{ok, undefined}
+			end.
+
+
+client_request(Client, _Id, {struct, Request}, undefined) ->
 	RoomId = proplists:get_value(<<"room">>, Request, <<>>),
 	Command = proplists:get_value(<<"action">>, Request),
 	?info("Chat Message: ~p", [Request]),
@@ -81,8 +135,8 @@ client_request(Client, _Id, {struct, Request},undefined) ->
 	
 room_call(message, RoomID, Client, Message) ->
 	?info("Msg: ~p, ~p, ~p", [RoomID, Client, Message]),
-	post_chatroom:message(RoomID, Client, Message),
-	{reply, {struct, [{<<"success">>, true}, {<<"message">>, Message}]}};
+	post_chatroom:message(RoomID, Client, Message);
+%	{reply, {struct, [{<<"success">>, true}, {<<"message">>, Message}]}};
 
 room_call(create_room,RoomName,Client,[Mode,Password]) ->
 %	Qh = qlc:q([X || #room_cache{name = N} = X <- ets:table(?ets),
@@ -97,5 +151,3 @@ room_call(_Func,_RoomId,_Client,_Args) ->
 client_response(_Client, _Id, _Response, undefined) ->
 	{ok, undefined}.
 
-client_event(_Client, _Event, undefined) ->
-	{ok, undefined}.
