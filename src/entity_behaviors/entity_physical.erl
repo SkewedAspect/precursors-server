@@ -67,7 +67,7 @@ timer_fired(EntityState, do_physics) ->
 		} = LastPhysical
 	} = EntityState,
 	ThisUpdate = os:timestamp(),
-	Physical = pre_physics:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 250000, LastPhysical),
+	Physical = pre_physics:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
 	EntityState1 = EntityState#entity{
 		physical = Physical#physical{
 			last_update = ThisUpdate
