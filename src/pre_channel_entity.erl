@@ -109,8 +109,7 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	pre_entity_engine:get_full_state_async(EntityDef,
 		fun (Timestamp, FullUpdate) ->
 			%FIXME: This should really be of type 'inhabit'...
-			%FullMessage = build_state_event(inhabit, FullUpdate, EntityDef#entity.id, Timestamp),
-			FullMessage = build_state_event(full, FullUpdate, EntityDef#entity.id, Timestamp),
+			FullMessage = build_state_event(inhabit, FullUpdate, EntityDef#entity.id, Timestamp),
 			pre_client_connection:send(ConnectionPid, udp, event, entity, FullMessage)
 		end
 	),
@@ -135,7 +134,7 @@ handle_cast(_, State) ->
 %% -------------------------------------------------------------------
 
 send_update_for_entity(EntityDef) ->
-	?info("Sending update for entity ~p.", [EntityDef#entity.id]),
+	?debug("Sending update for entity ~p.", [EntityDef#entity.id]),
 	pre_channel_entity_sup:broadcast_full_update(EntityDef).
 
 %% -------------------------------------------------------------------
