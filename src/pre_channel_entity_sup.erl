@@ -14,7 +14,7 @@
 % gen_server
 -export([start_link/1, broadcast_update/2, broadcast_full_update/1, broadcast_event/3]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
--export([client_logged_in_hook/2, client_disconnect_hook/3, client_inhabited_entity_hook/3, fake_update/1]).
+-export([client_logged_in_hook/2, client_disconnect_hook/3, client_inhabited_entity_hook/3]).
 
 % pre_client_channels
 -export([client_request/4]).
@@ -135,10 +135,6 @@ init(Options) ->
 	pre_hooks:add_hook(client_inhabited_entity, ?MODULE, client_inhabited_entity_hook, undefined, [node()]),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]),
 
-	%?info("Starting fake entity event timer."),
-	%Timer = timer:apply_interval(4000, ?MODULE, fake_update, [#entity_id{engine = self(), ref = make_ref()}]),
-	%?info("Timer started: ~p", [Timer]),
-
 	State = #state{supervisor_pid = Supervisor, worker_pids = WorkerPids},
 	{ok, State}.
 
@@ -231,40 +227,3 @@ broadcast_to_workers(Func, Args, State) ->
 	[apply(pre_channel_entity, Func, [Worker | Args])
 		|| Worker <- State#state.worker_pids],
 	State.
-
-%% -------------------------------------------------------------------
-
-%% @hidden
-fake_update(EntityID) ->
-	?info("Sending fake update for entity ~p.", [EntityID]),
-	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
-	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
-	?MODULE ! {entity_event, full, EntityID, Timestamp, [
-		{modelDef, {struct, [
-			{model, <<"Ships/ares">>}
-		]}},
-		{timestamp, Timestamp},
-		{state, {struct, [
-			% Flying in a circle.
-			{position, [100, 500, -10]},
-			{position_vel, [0, 30, 0]},
-			{position_acc_abs, [0, 0, 0]},
-			{position_acc_rel, [-9, 0, 0]},
-			{orientation, [1, 0, 0, 0]},
-			{orientation_vel, [0.9887710779360422, 0.0, 0.0, 0.14943813247359922]},
-			{orientation_acc_abs, [1, 0, 0, 0]},
-			{orientation_acc_rel, [1, 0, 0, 0]},
-
-			% Listing lazily to the left!
-			%{position, [0, 200, -10]},
-			%{position_vel, [0, 20, 0]},
-			%{position_acc_abs, [0, 0, 0]},
-			%{position_acc_rel, [0, 1, 3]},
-			%{orientation, [1, 0, 0, 0]},
-			%{orientation_vel, [1, 0, 0, 0]},
-			%{orientation_acc_abs, [1, 0, 0, 0]},
-			%{orientation_acc_rel, [0.9988960616987121, 0.01743579561349186, -0.043612743921365014, -0.0007612632768451531]},
-
-			{behavior, <<"Physical">>}
-		]}}
-	]}.
