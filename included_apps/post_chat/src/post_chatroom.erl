@@ -48,6 +48,7 @@
 %% API
 -export([
 	start_link/3,
+	start_link/4,
 	send_command/3,
 	leave/2,
 	join/2,
@@ -86,20 +87,27 @@
 %% given to users.  Mode is the type of chat room.  ModeMeta depends on
 %% the mode.
 start_link(Name, Mode, ModeMeta) ->
+	?info("Chatroom start_link called: ~p ~p ~p", [Name, Mode, ModeMeta]),
 	start_link(Name, Mode, ModeMeta, undefined).
 
 start_link(Name, Mode, ModeMeta, Password) ->
+	?info("Chatroom starting: ~p ~p ~p ~p", [Name, Mode, ModeMeta, Password]),
 	Res = qlc:e(qlc:q([
 		E || {_ListPid, _Pid, RoomName, RoomMode} = E <- ets:table(post_chatrooms),
 		RoomName =:= Name, RoomMode =:= Mode
 	])),
+    ?info("Matching: ~p ~p", [Res, Mode]),
 	case {Res, Mode} of
 		{[], player} ->
-  		gen_server:start_link({global, Name}, ?MODULE, [{Name, Mode, ModeMeta, Password}], []);
+  		PlayPID = gen_server:start_link({global, Name}, ?MODULE, [{Name, Mode, ModeMeta, Password}], []),
+		?info("Player Room started: ~p", [PlayPID]);
 		{[{_Lpid, RPid, _} | _], player} ->
+		?info("Other Room started: ~p", [RPid]),
 			{ok, RPid};
 		{_, system} ->
-  		gen_server:start_link({global, Name}, ?MODULE, [{Name, Mode, ModeMeta, Password}], [])
+  		NewPID = gen_server:start_link({global, Name}, ?MODULE, {Name, Mode, ModeMeta, Password}, []),
+		?info("System Room started: ~p", [NewPID]),
+        NewPID
 	end.
 
 send_command(Pid, Command, Payload) ->
