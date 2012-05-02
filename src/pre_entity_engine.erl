@@ -168,6 +168,7 @@ handle_call({create_entity, Behavior}, _From, State) ->
 		engine = self(),
 		ref = make_ref()
 	},
+	?info("Creating new ~p entity ~p.", [Behavior, EntityID]),
 	Entity = Behavior:init(EntityID, Behavior),
 	Entities = dict:store(EntityID, Entity, State#state.entities),
 	State1 = #state{entities = Entities},
@@ -226,7 +227,7 @@ client_request_internal(EntityID, <<"entity">>, <<"full">>, _RequestID, _Request
 	#entity{
 		model_def = ModelDef
 	} = Entity,
-	{Timestamp, FullState} = pre_entity_engine:get_full_state(Entity),
+	{Timestamp, FullState} = get_full_state(Entity),
 	Response = [
 		{result, ok},
 		{id, EntityID},
