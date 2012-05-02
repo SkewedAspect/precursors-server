@@ -98,7 +98,7 @@ unit({_, _, _} = Vec) ->
 
 
 %% @doc hidden
-unit(VLS, {_, _, _} = Vec) when VLS < ?NORMALIZED_TOLERANCE; (abs(VLS) - 1) < ?NORMALIZED_TOLERANCE ->
+unit(VLS, {_, _, _} = Vec) when VLS < ?NORMALIZED_TOLERANCE; abs(VLS - 1) < ?NORMALIZED_TOLERANCE ->
 	Vec;
 
 %% @doc hidden
