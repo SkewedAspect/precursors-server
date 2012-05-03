@@ -6,5 +6,6 @@
 	client :: #client_info{},
 	physical = #physical{} :: #physical{},
 	model_def = [{model, <<"Ships/ares">>}] :: [{atom(), term()}],
-	callback_module = entity_test :: module()
+	callback_module = entity_test :: module(),
+	behavior_data :: any()
 }).
