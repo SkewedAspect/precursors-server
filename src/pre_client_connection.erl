@@ -254,12 +254,15 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 		inet:setopts(Socket, [{active, once}]),
 		{noreply, State1};
 
-handle_info({udp, Socket, Ip, InPortNo, Packet},
-	#state{udp_socket = Socket, udp_remote_info = {Ip, InPortNo}} = State) ->
-		Message = aes_decrypt_envelope(Packet, State),
-		?warning("Client got unhandled UDP message:  ~p", [Message]),
-		inet:setopts(Socket, [{active, once}]),
-		{noreply, State};
+handle_info({udp, Socket, Ip, InPortNo, Packet}, State) ->
+	#state{
+		udp_socket = Socket,
+		udp_remote_info = {Ip, InPortNo}
+	} = State,
+	Message = aes_decrypt_envelope(Packet, State),
+	?warning("Client got unhandled UDP message:  ~p", [Message]),
+	inet:setopts(Socket, [{active, once}]),
+	{noreply, State};
 
 handle_info(timeout, State) ->
 	?warning("Client did not respond in time; disconnecting."),
@@ -349,17 +352,14 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 	Username = proplists:get_value(<<"user">>, Request),
 	Password= proplists:get_value(<<"password">>, Request),
 	?info("Authenticating user: ~p", [Username]),
-	case pre_gen_auth:authenticate(Username, Password) of
+	{Confirm, Reason} = case pre_gen_auth:authenticate(Username, Password) of
 		allow ->
-			Reason = undefined,
-			Confirm = true;
+			{true, undefined};
 		{deny, Msg} ->
-			Reason = list_to_binary(Msg),
-			Confirm = false;
+			{false, list_to_binary(Msg)};
 		_ ->
 			?warning("Authentication failed for unkown reason."),
-			Reason = <<"An unkown error has occured.">>,
-			Confirm = false
+			{false, <<"An unkown error has occured.">>}
 	end,
 
 	% Send login response
