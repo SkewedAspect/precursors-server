@@ -254,15 +254,21 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 		inet:setopts(Socket, [{active, once}]),
 		{noreply, State1};
 
-handle_info({udp, Socket, Ip, InPortNo, Packet}, State) ->
-	#state{
-		udp_socket = Socket,
-		udp_remote_info = {Ip, InPortNo}
-	} = State,
+handle_info({udp, Socket, _Ip, _InPortNo, Packet}, #state{udp_socket = Socket} = State) ->
 	Message = aes_decrypt_envelope(Packet, State),
-	?warning("Client got unhandled UDP message:  ~p", [Message]),
+	NewState = service_message(Message, State),
 	inet:setopts(Socket, [{active, once}]),
-	{noreply, State};
+	{noreply, NewState};
+
+%handle_info({udp, Socket, Ip, InPortNo, Packet}, State) ->
+%	#state{
+%		udp_socket = Socket,
+%		udp_remote_info = {Ip, InPortNo}
+%	} = State,
+%	Message = aes_decrypt_envelope(Packet, State),
+%	?warning("Client got unhandled UDP message:  ~p", [Message]),
+%	inet:setopts(Socket, [{active, once}]),
+%	{noreply, State};
 
 handle_info(timeout, State) ->
 	?warning("Client did not respond in time; disconnecting."),
