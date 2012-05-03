@@ -65,16 +65,19 @@ get_full_state(EntityState) ->
 %	Connection = ClientInfo#client_info.connection,
 %	Response = <<"Bumcovers.">>,
 %	pre_client_connection:send(Connection, tcp, {response, RequestID}, <<"entity">>, Response),
-%	{ok, Response, EntityState}.
+%	{Response, EntityState}.
+
+client_request(EntityState, _ClientInfo, input, <<"command">>, _RequestID, Request) ->
+	handle_input_command(EntityState, Request);
 
 client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request) ->
 	entity_physical:client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request).
 
 %% -------------------------------------------------------------------
 
-client_event(EntityState, ClientInfo, input, EventType, Event) ->
-	?info("Got input event: client_event(~p)", [{EntityState, ClientInfo, input, EventType, Event}]),
-	{noreply, EntityState};
+client_event(EntityState, _ClientInfo, input, <<"command">>, Event) ->
+	{_Response, EntityState1} = handle_input_command(EntityState, Event),
+	{noreply, EntityState1};
 
 client_event(EntityState, ClientInfo, Channel, EventType, Event) ->
 	entity_physical:client_event(EntityState, ClientInfo, Channel, EventType, Event).
@@ -83,3 +86,36 @@ client_event(EntityState, ClientInfo, Channel, EventType, Event) ->
 
 timer_fired(EntityState, Tag) ->
 	entity_physical:timer_fired(EntityState, Tag).
+
+%% -------------------------------------------------------------------
+
+handle_input_command(EntityState, {struct, RawCommand}) ->
+	Command = proplists:get_value(<<"name">>, RawCommand),
+	Args = proplists:get_value(<<"args">>, RawCommand),
+	KWArgs = proplists:get_value(<<"kwargs">>, RawCommand),
+	handle_input_command(EntityState, Command, Args, KWArgs).
+
+%% -------------------------------------------------------------------
+
+handle_input_command(EntityState, <<"test">>, _Args, _KWArgs) ->
+	?info("Confirming \"test\" input command."),
+	#entity{
+		physical = Physical
+	} = EntityState,
+	Response = {reply, {struct, [
+		{confirm, true}
+	]}},
+	EntityState1 = EntityState#entity{
+		physical = Physical#physical{
+			position = {random:uniform() * 200 - 100, 700, 10}
+		}
+	},
+	{Response, EntityState1};
+
+handle_input_command(EntityState, Command, Args, KWArgs) ->
+	?info("Got unrecognized input command: ~p", [{Command, Args, KWArgs}]),
+	Response = {reply, {struct, [
+		{confirm, false},
+		{reason, <<"VALID CRAPBACK: Unrecognized input command \"", Command/binary, "\"!">>}
+	]}},
+	{Response, EntityState}.
