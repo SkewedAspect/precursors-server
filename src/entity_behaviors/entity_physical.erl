@@ -26,7 +26,7 @@ init(EntityID, Behavior) ->
 
 %% -------------------------------------------------------------------
 
-get_full_state(Entity) ->
+get_full_state(EntityState) ->
 	#physical{
 		position = Position,
 		position_vel = PositionVel,
@@ -36,7 +36,7 @@ get_full_state(Entity) ->
 		orientation_vel = OrientationVel,
 		orientation_acc_abs = OrientationAccAbs,
 		orientation_acc_rel = OrientationAccRel
-	} = Entity#entity.physical,
+	} = EntityState#entity.physical,
 
 	FullState = [
 		{position, vector:vec_to_list(Position)},
@@ -49,14 +49,14 @@ get_full_state(Entity) ->
 		{orientation_acc_rel, quaternion:quat_to_list(OrientationAccRel)}
 	],
 
-	{FullState, Entity}.
+	{FullState, EntityState}.
 
 %% -------------------------------------------------------------------
 
-client_request(Entity, Channel, RequestType, _RequestID, Request) ->
+client_request(EntityState, Channel, RequestType, _RequestID, Request) ->
 	?warning("~p received invalid request ~p on channel ~p! (full request: ~p)",
-		[Entity#entity.id, RequestType, Channel, Request]),
-	{error, invalid_request, Entity}.
+		[EntityState#entity.id, RequestType, Channel, Request]),
+	{error, invalid_request, EntityState}.
 
 %% -------------------------------------------------------------------
 

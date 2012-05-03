@@ -50,27 +50,27 @@ init(EntityID, Behavior) ->
 
 %% -------------------------------------------------------------------
 
-get_client_behavior(Entity) ->
-	{<<"Physical">>, Entity}.
+get_client_behavior(EntityState) ->
+	{<<"Physical">>, EntityState}.
 
 %% -------------------------------------------------------------------
 
-get_full_state(Entity) ->
-	entity_physical:get_full_state(Entity).
+get_full_state(EntityState) ->
+	entity_physical:get_full_state(EntityState).
 
 %% -------------------------------------------------------------------
 
-%client_request(Entity, Channel, RequestType, RequestID, Request) ->
-%	ClientInfo = Entity#entity.client,
+%client_request(EntityState, Channel, RequestType, RequestID, Request) ->
+%	ClientInfo = EntityState#entity.client,
 %	Connection = ClientInfo#client_info.connection,
 %	Response = <<"Bumcovers.">>,
 %	pre_client_connection:send(Connection, tcp, {response, RequestID}, <<"entity">>, Response),
-%	{ok, Response, Entity}.
+%	{ok, Response, EntityState}.
 
-client_request(Entity, Channel, RequestType, RequestID, Request) ->
-	entity_physical:client_request(Entity, Channel, RequestType, RequestID, Request).
+client_request(EntityState, Channel, RequestType, RequestID, Request) ->
+	entity_physical:client_request(EntityState, Channel, RequestType, RequestID, Request).
 
 %% -------------------------------------------------------------------
 
-timer_fired(Entity, Tag) ->
-	entity_physical:timer_fired(Entity, Tag).
+timer_fired(EntityState, Tag) ->
+	entity_physical:timer_fired(EntityState, Tag).
