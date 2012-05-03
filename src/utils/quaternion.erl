@@ -207,9 +207,9 @@ from_body_rates(radians, {X, Y, Z} = Vec) ->
 			?IDENTITY;
 
 		_ ->
-			Vec = {Y, Z, X},
-			Speed = vector:norm(Vec),
-			Axis = vector:divide(Speed, Vec),
+			Vec1 = {Y, Z, X},
+			Speed = vector:norm(Vec1),
+			Axis = vector:divide(Speed, Vec1),
 			from_axis_angle(Axis, Speed)
 	end;
 
