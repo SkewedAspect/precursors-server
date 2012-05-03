@@ -6,9 +6,6 @@
 -include("log.hrl").
 -include("pre_client.hrl").
 
-% Because this saves us _so_ much code.
--define(CHANNEL, input).
-
 % api
 -export([register_hooks/0]).
 
@@ -34,7 +31,7 @@ client_request(ClientInfo, RequestID, Request, _Info) ->
 	#client_info{
 		entity = EntityID
 	} = ClientInfo,
-	pre_entity_engine:client_request(EntityID, ClientInfo, ?CHANNEL, RequestID, Request).
+	pre_entity_engine:client_request(EntityID, ClientInfo, input, RequestID, Request).
 
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.
@@ -43,12 +40,12 @@ client_event(ClientInfo, Event, _Info) ->
 	#client_info{
 		entity = EntityID
 	} = ClientInfo,
-	pre_entity_engine:client_event(EntityID, ClientInfo, ?CHANNEL, Event).
+	pre_entity_engine:client_event(EntityID, ClientInfo, input, Event).
 
 %% -------------------------------------------------------------------
 
 client_login_hook(undefined, ClientInfo) ->
-	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, ?CHANNEL]),
+	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, <<"input">>]),
 	ChannelManager = ClientInfo#client_info.channel_manager,
-	pre_client_channels:set_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
+	pre_client_channels:set_channel(ChannelManager, <<"input">>, ?MODULE, []),
 	{ok, undefined}.

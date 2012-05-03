@@ -6,7 +6,7 @@
 -include("pre_entity.hrl").
 
 % pre_entity
--export([init/2, get_full_state/1, client_request/5, timer_fired/2]).
+-export([init/2, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
 
 -define(STEP_SIZE, 50).
 
@@ -53,10 +53,21 @@ get_full_state(EntityState) ->
 
 %% -------------------------------------------------------------------
 
-client_request(EntityState, Channel, RequestType, _RequestID, Request) ->
-	?warning("~p received invalid request ~p on channel ~p! (full request: ~p)",
+client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Request) ->
+	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
 		[EntityState#entity.id, RequestType, Channel, Request]),
-	{error, invalid_request, EntityState}.
+	Response = {reply, {struct, [
+		{confirm, false},
+		{reason, <<"VALID CRAPBACK: Invalid request!">>}
+	]}},
+	{Response, EntityState}.
+
+%% -------------------------------------------------------------------
+
+client_event(EntityState, _ClientInfo, Channel, EventType, Event) ->
+	?debug("~p received invalid event ~p on channel ~p! (full event: ~p)",
+		[EntityState#entity.id, EventType, Channel, Event]),
+	{noreply, EntityState}.
 
 %% -------------------------------------------------------------------
 

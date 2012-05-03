@@ -6,7 +6,7 @@
 -include("pre_entity.hrl").
 
 % pre_entity
--export([init/2, get_client_behavior/1, get_full_state/1, client_request/5, timer_fired/2]).
+-export([init/2, get_client_behavior/1, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
 
 %% -------------------------------------------------------------------
 %% API
@@ -60,15 +60,24 @@ get_full_state(EntityState) ->
 
 %% -------------------------------------------------------------------
 
-%client_request(EntityState, Channel, RequestType, RequestID, Request) ->
+%client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request) ->
 %	ClientInfo = EntityState#entity.client,
 %	Connection = ClientInfo#client_info.connection,
 %	Response = <<"Bumcovers.">>,
 %	pre_client_connection:send(Connection, tcp, {response, RequestID}, <<"entity">>, Response),
 %	{ok, Response, EntityState}.
 
-client_request(EntityState, Channel, RequestType, RequestID, Request) ->
-	entity_physical:client_request(EntityState, Channel, RequestType, RequestID, Request).
+client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request) ->
+	entity_physical:client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request).
+
+%% -------------------------------------------------------------------
+
+client_event(EntityState, ClientInfo, input, EventType, Event) ->
+	?info("Got input event: client_event(~p)", [{EntityState, ClientInfo, input, EventType, Event}]),
+	{noreply, EntityState};
+
+client_event(EntityState, ClientInfo, Channel, EventType, Event) ->
+	entity_physical:client_event(EntityState, ClientInfo, Channel, EventType, Event).
 
 %% -------------------------------------------------------------------
 
