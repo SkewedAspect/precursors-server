@@ -14,10 +14,10 @@
 %% 
 %% == client_request/4 ==
 %% <pre>
-%% Module:client_request( Client :: pid(), Id :: any(), Request :: json(),
-%%     Info :: any()) -> callback_return() ).
+%% Module:client_request( ClientInfo :: #client_info{}, Id :: any(), Request :: json(),
+%%     Info :: any()) -> callback_return().
 %%
-%%     Client :: process of the client connection.  Responses and events
+%%     ClientInfo :: the client connection's info record.  Responses and events
 %%         can be sent to this process directly.
 %%     Id :: An opaque data type used for sending a response.
 %%     Request :: The json request payload.
@@ -31,10 +31,10 @@
 %%
 %% == client_response/4 ==
 %% <pre>
-%% Module:client_response( Client :: pid(), Id :: any(), Response :: json(),
-%%     Info :: any() ) -> callback_return() ).
+%% Module:client_response( ClientInfo :: #client_info{}, Id :: any(), Response :: json(),
+%%     Info :: any() ) -> callback_return().
 %%
-%%     Client :: process of the client connection.  New requests can be
+%%     ClientInfo :: the client connection's info record.  New requests can be
 %%         sent to the process directly.
 %%     Id :: An opaque data type indication which request this response is
 %%         for.  It is up to the callback module to keep track of the
@@ -48,11 +48,11 @@
 %%
 %% == client_event/3 ==
 %% <pre>
-%% Module:client_event( Client :: pid(), Event :: json(), Info() ) ->
-%%     callback_return() ).
+%% Module:client_event( ClientInfo :: #client_info{}, Event :: json(), Info() ) ->
+%%     callback_return().
 %%
-%%     Client :: Process of the client connection.  New requests or events
-%%         can be sent to the process directly.
+%%     ClientInfo :: the client connection's info record.  New requests or
+%%         events can be sent to the process directly.
 %%     Event :: The payload for the event.
 %%     Info :: The internal state of the callbakc channel.
 %%         callback_return() can update this.
@@ -97,6 +97,7 @@
 -behavior(gen_event).
 
 -include("log.hrl").
+-include("pre_client.hrl").
 
 % gen_event
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2,
@@ -136,25 +137,25 @@ drop_channel(Mgr, Channel) ->
 
 %% @doc Used by the client connection to send requests into the manager.
 %% Requests end up calling into client_request/4 of the callback module.
--spec(handle_request/5 :: (Mgr :: pid(), Client :: pid(), Channel :: any(),
+-spec(handle_request/5 :: (Mgr :: pid(), ClientInfo :: #client_info{}, Channel :: any(),
 	Id :: any(), Request :: json()) -> 'ok').
-handle_request(Mgr, Client, Channel, Id, Request) ->
-	%%?info("Handling: ~p ~p ~p ~p ~p", [Mgr, Client, Channel, Id, Request]),
-	gen_event:notify(Mgr, {request, Client, Channel, Id, Request}).
+handle_request(Mgr, ClientInfo, Channel, Id, Request) ->
+	%%?info("Handling: ~p ~p ~p ~p ~p", [Mgr, ClientInfo, Channel, Id, Request]),
+	gen_event:notify(Mgr, {request, ClientInfo, Channel, Id, Request}).
 
 %% @doc Used by the client connection to send responses into the manager.
 %% Requests end up calling into client_response/4 of the callback module.
--spec(handle_response/5 :: (Mgr :: pid(), Client :: pid(),
+-spec(handle_response/5 :: (Mgr :: pid(), ClientInfo :: #client_info{},
 	Channel :: any(), Id :: any(), Response :: json()) -> 'ok').
-handle_response(Mgr, Client, Channel, Id, Response) ->
-	gen_event:notify(Mgr, {response, Client, Channel, Id, Response}).
+handle_response(Mgr, ClientInfo, Channel, Id, Response) ->
+	gen_event:notify(Mgr, {response, ClientInfo, Channel, Id, Response}).
 
 %% @doc Used by the client connection to send events into the manager.
 %% Events end up calling into the client_event/3 of the callback module.
--spec(handle_event/4 :: (Mgr :: pid(), Client :: pid(), Channel :: any(),
+-spec(handle_event/4 :: (Mgr :: pid(), ClientInfo :: #client_info{}, Channel :: any(),
 	Event :: json()) -> 'ok').
-handle_event(Mgr, Client, Channel, Event) ->
-	gen_event:notify(Mgr, {event, Client, Channel, Event}).
+handle_event(Mgr, ClientInfo, Channel, Event) ->
+	gen_event:notify(Mgr, {event, ClientInfo, Channel, Event}).
 
 
 %% -------------------------------------------------------------------
@@ -171,16 +172,16 @@ init({_Channel, _Module, _Info} = State) ->
 %% -------------------------------------------------------------------
 
 %% @hidden
-handle_event({request, Client, Channel, Id, Request} = Msg, {Channel, Module, Info} = State) ->
-	Out = Module:client_request(Client, Id, Request, Info),
+handle_event({request, ClientInfo, Channel, Id, Request} = Msg, {Channel, Module, Info} = State) ->
+	Out = Module:client_request(ClientInfo, Id, Request, Info),
 	handle_return(Out, Msg, State);
 
-handle_event({response, Client, Channel, Id, Response} = Msg, {Channel, Module, Info} = State) ->
-	Out = Module:client_response(Client, Id, Response, Info),
+handle_event({response, ClientInfo, Channel, Id, Response} = Msg, {Channel, Module, Info} = State) ->
+	Out = Module:client_response(ClientInfo, Id, Response, Info),
 	handle_return(Out, Msg, State);
 
-handle_event({event, Client, Channel, Event} = Msg, {Channel, Module, Info} = State) ->
-	Out = Module:client_event(Client, Event, Info),
+handle_event({event, ClientInfo, Channel, Event} = Msg, {Channel, Module, Info} = State) ->
+	Out = Module:client_event(ClientInfo, Event, Info),
 	handle_return(Out, Msg, State);
 
 handle_event(_Msg, State) ->
@@ -230,6 +231,6 @@ handle_return({swap_handler, Args1, NewInfo, NewMod, NewChannelState}, _Msg, {Ch
 handle_return({reply, Payload}, Msg, State) ->
 	handle_return({reply, tcp, Payload}, Msg, State);
 
-handle_return({reply, Socket, Payload}, {request, Client, Channel, Id, _}, State) ->
-	pre_client_connection:send(Client, Socket, {response, Id}, Channel, Payload),
+handle_return({reply, Socket, Payload}, {request, ClientInfo, Channel, Id, _}, State) ->
+	pre_client_connection:send(ClientInfo, Socket, {response, Id}, Channel, Payload),
 	{ok, State}.
