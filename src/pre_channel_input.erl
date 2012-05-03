@@ -30,22 +30,25 @@ register_hooks() ->
 %% pre_client_channels
 %% -------------------------------------------------------------------
 
-client_request(Client, RequestID, Request, _Info) ->
+client_request(ClientInfo, RequestID, Request, _Info) ->
 	#client_info{
 		entity = EntityID
-	} = Client,
-	pre_entity_engine:client_request(EntityID, ?CHANNEL, RequestID, Request).
+	} = ClientInfo,
+	pre_entity_engine:client_request(EntityID, ClientInfo, ?CHANNEL, RequestID, Request).
 
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.
 
-client_event(_Client, _Event, _Info) ->
-	{ok, []}.
+client_event(ClientInfo, Event, _Info) ->
+	#client_info{
+		entity = EntityID
+	} = ClientInfo,
+	pre_entity_engine:client_event(EntityID, ClientInfo, ?CHANNEL, Event).
 
 %% -------------------------------------------------------------------
 
-client_login_hook(undefined, ClientRecord) ->
-	?debug("Client ~p logged in; registering ~p channel.", [ClientRecord, ?CHANNEL]),
-	#client_info{channel_manager = ChannelManager} = ClientRecord,
+client_login_hook(undefined, ClientInfo) ->
+	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, ?CHANNEL]),
+	ChannelManager = ClientInfo#client_info.channel_manager,
 	pre_client_channels:set_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
 	{ok, undefined}.
