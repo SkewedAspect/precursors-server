@@ -67,7 +67,8 @@ multiply(Factor, {X, Y, Z}) when is_number(Factor) ->
 
 
 %% @doc Scales a vector by the given factor.
-divide(0, {_, _, _}) ->
+%% NOTE: This uses a guard clause instead of a pattern because floats and ints don't match each other in patterns.
+divide(Factor, {_, _, _}) when Factor == 0 ->
 	{error, division_by_zero};
 
 divide(Factor, {X, Y, Z}) when is_number(Factor) ->
@@ -128,7 +129,8 @@ subtract({X1, Y1, Z1}, {X2, Y2, Z2}) ->
 % -------------------------------------------------------------------------
 
 %% @doc Checks to see if this is a zero vector.
-is_zero({0, 0, 0}) ->
+%% NOTE: This uses a guard clause instead of a pattern because floats and ints don't match each other in patterns.
+is_zero({X, Y, Z}) when X == 0, Y == 0, Z == 0 ->
 	true;
 
 is_zero({_, _, _}) ->
