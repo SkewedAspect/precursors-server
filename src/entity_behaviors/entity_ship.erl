@@ -112,9 +112,7 @@ handle_input_command(EntityState, Command, Args, KWArgs) ->
 set_target_orientation_vel(EntityState, {TYaw, TPitch, TRoll}) ->
 	?info("Setting orientation velocity to ~p.", [{TYaw, TPitch, TRoll}]),
 	#entity{
-		physical = #physical{
-			orientation = Orientation
-		} = Physical,
+		physical = Physical,
 		behavior_data = #ship_data{
 			target_orientation_angle_vel = {Yaw, Pitch, Roll}
 		} = ShipData
@@ -127,8 +125,7 @@ set_target_orientation_vel(EntityState, {TYaw, TPitch, TRoll}) ->
 	},
 
 	%XXX: HACK: For now, just set velocity directly instead of doing target velocity calculations.
-	OrientationVelRel = quaternion:from_body_rates(NewTargetVel),
-	OrientationVel = quaternion:reorient(OrientationVelRel, Orientation),
+	OrientationVel = quaternion:from_body_rates(vector:multiply(0.2, NewTargetVel)),
 
 	EntityState1 = EntityState#entity{
 		physical = Physical#physical{
