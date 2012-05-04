@@ -21,6 +21,10 @@
 %% External API
 %% ------------------------------------------------------------------------
 
+-spec simulate(StepSize, State) -> State when
+	StepSize :: float(),
+	State :: #physical{}.
+
 %% @doc Simulate physical movement of the 'physical' object represented by State, over the given StepSize.
 simulate(StepSize, State) ->
 	#physical{
