@@ -207,6 +207,7 @@ from_body_rates(radians, {X, Y, Z} = Vec) ->
 			?IDENTITY;
 
 		_ ->
+			%FIXME: THIS IS WRONG!
 			Vec1 = {Y, Z, X},
 			Speed = vector:norm(Vec1),
 			Axis = vector:divide(Speed, Vec1),
@@ -263,8 +264,8 @@ is_zero({_, _, _, _}) ->
 
 %%% @doc Convert radians to degrees.
 rad2deg(Radians) ->
-	Radians * (180/math:pi()).
+	Radians * (180 / math:pi()).
 
 %%% @doc Convert radians to degrees.
 deg2rad(Degrees) ->
-	Degrees * (math:pi()/180).
+	Degrees * (math:pi() / 180).
