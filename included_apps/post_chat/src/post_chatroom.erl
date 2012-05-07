@@ -145,6 +145,7 @@ message(Room, Client, Message) ->
 %% ==================================================================
 
 init({Name, Mode, ModeMeta, Password}) ->
+	?info("Chatroom init: ~p", [Name]),
 	State = #state{name = Name, mode = Mode, password = Password},
 	case Mode of
 		user when is_record(ModeMeta, client_info) ->
@@ -335,12 +336,15 @@ handle_call({unmute, Client, Target}, _From, State) ->
 	end;
 
 handle_call({message, Client, Message}, _From, State) ->
+	?info("Room handling message request: ~p ~p", [Client, Message]),
 	#state{chatters = Chatters, squelched = Squelched} = State,
 	#client_info{connection = ConnPid} = Client,
 	case lists:member(ConnPid, Squelched) of
 		true ->
+			?info("Squelched True"),
 			{reply, {error, muted}, State};
 		false ->
+			?info("Not Squelched, broadcasting to: ~p.", [Chatters]),
 			Json = {struct, [
 				{<<"command">>, <<"message">>},
 				{<<"room">>, pid_to_bin(self())},
@@ -350,7 +354,7 @@ handle_call({message, Client, Message}, _From, State) ->
 				[pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json) ||
 					{Pid, _} <- Chatters]
 			end),
-			{ok, State}
+			{reply, ok, State}
 	end;
 
 handle_call(_Request, _From, State) ->

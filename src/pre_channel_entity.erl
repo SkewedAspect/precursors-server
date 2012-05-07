@@ -120,7 +120,7 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	{noreply, State#state{clients = Clients}};
 
 handle_cast({entity_event, EntityID, Content}, State) ->
-	?debug("Broadcasting event for entity ~p: ~p", [EntityID, Content]),
+	%?debug("Broadcasting event for entity ~p: ~p", [EntityID, Content]),
 	FullEvent = {struct, Content},
 	%FIXME: Filter this so it only goes to clients within a certain distance!
 	%(ClientEntity#entity.physical#physical.position)
@@ -133,7 +133,7 @@ handle_cast(_, State) ->
 %% -------------------------------------------------------------------
 
 send_update_for_entity(EntityDef) ->
-	?debug("Sending update for entity ~p.", [EntityDef#entity.id]),
+	%?debug("Sending update for entity ~p.", [EntityDef#entity.id]),
 	pre_channel_entity_sup:broadcast_full_update(EntityDef).
 
 %% -------------------------------------------------------------------
