@@ -82,10 +82,10 @@ multiply({W1, X1, Y1, Z1}, {W2, X2, Y2, Z2}) ->
 
 
 %% @doc Scales the quaternion by the given factor.
-divide(0, {_, _, _, _}) ->
+divide({_, _, _, _}, 0) ->
 	{error, division_by_zero};
 
-divide(Factor, {W, X, Y, Z}) when is_number(Factor) ->
+divide({W, X, Y, Z}, Factor) when is_number(Factor) ->
 	{W / Factor, X / Factor, Y / Factor, Z / Factor}.
 
 % -------------------------------------------------------------------------
@@ -138,7 +138,7 @@ unit(QLS, {_, _, _, _} = Quat) ->
 		true ->
 			Quat;
 		_ ->
-			divide(math:sqrt(QLS), Quat)
+			divide(Quat, math:sqrt(QLS))
 	end.
 
 % -------------------------------------------------------------------------
@@ -156,7 +156,7 @@ inverse({_, _, _, _} = Quat) ->
 
 %% @doc
 reciprocal({_, _, _, _} = Quat) ->
-	divide(conjugate(Quat), squared_norm(quat)).
+	divide(conjugate(Quat), squared_norm(Quat)).
 
 %% @doc Get the quaternion which results from composing the rotations represented by `first` and `second`.
 compose({_, _, _, _} = First, {_, _, _, _} = Second) ->
@@ -210,7 +210,7 @@ from_body_rates(radians, {X, Y, Z} = Vec) ->
 			%FIXME: THIS IS WRONG!
 			Vec1 = {Y, Z, X},
 			Speed = vector:norm(Vec1),
-			Axis = vector:divide(Speed, Vec1),
+			Axis = vector:divide(Vec1, Speed),
 			from_axis_angle(Axis, Speed)
 	end;
 

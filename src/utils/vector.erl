@@ -11,7 +11,7 @@
 
 % external api 
 -export([vec_to_list/1, list_to_vec/1, dot/2, cross/2, multiply/2, divide/2, squared_norm/1, norm/1, length/1]).
--export([unit/1, hpr_to/1, add/2, subtract/2, is_zero/1]).
+-export([unit/1, hpr_to/1, add/2, add/3, subtract/2, is_zero/1]).
 
 -export_type([vec/0]).
 
@@ -68,10 +68,10 @@ multiply(Factor, {X, Y, Z}) when is_number(Factor) ->
 
 %% @doc Scales a vector by the given factor.
 %% NOTE: This uses a guard clause instead of a pattern because floats and ints don't match each other in patterns.
-divide(Factor, {_, _, _}) when Factor == 0 ->
+divide({_, _, _}, Factor) when Factor == 0 ->
 	{error, division_by_zero};
 
-divide(Factor, {X, Y, Z}) when is_number(Factor) ->
+divide({X, Y, Z}, Factor) when is_number(Factor) ->
 	{X / Factor, Y / Factor, Z / Factor}.
 
 % -------------------------------------------------------------------------
@@ -104,7 +104,7 @@ unit(VLS, {_, _, _} = Vec) when VLS < ?NORMALIZED_TOLERANCE; abs(VLS - 1) < ?NOR
 
 %% @doc hidden
 unit(VLS, {_, _, _} = Vec) ->
-	divide(math:sqrt(VLS), Vec).
+	divide(Vec, math:sqrt(VLS)).
 
 
 %% @doc Gets the Yaw and Pitch required to point in the direction of the given vector.
@@ -117,9 +117,14 @@ hpr_to({X, Y, Z}) ->
 
 % -------------------------------------------------------------------------
 
-%% @doc Adds the two vectors together.
+%% @doc Adds two vectors together.
 add({X1, Y1, Z1}, {X2, Y2, Z2}) ->
 	{X1 + X2, Y1 + Y2, Z1 + Z2}.
+
+
+%% @doc Adds three vectors together.
+add(V1, V2, V3) ->
+	add(add(V1, V2), V3).
 
 
 %% @doc Subtracts the second vector from the first.
