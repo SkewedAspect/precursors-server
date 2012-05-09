@@ -19,33 +19,7 @@
 % -------------------------------------------------------------------------
 
 -include("log.hrl").
-%-include("pre_physics.hrl").
-
--record(physical, {
-	% Updated values (assume these change every frame)
-	position = {0, 0, 0} :: vector:vec(),
-	linear_momentum = {0, 0, 0} :: vector:vec(),
-	orientation = {1, 0, 0, 0} :: quaternion:quat(),
-	angular_momentum = {0, 0, 0} :: vector:vec(),
-
-	% Input-only values
-	force_abs = {0, 0, 0} :: vector:vec(),
-	force_rel = {0, 0, 0} :: vector:vec(),
-	torque_absolute = {0, 0, 0} :: vector:vec(),
-	torque_relative = {0, 0, 0} :: vector:vec(),
-
-	% Purely calculated values (DON'T try to change these externally)
-	last_update :: erlang:timestamp(),
-	linear_velocity = {0, 0, 0} :: vector:vec(),
-	angular_velocity = {0, 0, 0} :: vector:vec(),
-	spin = {1, 0, 0, 0} :: quaternion:quat(),
-
-	% Constant values
-	mass = 1 :: float(),
-	inverse_mass = 1 :: float(),
-	inertia_tensor = 1 :: float(),
-	inverse_inertia_tensor = 1 :: float()
-}).
+-include("pre_physics.hrl").
 
 %% ------------------------------------------------------------------------
 %% External API
@@ -67,23 +41,31 @@ evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) ->
 		angular_momentum = AngularMomentum
 	} = State,
 
-	NextPosition = Position + Velocity * TimeDelta,
-	NextVelocity = InitialVelocity + Force * TimeDelta,
-	NextOrientation = Orientation + Spin * TimeDelta,
-	NextAngularMomentum = AngularMomentum + Torque * TimeDelta,
+	{SpinW, SpinX, SpinY, SpinZ} = Spin,
+	{OrientW, OrientX, OrientY, OrientZ} = Orientation,
+	NextPosition = vector:add(Position, vector:multiply(TimeDelta, Velocity)),
+	NextVelocity = vector:add(InitialVelocity, vector:multiply(TimeDelta, Force)),
+	%XXX: I have no idea if/how this works, but it's what the example code did...
+	NextOrientation = {
+		OrientW + SpinW * TimeDelta,
+		OrientX + SpinX * TimeDelta,
+		OrientY + SpinY * TimeDelta,
+		OrientZ + SpinZ * TimeDelta
+	},
+	NextAngularMomentum = vector:add(AngularMomentum, vector:multiply(TimeDelta, Torque)),
 
-	NextState = State#physical{
+	State1 = State#physical{
 		position = NextPosition,
 		linear_velocity = NextVelocity,
 		orientation = quaternion:unit(NextOrientation),
 		angular_momentum = NextAngularMomentum
 	},
 	%TODO: Should _NextAngularVelocity even be returned?
-	{NextSpin, _NextAngularVelocity} = update_state(NextState),
+	{NextSpin, State2} = update_state(State1),
 
-	{NextForce, NextTorque} = forces(TimeDelta, NextState),
+	{NextForce, NextTorque} = forces(TimeDelta, State2),
 
-	{NextVelocity, NextForce, NextSpin, NextTorque, NextState}.
+	{NextVelocity, NextForce, NextSpin, NextTorque, State2}.
 
 %% ------------------------------------------------------------------------
 
@@ -96,8 +78,8 @@ evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) ->
 %FIXME: This should be a callback so the behavior can do stuff like target-velocity calculations.
 forces(_TimeDelta, State) ->
 	#physical{
-		force_abs = ForceAbs,
-		force_rel = ForceRel,
+		force_absolute = ForceAbs,
+		force_relative = ForceRel,
 		orientation = Orientation,
 		torque_absolute = TorqueAbs,
 		torque_relative = TorqueRel
@@ -124,7 +106,7 @@ update_state(State) ->
 		inverse_inertia_tensor = InverseInertia
 	} = State,
 
-	LinearVelocity = LinearMomentum * InverseMass,
+	LinearVelocity = vector:multiply(InverseMass, LinearMomentum),
 
 	AngularVelocity = vector:multiply(InverseInertia, AngularMomentum),
 	{AngularVelocityX, AngularVelocityY, AngularVelocityZ} = AngularVelocity,
@@ -136,11 +118,12 @@ update_state(State) ->
 			Orientation
 		)
 	),
-	State#physical{
+	NewState = State#physical{
 		linear_velocity = LinearVelocity,
 		angular_velocity = AngularVelocity,
 		spin = Spin
-	}.
+	},
+	{Spin, NewState}.
 
 %% ------------------------------------------------------------------------
 
@@ -149,23 +132,37 @@ simulate(TimeDelta, State) ->
 	#physical{
 		position = Position,
 		linear_velocity = Velocity,
-		orientation = Orientation,
+		orientation = {OrientW, OrientX, OrientY, OrientZ},
 		angular_momentum = AngularMomentum
 	} = State,
 	
-	{Velocity1, Force1, Spin1, Torque1, State1} = evaluate(0, 0, 0, 0, 0, State),
+	{Velocity1, Force1, Spin1, Torque1, State1} = evaluate(0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0}, State),
 	{Velocity2, Force2, Spin2, Torque2, State2} = evaluate(TimeDelta * 0.5, Velocity1, Force1, Spin1, Torque1, State1),
 	{Velocity3, Force3, Spin3, Torque3, State3} = evaluate(TimeDelta * 0.5, Velocity2, Force2, Spin2, Torque2, State2),
 	{Velocity4, Force4, Spin4, Torque4, State4} = evaluate(TimeDelta, Velocity3, Force3, Spin3, Torque3, State3),
 
-	NewVelocity = 1.0 / 6.0 * (Velocity1 + 2.0 * (Velocity2 + Velocity3) + Velocity4),
-	NewAcceleration = 1.0 / 6.0 * (Force1 + 2.0 * (Force2 + Force3) + Force4),
-	NewSpin = 1.0 / 6.0 * (Spin1 + 2.0 * (Spin2 + Spin3) + Spin4),
-	NewTorque = 1.0 / 6.0 * (Torque1 + 2.0 * (Torque2 + Torque3) + Torque4),
+	NewVelocity = vector:multiply(1.0 / 6.0, vector:add(Velocity1, vector:multiply(2.0, vector:add(Velocity2, Velocity3)), Velocity4)),
+	NewAcceleration = vector:multiply(1.0 / 6.0, vector:add(Force1, vector:multiply(2.0, vector:add(Force2, Force3)), Force4)),
+	
+	{Spin1W, Spin1X, Spin1Y, Spin1Z} = Spin1,
+	{Spin2W, Spin2X, Spin2Y, Spin2Z} = Spin2,
+	{Spin3W, Spin3X, Spin3Y, Spin3Z} = Spin3,
+	{Spin4W, Spin4X, Spin4Y, Spin4Z} = Spin4,
+	NewSpinW = 1.0 / 6.0 * (Spin1W + 2.0 * (Spin2W + Spin3W) + Spin4W),
+	NewSpinX = 1.0 / 6.0 * (Spin1X + 2.0 * (Spin2X + Spin3X) + Spin4X),
+	NewSpinY = 1.0 / 6.0 * (Spin1Y + 2.0 * (Spin2Y + Spin3Y) + Spin4Y),
+	NewSpinZ = 1.0 / 6.0 * (Spin1Z + 2.0 * (Spin2Z + Spin3Z) + Spin4Z),
+
+	NewTorque = vector:multiply(1.0 / 6.0, vector:add(Torque1, vector:multiply(2.0, vector:add(Torque2, Torque3)), Torque4)),
 
 	State4#physical{
-		position = Position + NewVelocity * TimeDelta,
-		linear_velocity = Velocity + NewAcceleration * TimeDelta,
-		orientation = quaternion:unit(Orientation + NewSpin * TimeDelta),
-		angular_momentum = AngularMomentum + NewTorque * TimeDelta
+		position = vector:add(Position, vector:multiply(TimeDelta, NewVelocity)),
+		linear_velocity = vector:add(Velocity, vector:multiply(TimeDelta, NewAcceleration)),
+		orientation = quaternion:unit({
+			OrientW + TimeDelta * NewSpinW,
+			OrientX + TimeDelta * NewSpinX,
+			OrientY + TimeDelta * NewSpinY,
+			OrientZ + TimeDelta * NewSpinZ
+		}),
+		angular_momentum = vector:add(AngularMomentum, vector:multiply(TimeDelta, NewTorque))
 	}.
