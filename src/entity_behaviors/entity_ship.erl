@@ -9,8 +9,17 @@
 -export([init/2, get_client_behavior/1, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
 
 -record(ship_data, {
-	target_position_vel = {0, 0, 0} :: vector:vec(),
-	target_orientation_angle_vel = {0, 0, 0} :: vector:vec()
+	% Current state
+	target_linear_velocity = {0, 0, 0} :: vector:vec(),
+	target_angular_velocity = {0, 0, 0} :: vector:vec(),
+		
+	% Intrinsic ship parameters
+	linear_target_velocity_scaling = {600, 800, 500} :: vector:vec(), % {sideslip, throttle, lift}
+	angular_target_velocity_scaling = {2, 2, 2} :: vector:vec(), %  {pitch, roll, yaw}
+	max_linear_thrust = {300, 400, 250} :: vector:vec(), % {sideslip, throttle, lift}
+	max_angular_thrust = {2, 2, 2} :: vector:vec(), %  {pitch, roll, yaw}
+	linear_responsiveness = {3, 3, 3} :: vector:vec(), % {sideslip, throttle, lift}
+	angular_responsiveness = {3, 3, 3} :: vector:vec() %  {pitch, roll, yaw}
 }).
 
 %% -------------------------------------------------------------------
@@ -66,7 +75,8 @@ client_event(EntityState, ClientInfo, Channel, EventType, Event) ->
 %% -------------------------------------------------------------------
 
 timer_fired(EntityState, Tag) ->
-	entity_physical:timer_fired(EntityState, Tag).
+	EntityState1 = do_flight_control(EntityState),
+	entity_physical:timer_fired(EntityState1, Tag).
 
 %% -------------------------------------------------------------------
 
@@ -80,23 +90,23 @@ handle_input_command(EntityState, {struct, RawCommand}) ->
 
 % Positional target velocity
 handle_input_command(EntityState, <<"sideslip">>, [TargetVel], _KWArgs) ->
-	set_target_position_vel(EntityState, {TargetVel, undefined, undefined});
+	set_target_linear_velocity(EntityState, {TargetVel, undefined, undefined});
 
 handle_input_command(EntityState, <<"throttle">>, [TargetVel], _KWArgs) ->
-	set_target_position_vel(EntityState, {undefined, TargetVel, undefined});
+	set_target_linear_velocity(EntityState, {undefined, TargetVel, undefined});
 
 handle_input_command(EntityState, <<"lift">>, [TargetVel], _KWArgs) ->
-	set_target_position_vel(EntityState, {undefined, undefined, TargetVel});
+	set_target_linear_velocity(EntityState, {undefined, undefined, TargetVel});
 
 % Rotational target velocity
-handle_input_command(EntityState, <<"yaw">>, [TargetVel], _KWArgs) ->
-	set_target_orientation_vel(EntityState, {TargetVel, undefined, undefined});
-
 handle_input_command(EntityState, <<"pitch">>, [TargetVel], _KWArgs) ->
-	set_target_orientation_vel(EntityState, {undefined, TargetVel, undefined});
+	set_target_angular_velocity(EntityState, {TargetVel, undefined, undefined});
 
 handle_input_command(EntityState, <<"roll">>, [TargetVel], _KWArgs) ->
-	set_target_orientation_vel(EntityState, {undefined, undefined, TargetVel});
+	set_target_angular_velocity(EntityState, {undefined, TargetVel, undefined});
+
+handle_input_command(EntityState, <<"yaw">>, [TargetVel], _KWArgs) ->
+	set_target_angular_velocity(EntityState, {undefined, undefined, TargetVel});
 
 % Catch-all
 handle_input_command(EntityState, Command, Args, KWArgs) ->
@@ -109,30 +119,21 @@ handle_input_command(EntityState, Command, Args, KWArgs) ->
 
 %% -------------------------------------------------------------------
 
-set_target_orientation_vel(EntityState, {TYaw, TPitch, TRoll}) ->
-	?info("Setting orientation velocity to ~p.", [{TYaw, TPitch, TRoll}]),
+set_target_angular_velocity(EntityState, {TPitch, TRoll, TYaw}) ->
+	?info("Setting orientation velocity to ~p.", [{TPitch, TRoll, TYaw}]),
 	#entity{
-		physical = Physical,
 		behavior_data = #ship_data{
-			target_orientation_angle_vel = {Yaw, Pitch, Roll}
+			target_angular_velocity = {Pitch, Roll, Yaw}
 		} = ShipData
 	} = EntityState,
 
-	NewTargetVel = {
-		first_defined(TYaw, Yaw),
-		first_defined(TPitch, Pitch),
-		first_defined(TRoll, Roll)
-	},
-
-	%XXX: HACK: For now, just set velocity directly instead of doing target velocity calculations.
-	OrientationVel = quaternion:from_body_rates(vector:multiply(0.2, NewTargetVel)),
+	NewTPitch = first_defined(TPitch, Pitch),
+	NewTRoll = first_defined(TRoll, Roll),
+	NewTYaw = first_defined(TYaw, Yaw),
 
 	EntityState1 = EntityState#entity{
-		physical = Physical#physical{
-			orientation_vel = OrientationVel
-		},
 		behavior_data = ShipData#ship_data{
-			target_orientation_angle_vel = NewTargetVel
+			target_angular_velocity = {NewTPitch, NewTRoll, NewTYaw}
 		}
 	},
 	Response = {reply, {struct, [
@@ -142,38 +143,77 @@ set_target_orientation_vel(EntityState, {TYaw, TPitch, TRoll}) ->
 
 %% -------------------------------------------------------------------
 
-set_target_position_vel(EntityState, {TX, TY, TZ}) ->
+set_target_linear_velocity(EntityState, {TX, TY, TZ}) ->
 	?info("Setting orientation velocity to ~p.", [{TX, TY, TZ}]),
 	#entity{
-		physical = #physical{
-			orientation = Orientation
-		} = Physical,
 		behavior_data = #ship_data{
-			target_position_vel = {X, Y, Z}
+			target_linear_velocity = {X, Y, Z}
 		} = ShipData
 	} = EntityState,
 
-	NewTargetVel = {
-		first_defined(TX, X),
-		first_defined(TY, Y),
-		first_defined(TZ, Z)
-	},
-
-	%XXX: HACK: For now, just set velocity directly instead of doing target velocity calculations.
-	PositionVel = quaternion:rotate(NewTargetVel, Orientation),
+	NewTX = first_defined(TX, X),
+	NewTY = first_defined(TY, Y),
+	NewTZ = first_defined(TZ, Z),
 
 	EntityState1 = EntityState#entity{
-		physical = Physical#physical{
-			position_vel = PositionVel
-		},
 		behavior_data = ShipData#ship_data{
-			target_position_vel = NewTargetVel
+			target_linear_velocity = {NewTX, NewTY, NewTZ}
 		}
 	},
 	Response = {reply, {struct, [
 		{confirm, true}
 	]}},
 	{Response, EntityState1}.
+
+%% -------------------------------------------------------------------
+
+do_flight_control(EntityState) ->
+	#entity{
+		physical = #physical{
+			orientation = Orientation,
+			linear_velocity = PositionVelAbs,
+			% Since Euler vectors are {X, Y, Z} where unit({X, Y, Z}) is the axis of rotation and magnitude({X, Y, Z})
+			% is the speed of rotation, that works out to {1, 0, 0} being pitch (rotation around X), {0, 1, 0} being
+			% roll (rotation around Y), etc. Therefore, decomposing each of the rotations gives us {Pitch, Roll, Yaw}.
+			angular_velocity = AngularVelAbs
+		} = Physical,
+		behavior_data = #ship_data{
+			target_linear_velocity = {TX, TY, TZ},
+			target_angular_velocity = {TPitch, TRoll, TYaw},
+			linear_target_velocity_scaling = {TXScale, TYScale, TZScale},
+			angular_target_velocity_scaling = {TPitchScale, TRollScale, TYawScale},
+			max_linear_thrust = {MaxXT, MaxYT, MaxZT},
+			max_angular_thrust = {MaxPitchT, MaxRollT, MaxYawT},
+			linear_responsiveness = {XR, YR, ZR},
+			angular_responsiveness = {PitchR, RollR, YawR}
+		}
+	} = EntityState,
+
+	{XVel, YVel, ZVel} = quaternion:rotate(PositionVelAbs, quaternion:reciprocal(Orientation)),
+	{PitchVel, RollVel, YawVel} = quaternion:rotate(AngularVelAbs, quaternion:reciprocal(Orientation)),
+
+	Force = {
+		calc_thrust(MaxXT, XR, XVel, TXScale * TX),
+		calc_thrust(MaxYT, YR, YVel, TYScale * TY),
+		calc_thrust(MaxZT, ZR, ZVel, TZScale * TZ)
+	},
+
+	Torque = {
+		calc_thrust(MaxPitchT, PitchR, PitchVel, TPitchScale * TPitch),
+		calc_thrust(MaxRollT, RollR, RollVel, TRollScale * TRoll),
+		calc_thrust(MaxYawT, YawR, YawVel, TYawScale * TYaw)
+	},
+
+	EntityState#entity{
+		physical = Physical#physical{
+			force_relative = Force,
+			torque_relative = Torque
+		}
+	}.
+
+calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
+	DMToP = 2 * MaxTh / math:pi(),
+	DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP).
 
 %% -------------------------------------------------------------------
 

@@ -28,25 +28,36 @@ init(EntityID, Behavior) ->
 
 get_full_state(EntityState) ->
 	#physical{
+		% Updated values (assume these change every frame)
 		position = Position,
-		position_vel = PositionVel,
-		position_acc_abs = PositionAccAbs,
-		position_acc_rel = PositionAccRel,
+		linear_momentum = LinearMomentum,
 		orientation = Orientation,
-		orientation_vel = OrientationVel,
-		orientation_acc_abs = OrientationAccAbs,
-		orientation_acc_rel = OrientationAccRel
+		angular_momentum = AngularMomentum,
+
+		% Input-only values
+		force_absolute = AbsoluteForce,
+		force_relative = RelativeForce,
+		torque_absolute = AbsoluteTorque,
+		torque_relative = RelativeTorque,
+
+		% Purely calculated values (DON'T try to change these externally)
+		linear_velocity = LinearVelocity,
+		angular_velocity = AngularVelocity
 	} = EntityState#entity.physical,
 
 	FullState = [
 		{position, vector:vec_to_list(Position)},
-		{position_vel, vector:vec_to_list(PositionVel)},
-		{position_acc_abs, vector:vec_to_list(PositionAccAbs)},
-		{position_acc_rel, vector:vec_to_list(PositionAccRel)},
+		{linear_momentum, vector:vec_to_list(LinearMomentum)},
 		{orientation, quaternion:quat_to_list(Orientation)},
-		{orientation_vel, quaternion:quat_to_list(OrientationVel)},
-		{orientation_acc_abs, quaternion:quat_to_list(OrientationAccAbs)},
-		{orientation_acc_rel, quaternion:quat_to_list(OrientationAccRel)}
+		{angular_momentum, vector:vec_to_list(AngularMomentum)},
+
+		{force_absolute, vector:vec_to_list(AbsoluteForce)},
+		{force_relative, vector:vec_to_list(RelativeForce)},
+		{torque_absolute, vector:vec_to_list(AbsoluteTorque)},
+		{torque_relative, vector:vec_to_list(RelativeTorque)},
+
+		{linear_velocity, vector:vec_to_list(LinearVelocity)},
+		{angular_velocity, vector:vec_to_list(AngularVelocity)}
 	],
 
 	{FullState, EntityState}.
@@ -78,7 +89,7 @@ timer_fired(EntityState, do_physics) ->
 		} = LastPhysical
 	} = EntityState,
 	ThisUpdate = os:timestamp(),
-	Physical = pre_physics:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
+	Physical = pre_physics_rk4:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
 	EntityState1 = EntityState#entity{
 		physical = Physical#physical{
 			last_update = ThisUpdate
