@@ -114,12 +114,12 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 		end
 	),
 
-	Timer = timer:apply_interval(400, ?MODULE, send_update_for_entity, [EntityDef]),
+	Timer = timer:apply_interval(200, ?MODULE, send_update_for_entity, [EntityDef]),
 	?info("Started entity full update event timer ~p for ~p.", [Timer, EntityDef#entity.id]),
 
 	{noreply, State#state{clients = Clients}};
 
-handle_cast({entity_event, EntityID, Content}, State) ->
+handle_cast({entity_event, _EntityID, Content}, State) ->
 	%?debug("Broadcasting event for entity ~p: ~p", [EntityID, Content]),
 	FullEvent = {struct, Content},
 	%FIXME: Filter this so it only goes to clients within a certain distance!
