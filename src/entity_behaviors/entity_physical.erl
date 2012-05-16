@@ -42,7 +42,13 @@ get_full_state(EntityState) ->
 
 		% Purely calculated values (DON'T try to change these externally)
 		linear_velocity = LinearVelocity,
-		angular_velocity = AngularVelocity
+		angular_velocity = AngularVelocity,
+
+		% Intrinsic values (should NOT change during the life of an object)
+		mass = Mass,
+		inverse_mass = InverseMass,
+		inertia_tensor = InertiaTensor,
+		inverse_inertia_tensor = InverseInertiaTensor
 	} = EntityState#entity.physical,
 
 	FullState = [
@@ -57,7 +63,12 @@ get_full_state(EntityState) ->
 		{torque_relative, vector:vec_to_list(RelativeTorque)},
 
 		{linear_velocity, vector:vec_to_list(LinearVelocity)},
-		{angular_velocity, vector:vec_to_list(AngularVelocity)}
+		{angular_velocity, vector:vec_to_list(AngularVelocity)},
+
+		{mass, Mass},
+		{inverse_mass, InverseMass},
+		{inertia_tensor, InertiaTensor},
+		{inverse_inertia_tensor, InverseInertiaTensor}
 	],
 
 	{FullState, EntityState}.
