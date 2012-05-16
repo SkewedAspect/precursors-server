@@ -213,7 +213,7 @@ pid_to_bin(P) ->
 broadcast(_Message, []) ->
 	ok;
 broadcast(Message, [{C,_} | Tail]) ->
-	pre_client_connection:send(C, tcp, event, <<"chat">>, Message),
+	pre_client_connection:send(C, tcp, event, <<"chat">>, mochijson2:encode(Message)),
 	broadcast(Message, Tail).
 	
 remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
@@ -221,20 +221,20 @@ remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
 	Chatters0 = lists:filter(fun({P,_}) -> P =/= Conn end, Chatters),
 	MidOut = case {Controllers0, Chatters0} of
 		{[], [{New, NewName} | _]} ->
-			Message = mochijson2:encode({struct, [
+			Message = {struct, [
 				{<<"message">>, <<"new_controller">>},
 				{<<"room">>, pid_to_bin(RoomPid)},
 				{<<"controller">>, NewName}
-			]}),
+			]},
 			broadcast(Message, Chatters0),
 			{[New], Chatters0};
 		Out -> Out
 	end,
-	LeaveMsg = mochijson2:encode({struct, [
+	LeaveMsg = {struct, [
 		{<<"message">>, <<"chatter_left">>},
 		{<<"room">>, pid_to_bin(RoomPid)},
 		{<<"leaver">>, Name}
-	]}),
+	]},
 	broadcast(LeaveMsg, Chatters0),
 	MidOut.
 
@@ -267,11 +267,11 @@ handle_call({join, Client, Password}, _From, #state{password = Stateword} = Stat
 	#state{chatters = Chatters} = State,
 	#client_info{connection = Conn, username = Name} = Client,
 	Chatters0 = [{Conn, Name} | Chatters],
-	Msg = mochijson2:encode({struct, [
+	Msg = {struct, [
 		{<<"message">>, <<"chatter_joined">>},
 		{<<"room">>, pid_to_bin(self())},
 		{<<"joiner">>, Name}
-	]}),
+	]},
 	broadcast(Msg, Chatters0),
 	{reply, ok, State#state{chatters = Chatters0}};
 
@@ -312,10 +312,10 @@ handle_call({mute, Client, Target}, _From, State) ->
 			{reply, {error, not_controller}, State};
 		{_,_} ->
 			Squelched = [TargetPid | State#state.squelched],
-			Msg = mochijson2:encode({struct, [
+			Msg = {struct, [
 				{<<"message">>, <<"muted">>},
 				{<<"room">>, pid_to_bin(self())}
-			]}),
+			]},
 			broadcast(Msg, [{TargetPid, "name"}]),
 			{reply,ok,State#state{squelched = Squelched}}
 	end;
