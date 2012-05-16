@@ -16,6 +16,8 @@ start_link() ->
 client_login_hook(undefined, Client) ->
 	?info("Client logged in, registering chat channel"),
 	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]),
+	Join = post_chatroom:join(<<"global">>, Client),
+	?info("Join: ~p", [Join]),
 	{ok, undefined}.
 
 %% supervisor
@@ -38,15 +40,15 @@ client_event(Client, {struct, Event}, undefined) ->
 			room_call(join, RoomId, Client, [Pass]);
 		<<"message">> ->
 			Message = proplists:get_value(<<"message">>, Event),
-			room_call(message, RoomId, Client, [Message]);
+			room_call(message, RoomId, Client, Message);
 		<<"create_room">> ->
 			Password = proplists:get_value(<<"password">>, Event, <<>>),
 			Mode = case proplists:get_value(<<"mode">>, Event) of
 				<<"plugin">> -> plugin;
 				_ -> player
 			end,
-			room_call(create_room, RoomId, Client, [Mode,Password]);
-		Targeted when
+			room_call(create_room, RoomId, Client, [Mode, Password]);
+			Targeted when
 					Targeted =:= <<"kick">>;
 					Targeted =:= <<"mute">>;
 					Targeted =:= <<"unmute">>;
@@ -77,7 +79,7 @@ client_event(Client, {struct, Event}, undefined) ->
 %			gen_server:call(Room, {message, Client, Message}, ?timeout).
 		_ ->
 			{ok, undefined}
-			end.
+	end.
 
 
 client_request(Client, _Id, {struct, Request}, undefined) ->
@@ -135,7 +137,8 @@ client_request(Client, _Id, {struct, Request}, undefined) ->
 	
 room_call(message, RoomID, Client, Message) ->
 	?info("Msg: ~p, ~p, ~p", [RoomID, Client, Message]),
-	post_chatroom:message(RoomID, Client, Message);
+	post_chatroom:message(RoomID, Client, Message),
+	{ok, undefined};
 %	{reply, {struct, [{<<"success">>, true}, {<<"message">>, Message}]}};
 
 room_call(create_room,RoomName,Client,[Mode,Password]) ->

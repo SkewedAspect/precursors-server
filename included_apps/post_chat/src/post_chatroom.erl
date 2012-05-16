@@ -49,7 +49,7 @@
 -export([
 	start_link/3,
 	start_link/4,
-	send_command/3,
+	send_message/3,
 	leave/2,
 	join/2,
 	join/3,
@@ -64,7 +64,7 @@
 
 -record(state, {
 	name :: string(),
-	chatters :: [{pid(), string()}],
+	chatters = [] :: [{pid(), string()}],
 	controllers :: [pid()],
 	squelched = [] :: [pid()],
 	mode = user :: 'user' | 'system' | 'plugin',
@@ -110,10 +110,10 @@ start_link(Name, Mode, ModeMeta, Password) ->
         NewPID
 	end.
 
-send_command(Pid, Command, Payload) ->
-	gen_server:cast(Pid, {command, Command, Payload}).
+send_message(Pid, Command, Payload) ->
+	gen_server:cast(Pid, {message, Command, Payload}).
 
-% and so we can issue commands more easily.  The general idiom is:
+% and so we can issue messages more easily.  The general idiom is:
 % function(RoomPid, IssuingClientInfo, Command[, Arg1..., ArgN]) ->
 % 	das res
 
@@ -121,7 +121,7 @@ leave(Room, Client) ->
 	gen_server:call({global, Room}, {leave, Client}, ?timeout).
 
 join(Room, Client) ->
-	join(Room, Client, "").
+	join(Room, Client, undefined).
 
 join(Room, Client, Password) ->
 	gen_server:call({global, Room}, {join, Client, Password}, ?timeout).
@@ -136,6 +136,7 @@ unmute(Room, Client, Target) ->
 	gen_server:call({global, Room}, {unmute, Client, Target}, ?timeout).
 
 message(Room, Client, Message) ->
+	?info("Message to send: ~p ~p ~p", [Room, Client, Message]),
 	gen_server:call({global, Room}, {message, Client, Message}, ?timeout).
 
 
@@ -145,7 +146,6 @@ message(Room, Client, Message) ->
 %% ==================================================================
 
 init({Name, Mode, ModeMeta, Password}) ->
-	?info("Chatroom init: ~p", [Name]),
 	State = #state{name = Name, mode = Mode, password = Password},
 	case Mode of
 		user when is_record(ModeMeta, client_info) ->
@@ -222,7 +222,7 @@ remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
 	MidOut = case {Controllers0, Chatters0} of
 		{[], [{New, NewName} | _]} ->
 			Message = mochijson2:encode({struct, [
-				{<<"command">>, <<"new_controller">>},
+				{<<"message">>, <<"new_controller">>},
 				{<<"room">>, pid_to_bin(RoomPid)},
 				{<<"controller">>, NewName}
 			]}),
@@ -231,7 +231,7 @@ remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
 		Out -> Out
 	end,
 	LeaveMsg = mochijson2:encode({struct, [
-		{<<"command">>, <<"chatter_left">>},
+		{<<"message">>, <<"chatter_left">>},
 		{<<"room">>, pid_to_bin(RoomPid)},
 		{<<"leaver">>, Name}
 	]}),
@@ -268,7 +268,7 @@ handle_call({join, Client, Password}, _From, #state{password = Stateword} = Stat
 	#client_info{connection = Conn, username = Name} = Client,
 	Chatters0 = [{Conn, Name} | Chatters],
 	Msg = mochijson2:encode({struct, [
-		{<<"command">>, <<"chatter_joined">>},
+		{<<"message">>, <<"chatter_joined">>},
 		{<<"room">>, pid_to_bin(self())},
 		{<<"joiner">>, Name}
 	]}),
@@ -313,7 +313,7 @@ handle_call({mute, Client, Target}, _From, State) ->
 		{_,_} ->
 			Squelched = [TargetPid | State#state.squelched],
 			Msg = mochijson2:encode({struct, [
-				{<<"command">>, <<"muted">>},
+				{<<"message">>, <<"muted">>},
 				{<<"room">>, pid_to_bin(self())}
 			]}),
 			broadcast(Msg, [{TargetPid, "name"}]),
@@ -336,24 +336,24 @@ handle_call({unmute, Client, Target}, _From, State) ->
 	end;
 
 handle_call({message, Client, Message}, _From, State) ->
-	?info("Room handling message request: ~p ~p", [Client, Message]),
 	#state{chatters = Chatters, squelched = Squelched} = State,
-	#client_info{connection = ConnPid} = Client,
+	#client_info{connection = ConnPid, username = Username} = Client,
 	case lists:member(ConnPid, Squelched) of
 		true ->
-			?info("Squelched True"),
 			{reply, {error, muted}, State};
 		false ->
-			?info("Not Squelched, broadcasting to: ~p.", [Chatters]),
 			Json = {struct, [
-				{<<"command">>, <<"message">>},
+				{<<"action">>, <<"message">>},
 				{<<"room">>, pid_to_bin(self())},
-				{<<"message">>, Message}
+				{<<"payload">>, Message},
+				{<<"user">>, Username}
 			]},
-			proc_lib:spawn(fun() ->
-				[pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json) ||
+			Pid = proc_lib:spawn(fun() ->
+						?info("Entered spawn with ~p", [Chatters]),
+						[begin ?info("Sending: ~p tp ~p", [Json, Pid]), pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json) end ||
 					{Pid, _} <- Chatters]
 			end),
+			?info("Handled message ~p ~p ~p", [Client, Message, Pid]),
 			{reply, ok, State}
 	end;
 
