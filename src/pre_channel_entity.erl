@@ -106,13 +106,18 @@ handle_cast({client_disconnected, ConnectionPID, Reason}, State) ->
 handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	% Update our list of clients, replacing the given client's entity.
 	Clients = lists:keyreplace(ConnectionPid, 1, State#state.clients, {ConnectionPid, EntityDef}),
-	pre_entity_engine:get_full_state_async(EntityDef,
-		fun (Timestamp, FullUpdate) ->
-			%FIXME: This should really be of type 'inhabit'...
-			FullMessage = build_state_event(inhabit, FullUpdate, EntityDef#entity.id, Timestamp),
-			pre_client_connection:send(ConnectionPid, udp, event, entity, FullMessage)
-		end
-	),
+	pre_entity_engine:get_full_state_async(EntityDef, fun (Timestamp, FullState) ->
+		#entity{
+			model_def = ModelDef
+		} = EntityDef,
+
+		FullUpdate = [
+			{modelDef, {struct, ModelDef}},
+			{state, {struct, FullState}}
+		],
+		FullMessage = build_state_event(inhabit, FullUpdate, EntityDef#entity.id, Timestamp),
+		pre_client_connection:send(ConnectionPid, udp, event, entity, FullMessage)
+	end),
 
 	Timer = timer:apply_interval(200, ?MODULE, send_update_for_entity, [EntityDef]),
 	?info("Started entity full update event timer ~p for ~p.", [Timer, EntityDef#entity.id]),
