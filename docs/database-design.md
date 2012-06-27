@@ -24,13 +24,6 @@ id
 - type (enum: character, ship, other)
 - name
 
-### Contents
-- display
-    - model
-    - materials
-- state
-    - position
-
 ### Links
 - game (=> Game)
 - account (=> Account)
@@ -40,6 +33,13 @@ id
 - for ships:
     - inventory (list of Entity)
     - system (list of ?)
+
+### Contents
+- display
+    - model
+    - materials
+- state
+    - position
 
 
 Credentials
@@ -64,6 +64,7 @@ id
 
 ### Links
 - game (=> Game)
+- account (=> Account)
 
 ### Contents
 - type (enum: unbilled, timespan, hours)
