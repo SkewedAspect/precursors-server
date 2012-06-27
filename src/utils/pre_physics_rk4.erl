@@ -43,6 +43,7 @@ evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) ->
 
 	{SpinW, SpinX, SpinY, SpinZ} = Spin,
 	{OrientW, OrientX, OrientY, OrientZ} = Orientation,
+
 	NextPosition = vector:add(Position, vector:multiply(TimeDelta, Velocity)),
 	NextVelocity = vector:add(InitialVelocity, vector:multiply(TimeDelta, Force)),
 	%XXX: I have no idea if/how this works, but it's what the example code did...

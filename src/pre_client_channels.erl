@@ -140,7 +140,7 @@ drop_channel(Mgr, Channel) ->
 -spec(handle_request/5 :: (Mgr :: pid(), ClientInfo :: #client_info{}, Channel :: any(),
 	Id :: any(), Request :: json()) -> 'ok').
 handle_request(Mgr, ClientInfo, Channel, Id, Request) ->
-	%%?info("Handling: ~p ~p ~p ~p ~p", [Mgr, ClientInfo, Channel, Id, Request]),
+	?info("Handling: ~p ~p ~p ~p ~p", [Mgr, ClientInfo, Channel, Id, Request]),
 	gen_event:notify(Mgr, {request, ClientInfo, Channel, Id, Request}).
 
 %% @doc Used by the client connection to send responses into the manager.
