@@ -1,23 +1,25 @@
 #!/bin/bash
-# 
-# Rebar does not allow for an easy way to change a system that's running.  
-# Generating a release does a fine job of creating a start up script, but 
-# it cannot be regenerated without trashing the existing release.  The bins 
-# for the deps are not put into the primary ebin folder, so those get lost. 
-# Thus, this is a dev boot script that will allow one to start the system 
-# in a dev-friendly mode, and still be able to run rebar and reload the 
-# resulting code.  If the default boot file is not present, it will try to 
+#
+# Rebar does not allow for an easy way to change a system that's running.
+# Generating a release does a fine job of creating a start up script, but
+# it cannot be regenerated without trashing the existing release.  The bins
+# for the deps are not put into the primary ebin folder, so those get lost.
+# Thus, this is a dev boot script that will allow one to start the system
+# in a dev-friendly mode, and still be able to run rebar and reload the
+# resulting code.  If the default boot file is not present, it will try to
 # make it.
 
 function help_dump {
-	echo "usage:  devboot [-c cookiename] [-s shortname | -n longname] [-f configfile] [-e erl_shell] [-nb | -b bootfile]"
+	echo "usage:  devboot [-h | --help | -?] [-c cookiename] [-s shortname | -n longname] [-f configfile] [-e erl_shell] [-b bootfile | -nb] [ERL_ARGS]"
 	echo ""
-	echo "-c defaults to \"PreServDev\""
-	echo "-s and -n override each other.  Defaults to \"-s precursors_server_dev\""
-	echo "-b defaults to rel/precursors_server/releases/1/precursors_server"
+	echo "-h, --help, and -? show this help message."
+	echo "-c defaults to \"PreServDev\"."
+	echo "-s and -n override each other.  Defaults to \"-s precursors_server_dev\"."
+	echo "-f defaults to \"single\"."
+	echo "-e defaults to \"erl\"."
+	echo "-b defaults to \"rel/precursors_server/releases/1/precursors_server\"."
 	echo "-nb disables use of a boot file.  -b and -nb override each other."
-	echo "-f defaults to \"single\""
-	echo "-e defaults to \"erl\""
+	echo "Any other arguments (ERL_ARGS) are passed directly to \`erl\`."
 }
 
 EBIN="ebin"
@@ -27,6 +29,7 @@ NODENAME="precursors_server_dev"
 CONFIG="single"
 BOOT="-boot rel/precursors_server/releases/1/precursors_server"
 ERL_PATH="erl"
+declare -a ERL_ARGS=()
 
 PRECURSORS_SERVER_RUN_DIR="rel/precursors_server/run"
 export PRECURSORS_SERVER_RUN_DIR
@@ -79,9 +82,11 @@ do
 		"-e")
 			let i=$i+1
 			ERL_PATH="${args[${i}]}";;
-		*)
+		-h|--help|-?)
 			help_dump
-			exit 0
+			exit 0;;
+		*)
+			ERL_ARGS=("${ERL_ARGS[@]}" "${args[${i}]}");;
 	esac
 	argstring="$argstring ${args[${i}]}"
 	let i=$i+1
@@ -137,9 +142,7 @@ fi
 
 export PRECURSORS_SERVER_RUN_DIR=`pwd`
 
-CMD="$ERL_PATH +K true -pa $EBIN $morepa -setcookie $COOKIE $NAMETYPE $NODENAME -config $CONFIG $BOOT"
+CMD=("$ERL_PATH" +K true -pa "$EBIN" "$morepa" -setcookie "$COOKIE" "$NAMETYPE" "$NODENAME" -config "$CONFIG" "$BOOT" "${ERL_ARGS[@]}")
 
-#echo $CMD
-exec $CMD
-
-exit 0
+#echo "${CMD[@]}"
+exec "${CMD[@]}"
