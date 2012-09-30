@@ -30,7 +30,7 @@ register_hooks() ->
 client_request(#client_info{entity = undefined} = ClientInfo, _RequestID, Request, _Info) ->
 	?warning("Can't process input request ~p for client ~p; no entity inhabited!", [Request, ClientInfo]),
 	Response = [
-		{result, fail},
+		{confirm, false},
 		{reason, <<"No entity inhabited">>}
 	],
 	{reply, Response};

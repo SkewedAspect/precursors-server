@@ -231,7 +231,7 @@ client_request_internal(EntityID, _ClientInfo, <<"entity">>, <<"full">>, _Reques
 	} = Entity,
 	{Timestamp, FullState} = get_full_state(Entity),
 	Response = [
-		{result, ok},
+		{confirm, true},
 		{id, EntityID},
 		{timestamp, Timestamp},
 		{modelDef, {struct, ModelDef}},
