@@ -12,7 +12,7 @@
 	% Current state
 	target_linear_velocity = {0, 0, 0} :: vector:vec(),
 	target_angular_velocity = {0, 0, 0} :: vector:vec(),
-		
+
 	% Intrinsic ship parameters
 	linear_target_velocity_scaling = {600, 800, 500} :: vector:vec(), % {sideslip, throttle, lift}
 	angular_target_velocity_scaling = {2, 2, 2} :: vector:vec(), %  {pitch, roll, yaw}
@@ -119,21 +119,17 @@ handle_input_command(EntityState, Command, Args, KWArgs) ->
 
 %% -------------------------------------------------------------------
 
-set_target_angular_velocity(EntityState, {TPitch, TRoll, TYaw}) ->
-	?info("Setting orientation velocity to ~p.", [{TPitch, TRoll, TYaw}]),
+set_target_angular_velocity(EntityState, New) ->
+	?info("Setting orientation velocity to ~p.", [New]),
 	#entity{
 		behavior_data = #ship_data{
-			target_angular_velocity = {Pitch, Roll, Yaw}
+			target_angular_velocity = Current
 		} = ShipData
 	} = EntityState,
 
-	NewTPitch = first_defined(TPitch, Pitch),
-	NewTRoll = first_defined(TRoll, Roll),
-	NewTYaw = first_defined(TYaw, Yaw),
-
 	EntityState1 = EntityState#entity{
 		behavior_data = ShipData#ship_data{
-			target_angular_velocity = {NewTPitch, NewTRoll, NewTYaw}
+			target_angular_velocity = update_vector(New, Current)
 		}
 	},
 	Response = {reply, {struct, [
@@ -143,21 +139,17 @@ set_target_angular_velocity(EntityState, {TPitch, TRoll, TYaw}) ->
 
 %% -------------------------------------------------------------------
 
-set_target_linear_velocity(EntityState, {TX, TY, TZ}) ->
-	?info("Setting orientation velocity to ~p.", [{TX, TY, TZ}]),
+set_target_linear_velocity(EntityState, New) ->
+	?info("Setting position velocity to ~p.", [New]),
 	#entity{
 		behavior_data = #ship_data{
-			target_linear_velocity = {X, Y, Z}
+			target_linear_velocity = Current
 		} = ShipData
 	} = EntityState,
 
-	NewTX = first_defined(TX, X),
-	NewTY = first_defined(TY, Y),
-	NewTZ = first_defined(TZ, Z),
-
 	EntityState1 = EntityState#entity{
 		behavior_data = ShipData#ship_data{
-			target_linear_velocity = {NewTX, NewTY, NewTZ}
+			target_linear_velocity = update_vector(New, Current)
 		}
 	},
 	Response = {reply, {struct, [
@@ -214,6 +206,15 @@ do_flight_control(EntityState) ->
 calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
 	DMToP = 2 * MaxTh / math:pi(),
 	DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP).
+
+%% -------------------------------------------------------------------
+
+update_vector({UpdateX, UpdateY, UpdateZ}, {CurrentX, CurrentY, CurrentZ}) ->
+	{
+		first_defined(UpdateX, CurrentX),
+		first_defined(UpdateY, CurrentY),
+		first_defined(UpdateZ, CurrentZ)
+		}.
 
 %% -------------------------------------------------------------------
 
