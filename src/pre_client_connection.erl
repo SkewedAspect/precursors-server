@@ -184,7 +184,7 @@ handle_cast({send, udp, Type, Channel, Json}, State) ->
 handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
 	% Update state
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
-	% Respond to connect message
+	% See if we've completed the connection process
 	{ok, State2} = confirm_connect_message(Message, State1),
 	% Handle any remaining requests
 	NewState = service_messages(Bins, State2),
@@ -199,7 +199,7 @@ handle_cast(start_accept_tcp, State) ->
 		tcp_socket = Socket,
 		udp_socket = case State#state.udp_remote_info of
 			undefined -> State#state.cookie;
-			Else -> Else
+			_ -> State#state.udp_socket
 		end
 	},
 	ets:insert(client_ets, ClientRec),
@@ -245,9 +245,9 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 	#state{udp_socket = Socket, udp_remote_info = undefined} = State) ->
 		% Decrypt message envelope
 		Message = aes_decrypt_envelope(Packet, State),
-		Success = handle_connect_message(Message, State),
-		State1 = case Success of
-			{ok, State0} ->
+		Success = handle_udp_connect_message(Message, State),
+		State4 = case Success of
+			{ok, State1} ->
 				% Record this client's information in ETS
 				ClientRec = #client_connection{
 					pid = self(),
@@ -261,13 +261,16 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 				ets:insert(client_ets, ClientRec),
 				?info("UDP port sync up:  ~p:~p", [Ip, InPortNo]),
 				% Record the UDP information in the state
-				State0#state{udp_remote_info = {Ip, InPortNo}};
+				State2 = State1#state{udp_remote_info = {Ip, InPortNo}},
+				% See if we've completed the connection process
+				{ok, State3} = confirm_connect_message(Message, State2),
+				State3;
 			Else ->
 				?info("UDP not confirmed:  ~p", [Else]),
 				State
 		end,
 		inet:setopts(Socket, [{active, once}]),
-		{noreply, State1};
+		{noreply, State4};
 
 handle_info({udp, Socket, _Ip, _InPortNo, Packet}, #state{udp_socket = Socket} = State) ->
 	Message = aes_decrypt_envelope(Packet, State),
@@ -430,11 +433,6 @@ service_control_message(request, <<"selectCharacter">>, Id, Request, State) ->
 	Character = proplists:get_value(<<"character">>, Request),
 	?info("Character selected: ~p", [Character]),
 
-	CharSelRep = {struct, [
-		{confirm, true}
-	]},
-	respond(ssl, Id, <<"control">>, CharSelRep),
-
 	Connection = State#state.client_info#client_info.connection,
 	LevelUrl = <<"zones/test/TestArea.json">>,
 	LoadLevel = {struct, [
@@ -445,6 +443,11 @@ service_control_message(request, <<"selectCharacter">>, Id, Request, State) ->
 
 	?info("Creating entity for client ~p.", [State#state.client_info]),
 	set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
+
+	CharSelRep = {struct, [
+		{confirm, true}
+	]},
+	respond(ssl, Id, <<"control">>, CharSelRep),
 
 	State#state{
 		client_info = State#state.client_info#client_info{
@@ -563,26 +566,34 @@ aes_decrypt_envelope(Packet, State) ->
 
 %% ------------------------------------------------------------------
 
-handle_connect_message(Message, State) ->
+handle_udp_connect_message(Message, State) ->
 	#state{cookie = Cookie} = State,
 	try begin
 		#envelope{type = request, channel = <<"control">>, contents = {struct, Request}} = Message,
 		case proplists:get_value(<<"type">>, Request) of
 			<<"connect">> ->
 				case proplists:get_value(<<"cookie">>, Request) of
-					Cookie -> ok;
+					Cookie ->
+						{ok, State};
 					_ -> badcookie
 				end;
 			_ -> badrequest
-		end end,
-		confirm_connect_message(Message, State)
+		end
+		end
 	catch
 		What:Why ->
 			{What,Why}
 	end.
 
 confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Message, State) ->
-	#state{ssl_socket = SSLSocket, tcp_socket = TCPSocket, udp_socket = UDPSocket, client_info = ClientInfo} = State,
+	#state{
+		channel_mgr = ChannelMgr,
+		ssl_socket = SSLSocket,
+		tcp_socket = TCPSocket,
+		udp_remote_info = UDPRemoteInfo,
+		client_info = ClientInfo
+	} = State,
+
 	% Send response over SSL transport
 	ConnectRep = {struct, [
 		{confirm, true}
@@ -590,24 +601,31 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 	OutBin = build_message({response, Message#envelope.id}, <<"control">>, ConnectRep),
 	SendRes = ssl:send(SSLSocket, OutBin),
 	?debug("Connect response ssl:send result:  ~p", [SendRes]),
-	?info("TCPSocket, UDPSocket: ~p, ~p", [TCPSocket, UDPSocket]),
-	case {TCPSocket, UDPSocket} of
-		{undefined, _} ->
-			{ok, State};
-		{_, undefined} ->
-			{ok, State};
+
+	case ChannelMgr of
+		undefined ->
+			?info("TCPSocket, UDPRemoteInfo: ~p, ~p", [TCPSocket, UDPRemoteInfo]),
+			case {TCPSocket, UDPRemoteInfo} of
+				{undefined, _} ->
+					{ok, State};
+				{_, undefined} ->
+					{ok, State};
+				_ ->
+					{ok, NewChannelMgr} = pre_client_channels:start_link(),
+					NewClientInfo = ClientInfo#client_info{
+						channel_manager = NewChannelMgr
+					},
+					NewState = State#state{
+						channel_mgr = NewChannelMgr,
+						client_info = NewClientInfo
+					},
+					?info("Started pre_client_channels at ~p", [NewChannelMgr]),
+					pre_hooks:async_trigger_hooks(client_logged_in, [NewClientInfo], all),
+					{ok, NewState}
+			end;
 		_ ->
-			{ok, ChannelMgr} = pre_client_channels:start_link(),
-			NewClientInfo = ClientInfo#client_info{
-				channel_manager = ChannelMgr
-			},
-			NewState = State#state{
-				channel_mgr = ChannelMgr,
-				client_info = NewClientInfo
-			},
-			?info("Started pre_client_channels at ~p", [ChannelMgr]),
-			pre_hooks:async_trigger_hooks(client_logged_in, [NewClientInfo], all),
-			{ok, NewState}
+			?error("ChannelMgr already set for client ~p! Skipping instantiation.", [ClientInfo]),
+			{ok, State}
 	end.
 
 %% ------------------------------------------------------------------
