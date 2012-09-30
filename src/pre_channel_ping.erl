@@ -6,9 +6,6 @@
 -include("log.hrl").
 -include("pre_client.hrl").
 
-% Because this saves us _so_ much code.
--define(CHANNEL, <<"ping">>).
-
 % api
 -export([register_hooks/0]).
 
@@ -55,7 +52,7 @@ client_request(<<"ping">>, Client, Id, _Request, _Info) ->
 		{timestamp, Timestamp}
 	]},
 	pre_client_connection:send(Client#client_info.connection, tcp,
-		{response, Id}, ?CHANNEL, PingResponse),
+		{response, Id}, <<"ping">>, PingResponse),
 	{ok, []};
 
 client_request(_RequestType, _Client, _Id, _Request, _Info) ->
@@ -74,7 +71,7 @@ request_type(_) ->
 
 %% @doc The hook which adds the channel to the client.
 client_login_hook(undefined, ClientRecord) ->
-	?debug("Client ~p logged in; registering ~p channel.", [ClientRecord, ?CHANNEL]),
+	?debug("Client ~p logged in; registering ~p channel.", [ClientRecord, <<"ping">>]),
 	#client_info{channel_manager = ChannelManager} = ClientRecord,
-	pre_client_channels:set_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
+	pre_client_channels:set_channel(ChannelManager, <<"ping">>, ?MODULE, []),
 	{ok, undefined}.
