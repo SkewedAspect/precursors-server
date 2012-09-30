@@ -35,17 +35,17 @@ PRECURSORS_SERVER_RUN_DIR="rel/precursors_server/run"
 export PRECURSORS_SERVER_RUN_DIR
 
 deps=`ls deps`
-morepa=""
+declare -a morepa=()
 
 for deps_dir in $deps
 do
-	morepa="$morepa -pa deps/$deps_dir/ebin"
+	morepa=("${morepa[@]}" "-pa" "deps/$deps_dir/ebin")
 done
 # and included apps too
 included_apps=`ls included_apps`
 for included_app_dir in $included_apps
 do
-	morepa="$morepa -pa included_apps/$included_app_dir/ebin"
+	morepa=("${morepa[@]}" "-pa" "included_apps/$included_app_dir/ebin")
 done
 
 if [ ! -f "rel/precursors_server/releases/1/precursors_server.boot" ]
@@ -142,7 +142,11 @@ fi
 
 export PRECURSORS_SERVER_RUN_DIR=`pwd`
 
-CMD=("$ERL_PATH" +K true -pa "$EBIN" "$morepa" -setcookie "$COOKIE" "$NAMETYPE" "$NODENAME" -config "$CONFIG" "$BOOT" "${ERL_ARGS[@]}")
+CMD=("$ERL_PATH" +K true -pa "$EBIN" "${morepa[@]}" -setcookie "$COOKIE" "$NAMETYPE" "$NODENAME" -config "$CONFIG" $BOOT "${ERL_ARGS[@]}")
 
-#echo "${CMD[@]}"
+#for arg in "${CMD[@]}"; do
+#	echo -n "'$arg' "
+#done
+#echo
+
 exec "${CMD[@]}"
