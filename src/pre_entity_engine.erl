@@ -259,9 +259,14 @@ call_entity_func(Func, EntityID, Args, State) ->
 	Result = apply(CallbackModule, Func, [Entity | Args]),
 	case Result of
 		{Result1, Result2, Entity2} ->
-			Entities1 = dict:store(EntityID, Entity2, Entities),
-			{Result1, Result2, State#state{entities = Entities1}};
+			{Result1, Result2, update_entity(EntityID, Entity2, State)};
 		{Result3, Entity3} ->
-			Entities2 = dict:store(EntityID, Entity3, Entities),
-			{Result3, State#state{entities = Entities2}}
+			{Result3, update_entity(EntityID, Entity3, State)}
 	end.
+
+%% -------------------------------------------------------------------
+
+update_entity(EntityID, Entity, State) ->
+	#state{entities = Entities} = State,
+	Entities1 = dict:store(EntityID, Entity, Entities),
+	State#state{entities = Entities1}.
