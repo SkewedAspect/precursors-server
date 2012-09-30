@@ -120,7 +120,7 @@ handle_input_command(EntityState, Command, Args, KWArgs) ->
 %% -------------------------------------------------------------------
 
 set_target_angular_velocity(EntityState, New) ->
-	?info("Setting orientation velocity to ~p.", [New]),
+	%?debug("Setting orientation velocity to ~p.", [New]),
 	#entity{
 		behavior_data = #ship_data{
 			target_angular_velocity = Current
@@ -140,7 +140,7 @@ set_target_angular_velocity(EntityState, New) ->
 %% -------------------------------------------------------------------
 
 set_target_linear_velocity(EntityState, New) ->
-	?info("Setting position velocity to ~p.", [New]),
+	%?debug("Setting position velocity to ~p.", [New]),
 	#entity{
 		behavior_data = #ship_data{
 			target_linear_velocity = Current
