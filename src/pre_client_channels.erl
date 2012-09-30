@@ -1,5 +1,5 @@
 %% @doc Holds the channels for a client connection.  Backed by gen_event.
-%% Uses a simple callback model.  
+%% Uses a simple callback model.
 %%
 %% Each client gets its own {@module}, but a channel can point to the
 %% same gen_server, or even simply have an internally handled state for
@@ -11,7 +11,7 @@
 %% The module passed into {@link set_channel/4} or {@link set_sup_channel} must
 %% implement 3 functions:  client_request/4, client_response/4, and
 %% client_event/3.
-%% 
+%%
 %% == client_request/4 ==
 %% <pre>
 %% Module:client_request( Client :: pid(), Id :: any(), Request :: json(),
@@ -140,7 +140,8 @@ drop_channel(Mgr, Channel) ->
 -spec(handle_request/5 :: (Mgr :: pid(), ClientInfo :: #client_info{}, Channel :: any(),
 	Id :: any(), Request :: json()) -> 'ok').
 handle_request(Mgr, ClientInfo, Channel, Id, Request) ->
-	?info("Handling: ~p ~p ~p ~p ~p", [Mgr, ClientInfo, Channel, Id, Request]),
+	%?debug("Handling: Mgr=~p, ClientInfo=~p, Channel=~p, Id=~p, Request=~p",
+	%	[Mgr, ClientInfo, Channel, Id, Request]),
 	gen_event:notify(Mgr, {request, ClientInfo, Channel, Id, Request}).
 
 %% @doc Used by the client connection to send responses into the manager.
