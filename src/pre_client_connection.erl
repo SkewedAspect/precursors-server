@@ -182,11 +182,12 @@ handle_cast({send, udp, Type, Channel, Json}, State) ->
 	{noreply, State};
 
 handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
-	% Respond to connect message
-	confirm_connect_message(Message, State),
-	% Update state and handle any remaining requests
+	% Update state
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
-	NewState = service_messages(Bins, State1),
+	% Respond to connect message
+	{ok, State2} = confirm_connect_message(Message, State1),
+	% Handle any remaining requests
+	NewState = service_messages(Bins, State2),
 	{noreply, NewState};
 
 handle_cast(start_accept_tcp, State) ->
