@@ -99,6 +99,20 @@ send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket
 
 %% ------------------------------------------------------------------
 
+%% @doc Respond to a message from the client over a given channel.
+
+-spec respond(Pid, Socket, Id, Channel, Json) -> 'ok' when
+	Pid :: pid() | #client_info{},
+	Socket :: 'udp' | 'ssl' | 'tcp',
+	Id :: message_id(),
+	Channel :: binary(),
+	Json :: json().
+
+respond(Pid, Socket, Id, Channel, Json) ->
+	send(Pid, Socket, {'response', Id}, Channel, Json).
+
+%% ------------------------------------------------------------------
+
 %% @doc Set the given client's inhabited entity.
 
 -spec set_inhabited_entity(Pid, EntityID) -> 'ok' when
@@ -379,8 +393,7 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 		{reason, Reason},
 		{cookie, Cookie},
 		{udpPort, UdpPort},
-		{tcpPort, 6007},
-		{characters, ["Character 1", "Character 2", "Character 3"]} % TODO: Replace this with generated var list
+		{tcpPort, 6007}
 	]},
 	Response = #envelope{id = Id, type = response, contents = LoginRep,
 		channel = <<"control">>},
@@ -401,9 +414,25 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 		}
 	};
 
-service_control_message(event, <<"selectCharacter">>, _, Request, State) ->
+service_control_message(request, <<"getCharacters">>, Id, _Request, State) ->
+	?info("Retrieving character list for client ~p.", [State#state.client_info]),
+
+	GetCharsRep = {struct, [
+		{confirm, true},
+			% TODO: Replace this with generated character list
+			{characters, [<<"Character 1">>, <<"Character 2">>, <<"Character 3">>]}
+	]},
+	respond(ssl, Id, <<"control">>, GetCharsRep),
+	State;
+
+service_control_message(request, <<"selectCharacter">>, Id, Request, State) ->
 	Character = proplists:get_value(<<"character">>, Request),
 	?info("Character selected: ~p", [Character]),
+
+	CharSelRep = {struct, [
+		{confirm, true}
+	]},
+	respond(ssl, Id, <<"control">>, CharSelRep),
 
 	Connection = State#state.client_info#client_info.connection,
 	LevelUrl = <<"zones/test/TestArea.json">>,
@@ -411,16 +440,25 @@ service_control_message(event, <<"selectCharacter">>, _, Request, State) ->
 		{type, <<"setZone">>},
 		{level, LevelUrl}
 	]},
-	pre_client_connection:send(Connection, tcp, event, level, LoadLevel),
+	send(Connection, tcp, event, level, LoadLevel),
 
 	?info("Creating entity for client ~p.", [State#state.client_info]),
-	pre_client_connection:set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
-	{ok, undefined};
+	set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
 
+	State#state{
+		client_info = State#state.client_info#client_info{
+			character = Character
+		}
+	};
 
 service_control_message(event, <<"logout">>, _, _, _) ->
 	?info("Got logout event from client."),
 	exit(normal).
+
+%% ------------------------------------------------------------------
+
+respond(Socket, Id, Channel, Json) ->
+	respond(self(), Socket, Id, Channel, Json).
 
 %% ------------------------------------------------------------------
 
