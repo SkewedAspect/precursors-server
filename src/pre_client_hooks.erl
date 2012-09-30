@@ -23,11 +23,4 @@ register_hooks() ->
 
 client_login_hook(undefined, ClientRecord) ->
 	?debug("Client logged in: ~p", [ClientRecord]),
-	Connection = ClientRecord#client_info.connection,
-	LevelUrl = <<"zones/test/TestArea.json">>,
-	LoadLevel = {struct, [
-		{type, <<"setZone">>},
-		{level, LevelUrl}
-	]},
-	pre_client_connection:send(Connection, tcp, event, level, LoadLevel),
 	{ok, undefined}.
