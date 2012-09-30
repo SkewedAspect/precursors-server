@@ -376,7 +376,8 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 		{reason, Reason},
 		{cookie, Cookie},
 		{udpPort, UdpPort},
-		{tcpPort, 6007}
+		{tcpPort, 6007},
+		{characters, ["Character 1", "Character 2", "Character 3"]} % TODO: Replace this with generated var list
 	]},
 	Response = #envelope{id = Id, type = response, contents = LoginRep,
 		channel = <<"control">>},
@@ -396,6 +397,23 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 			username = Username
 		}
 	};
+
+service_control_message(event, <<"selectCharacter">>, _, Request, State) ->
+	Character = proplists:get_value(<<"character">>, Request),
+	?info("Character selected: ~p", [Character]),
+
+	Connection = State#state.client_info#client_info.connection,
+	LevelUrl = <<"zones/test/TestArea.json">>,
+	LoadLevel = {struct, [
+		{type, <<"setZone">>},
+		{level, LevelUrl}
+	]},
+	pre_client_connection:send(Connection, tcp, event, level, LoadLevel),
+
+	?info("Creating entity for client ~p.", [State#state.client_info]),
+	pre_client_connection:set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
+	{ok, undefined};
+
 
 service_control_message(event, <<"logout">>, _, _, _) ->
 	?info("Got logout event from client."),

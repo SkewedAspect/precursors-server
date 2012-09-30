@@ -30,13 +30,4 @@ client_login_hook(undefined, ClientRecord) ->
 		{level, LevelUrl}
 	]},
 	pre_client_connection:send(Connection, tcp, event, level, LoadLevel),
-	create_client_entity(ClientRecord),
-	{ok, undefined}.
-
-%% ------------------------------------------------------------------
-
-create_client_entity(ClientRecord) ->
-	Connection = ClientRecord#client_info.connection,
-	?info("Creating entity for client ~p.", [ClientRecord]),
-	pre_client_connection:set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
 	{ok, undefined}.
