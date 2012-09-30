@@ -27,6 +27,14 @@ register_hooks() ->
 %% pre_client_channels
 %% -------------------------------------------------------------------
 
+client_request(#client_info{entity = undefined} = ClientInfo, _RequestID, Request, _Info) ->
+	?warning("Can't process input request ~p for client ~p; no entity inhabited!", [Request, ClientInfo]),
+	Response = [
+		{result, fail},
+		{reason, <<"No entity inhabited">>}
+	],
+	{reply, Response};
+
 client_request(ClientInfo, RequestID, Request, _Info) ->
 	#client_info{
 		entity = EntityID
