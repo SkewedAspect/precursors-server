@@ -1,5 +1,5 @@
-%% @doc Ssl Socket listening server.  Clients are expected to first contact
-%% this listeer before attempting to reach the others.  Uses an accept 
+%% @doc SSL Socket listening server.  Clients are expected to first contact
+%% this listener before attempting to reach the others.  Uses an accept
 %% pool for extra awesome.
 -module(pre_ssl_listener).
 -behavior(gen_server).
@@ -75,7 +75,7 @@ init(Args) ->
 			?info("Started on port ~p", [Port]),
 			{ok, #state{poolsize = Poolsize, listener = Listen_socket, acceptors= Acceptors}};
 		{error, Reason} ->
-			?warning("Could not start ssl:  ~p", [Reason]),
+			?warning("Could not start SSL:  ~p", [Reason]),
 			{stop, Reason}
 	end.
 
@@ -123,7 +123,7 @@ handle_info(Req, State) ->
 terminate(Cause, _State) when Cause =:= normal; Cause =:= shutdown ->
 	ok;
 terminate(Cause, _State) ->
-	?warning("ssl listener died due to ~p", [Cause]),
+	?warning("SSL listener died due to ~p", [Cause]),
 	ok.
 
 %% =====
@@ -135,7 +135,7 @@ code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
 %% =====
-%% Internal 
+%% Internal
 %% =====
 
 spawn_acceptors(ListSock, Size) ->
@@ -158,10 +158,10 @@ spawn_acceptor(Socket) ->
 					ssl:controlling_process(NewSocket, Pid),
 					exit(normal);
 				{error, Reason} ->
-					?notice("Ssl connect did not cmplete:  ~p", [Reason]),
+					?notice("SSL connect did not complete:  ~p", [Reason]),
 					exit(Reason)
 			end;
 		{error, Reason} ->
-			?notice("ssl transport accept errored:  ~p", [Reason]),
+			?notice("SSL transport accept errored:  ~p", [Reason]),
 			exit(Reason)
 	end.
