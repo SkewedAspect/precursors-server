@@ -1,0 +1,22 @@
+{application, riak_auth,
+	[
+		{description, "Riak-based authentication plugin"},
+		{vsn, "1"},
+		{registered, []},
+		{applications, 
+			[
+				kernel,
+                stdlib,
+                mnesia,
+				inets,
+                lager,
+				riakc,
+				erlsha2
+            ]
+		},
+		{mod, {riak_auth_app, []}},
+		{env, []}
+	]
+}.
+
+% vim: ft=erlang
