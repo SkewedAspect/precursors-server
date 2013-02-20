@@ -62,8 +62,8 @@ init({gen_server, [Host] = _Args}) ->
 init({gen_server, [Host, {Username, Password}] = _Args}) ->
 	State = #state{
 		host = Host,
-		username = bson:utf8(Username),
-		password = bson:utf8(Password)
+		username = Username,
+		password = Password
 	},
 	init(connect, State);
 
@@ -174,6 +174,7 @@ get_account_info(Username, State) ->
 	#state{
 		riak_conn = RiakConn
 	} = State,
+
 	case riakc_pb_socket:get(RiakConn, <<"users">>, Username) of
 		{ok, RiakCObj} ->
 			riakc_obj:get_value(RiakCObj);
