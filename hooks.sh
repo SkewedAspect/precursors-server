@@ -1,9 +1,12 @@
 #!/bin/bash
 
 function included_apps_do {
-	for file in included_apps/*
+	for dir in included_apps/*
 	do
-		pushd $file
+		# If a file named 'do-not-build' exists in the included app's directory, skip it.
+		[ -e $dir/do-not-build ] && continue
+
+		pushd $dir
 		../../rebar "$@"
 		popd
 	done
@@ -13,7 +16,7 @@ function pre_compile {
 	if [ ! -d ebin ]; then
 		mkdir ebin
 	fi
-	
+
 	# hack for reltool
 	if [ ! -d precursors_server ]; then
 		mkdir precursors_server
