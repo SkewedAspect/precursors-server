@@ -3,15 +3,14 @@
 		{description, "Riak-based authentication plugin"},
 		{vsn, "1"},
 		{registered, []},
-		{applications, 
+		{applications,
 			[
 				kernel,
                 stdlib,
                 mnesia,
 				inets,
                 lager,
-				riakc,
-				erlsha2
+				riakc
             ]
 		},
 		{mod, {riak_auth_app, []}},

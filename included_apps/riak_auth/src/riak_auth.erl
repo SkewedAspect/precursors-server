@@ -1,20 +1,30 @@
 %% ------------------------------------------------------------------------
 %% @doc Riak-based authentication module for Precursors Server.
 %%
-%% @copyright 2012 Christopher S. Case
+%% @copyright 2012 Christopher S. Case and David H. Bronke
 %% Licensed under the MIT license; see the LICENSE file for details.
 %% ------------------------------------------------------------------------
 -module(riak_auth).
 %-behavior(pre_gen_auth).
 
 % -------------------------------------------------------------------------
+%Testing:
+
+%{ok, State} = riak_auth:init(connect, {state, "localhost", 8081, undefined, undefined, undefined}).
+%riak_auth:get_account_info(<<"david.bronke@g33xnexus.com">>, State).
+%riak_auth:get_account_credentials(<<"david.bronke@g33xnexus.com">>, State).
+
+% -------------------------------------------------------------------------
 
 % gen_server
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 		code_change/3]).
 
-% External AI
+% External API
 -export([start_link/1, get_user/2, handle_authentication/3]).
+
+%XXX:TESTING
+-export([init/2, get_account_info/2, get_account_credentials/2]).
 
 
 % -------------------------------------------------------------------------
@@ -22,12 +32,19 @@
 -include_lib("precursors_server/include/log.hrl").
 -include_lib("precursors_server/include/internal_auth.hrl").
 
+% Default Riak connection parameters:
+-define(DEFAULT_RIAK_PB_PORT, 8087).
+
+% Default PBKDF2 values to the ones used by WPA2:
+-define(DEFAULT_PBKDF2_ITERATIONS, 4096).
+-define(DEFAULT_PBKDF2_DERIVED_LENGTH, 32).
+-define(DEFAULT_PBKDF2_PRF, <<"HMAC+SHA256">>).
+
 -record(state, {
-			host,
-			conn_pool,
+			host = "localhost",
+			port = ?DEFAULT_RIAK_PB_PORT :: riakc_pb_socket:portnum(),
 			username,
 			password,
-			port :: riakc_pb_socket:portnum(),
 			riak_conn :: pid()
 		}).
 
@@ -53,6 +70,13 @@ get_user(Username, Pid) ->
 %% gen_server
 %% ------------------------------------------------------------------------
 
+init({gen_server, [Host, Port] = _Args}) ->
+	State = #state{
+		host = Host,
+		port = Port
+	},
+	init(connect, State);
+
 init({gen_server, [Host] = _Args}) ->
 	State = #state{
 		host = Host
@@ -68,7 +92,7 @@ init({gen_server, [Host, {Username, Password}] = _Args}) ->
 	init(connect, State);
 
 init({gen_server, _Args}) ->
-	State = #state{host=["localhost", 27017]},
+	State = #state{},
 	init(connect, State);
 
 init(Args) ->
@@ -82,8 +106,10 @@ init(Args) ->
 
 init(connect, State) ->
 	% Connect to riakc
-	Host = State#state.host,
-	Port = State#state.port,
+	#state{
+		host = Host,
+		port = Port
+	} = State,
 	{ok, RiakConn} = riakc_pb_socket:start_link(Host, Port),
 	NewState = State#state{
 		riak_conn = RiakConn
@@ -100,17 +126,20 @@ handle_call({auth, {Username, Password}}, _From, State) ->
 	Auth = handle_auth(Username, Password, State),
 	{reply, Auth, State};
 
-handle_call(_, _From, State) ->
+handle_call(Invalid, _From, State) ->
+	?warning("Got invalid call: ~p", [Invalid]),
     {reply, invalid, State}.
 
 % -------------------------------------------------------------------------
 
-handle_cast(_, State) ->
+handle_cast(Invalid, State) ->
+	?warning("Ignoring invalid cast: ~p", [Invalid]),
     {noreply, State}.
 
 % -------------------------------------------------------------------------
 
-handle_info(_, State) ->
+handle_info(Invalid, State) ->
+	?warning("Ignoring invalid info: ~p", [Invalid]),
     {noreply, State}.
 
 % -------------------------------------------------------------------------
@@ -129,10 +158,13 @@ code_change(_OldVersion, State, _Extra) ->
 
 %% @doc Authenticate user against riak
 handle_auth(Username, Password, State) ->
-	case get_account_info(Username, State) of
+	case get_account_credentials(Username, State) of
 		{error, not_found} ->
+			?info("No account credentials found for Username ~p.", [Username]),
 			undefined;
+
 		{error, Reason} ->
+			?info("Error getting account credentials for Username ~p: ~p", [Username, Reason]),
 			case is_atom(Reason) of
 				true ->
 					{deny, "Database Error: " ++ atom_to_list(Reason)};
@@ -140,19 +172,16 @@ handle_auth(Username, Password, State) ->
 					{deny, "Database Error: " ++ Reason}
 			end;
 
-		{Account} ->
-			?info("Got Account Record: ~p", [Account]),
-			PasswordHash = bson:at(password_hash, Account),
-			PasswordSalt = bson:at(password_salt, Account),
-			AuthPasswordHash = string:to_lower(generate_hash(Password, PasswordSalt)),
-			PassHashString = binary_to_list(PasswordHash),
-			?info("Got db: ~p, hash: ~p", [PassHashString, AuthPasswordHash]),
-			case PassHashString of
-				AuthPasswordHash ->
+		Credentials when is_list(Credentials) ->
+			?info("Got credentials for account '~s': ~p", [Username, Credentials]),
+			case lists:any(
+					fun ({CredentialProps}) -> check_cred(Username, Password, CredentialProps) end,
+					Credentials) of
+				true ->
 					allow;
 
-				_ ->
-					{deny, "Invalid Password"}
+				false ->
+					{deny, "Incorrect Password"}
 			end
 	end.
 
@@ -169,33 +198,101 @@ handle_userinfo(Username, State) ->
 	end.
 
 
+%% @doc Check user credential
+check_cred(_Username, CheckPassword, Credential) ->
+	% Example of what we (should) get from the DB:
+	% {
+	%     "hash": "tNcJYbTF6jJAn6mLxjAZP5Nb+yJ5P8A72YJI57rtDDU=",
+	%     "iterations": 20000.0,
+	%     "prf": "HMAC+SHA256",
+	%     "salt": "1yfcsqA9MYJz",
+	%     "type": "local"
+	% }
+	StoredPasswordHash = proplists:get_value(<<"hash">>, Credential),
+	PasswordSalt = proplists:get_value(<<"salt">>, Credential),
+	Iterations = proplists:get_value(<<"iterations">>, Credential, ?DEFAULT_PBKDF2_ITERATIONS),
+	PseudoRandomFunction = proplists:get_value(<<"prf">>, Credential, ?DEFAULT_PBKDF2_PRF),
+	DerivedLength = ?DEFAULT_PBKDF2_DERIVED_LENGTH,  %FIXME: Determine this from the PRF!
+
+	case PseudoRandomFunction of
+		?DEFAULT_PBKDF2_PRF ->
+			%FIXME: Use the PRF!
+			{ok, CheckPasswordHash} = pbkdf2:pbkdf2(sha256, CheckPassword, PasswordSalt, Iterations, DerivedLength),
+			CheckPasswordHashBase64 = base64:encode(CheckPasswordHash),
+			?info("Client-provided hash: ~p; stored hash: ~p", [CheckPasswordHashBase64, StoredPasswordHash]),
+
+			pbkdf2:compare_secure(StoredPasswordHash, CheckPasswordHashBase64);
+
+		_ ->
+			?warning("Incompatible PRF ~p (only ~p is supported)", [PseudoRandomFunction, ?DEFAULT_PBKDF2_PRF]),
+			false
+	end.
+
+
+%% @doc Parse the given binary as JSON, into the eep18 format.
+parse_json(Bin) ->
+	mochijson2:decode(Bin, [{format, eep18}]).
+
+
 %% @doc Retrieve the account record from the database
 get_account_info(Username, State) ->
 	#state{
 		riak_conn = RiakConn
 	} = State,
 
-	case riakc_pb_socket:get(RiakConn, <<"users">>, Username) of
-		{ok, RiakCObj} ->
-			riakc_obj:get_value(RiakCObj);
-		Error ->
-			Error
+	case binary:match(Username, <<$@>>) of
+		nomatch ->
+			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname">>, Username) of
+				{ok, RiakCObj} ->
+					AccountBin = riakc_obj:get_value(RiakCObj),
+					parse_json(AccountBin);
+				Error ->
+					Error
+			end;
+		_ ->
+			case riakc_pb_socket:get(RiakConn, <<"account">>, Username) of
+				{ok, RiakCObj2} ->
+					Account2Bin = riakc_obj:get_value(RiakCObj2),
+					parse_json(Account2Bin);
+				Error2 ->
+					Error2
+			end
 	end.
 
 
-%% @doc Generate hash from the password and salt
-generate_hash(Password, Salt) ->
-	Digest = erlsha2:sha256(<<Password/binary, Salt/binary>>),
-	bin_to_hex_string(Digest).
+%% @doc Retrieve the matching credential records from the database
+get_account_credentials(Username, State) ->
+	#state{
+		riak_conn = RiakConn
+	} = State,
 
+	Email = case binary:match(Username, <<$@>>) of
+		nomatch ->
+			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname">>, Username) of
+				{ok, RiakCObj} ->
+					AccountBin = riakc_obj:get_value(RiakCObj),
+					Account = parse_json(AccountBin),
+					proplists:get_value(email, Account);
+				Error ->
+					Error
+			end;
+		_ -> Username
+	end,
 
-bin_to_hex_string(Bin) ->
-	bin_to_hex_string(Bin, []).
-
-
-bin_to_hex_string(<<>>, Acc) ->
-	lists:flatten(lists:reverse(Acc));
-
-
-bin_to_hex_string(<<First/integer, Rest/binary>>, Acc) ->
-	bin_to_hex_string(Rest, [io_lib:format("~2.16.0b", [First]) | Acc]).
+	case riakc_pb_socket:mapred(RiakConn,
+			[{<<"account">>, Email}],
+			[
+				{link, <<"credential">>, '_', false},
+				{map, {modfun, riak_kv_mapreduce, map_object_value}, none, true}
+				]
+			) of
+		{ok, [{1, Results}]} ->
+			lists:map(
+				fun (CredentialBin) ->
+					mochijson2:decode(CredentialBin, [{format, eep18}])
+				end,
+				Results
+				);
+		Error2 ->
+			Error2
+	end.
