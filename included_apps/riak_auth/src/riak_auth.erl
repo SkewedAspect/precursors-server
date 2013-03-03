@@ -242,7 +242,7 @@ get_account_info(Username, State) ->
 
 	case binary:match(Username, <<$@>>) of
 		nomatch ->
-			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname">>, Username) of
+			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname_bin">>, Username) of
 				{ok, RiakCObj} ->
 					AccountBin = riakc_obj:get_value(RiakCObj),
 					parse_json(AccountBin);
@@ -268,7 +268,7 @@ get_account_credentials(Username, State) ->
 
 	Email = case binary:match(Username, <<$@>>) of
 		nomatch ->
-			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname">>, Username) of
+			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname_bin">>, Username) of
 				{ok, RiakCObj} ->
 					AccountBin = riakc_obj:get_value(RiakCObj),
 					Account = parse_json(AccountBin),
