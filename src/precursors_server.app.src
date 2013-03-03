@@ -8,7 +8,6 @@
                   stdlib,
                   mnesia,
                   lager,
-                  sha2,
                   ssl
                  ]},
   {mod, {pre_server_app, []}},
