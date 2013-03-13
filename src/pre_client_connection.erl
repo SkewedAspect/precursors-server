@@ -90,9 +90,9 @@ send(ClientInfo, Socket, Type, Channel, Json) when is_record(ClientInfo, client_
 	send(Pid, Socket, Type, Channel, Json);
 
 send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
-	Id = generate_id(),
-	send(Pid, Socket, {request, Id}, Channel, Json),
-	Id;
+	RequestID = generate_id(),
+	send(Pid, Socket, {request, RequestID}, Channel, Json),
+	RequestID;
 
 send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
 	gen_server:cast(Pid, {send, Socket, Type, Channel, Json}).
@@ -101,15 +101,15 @@ send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket
 
 %% @doc Respond to a message from the client over a given channel.
 
--spec respond(Pid, Socket, Id, Channel, Json) -> 'ok' when
+-spec respond(Pid, Socket, MessageID, Channel, Json) -> 'ok' when
 	Pid :: pid() | #client_info{},
 	Socket :: 'udp' | 'ssl' | 'tcp',
-	Id :: message_id(),
+	MessageID :: message_id(),
 	Channel :: binary(),
 	Json :: json().
 
-respond(Pid, Socket, Id, Channel, Json) ->
-	send(Pid, Socket, {'response', Id}, Channel, Json).
+respond(Pid, Socket, MessageID, Channel, Json) ->
+	send(Pid, Socket, {'response', MessageID}, Channel, Json).
 
 %% ------------------------------------------------------------------
 
@@ -336,12 +336,12 @@ service_message(Envelope, #state{channel_mgr = undefined} = _State) when is_reco
 
 service_message(Envelope, State) when is_record(Envelope, envelope) ->
 	#state{client_info = ClientInfo, channel_mgr = ChannelMgr} = State,
-	#envelope{type = MessageType, channel = Channel, contents = Contents, id = Id} = Envelope,
+	#envelope{type = MessageType, channel = Channel, contents = Contents, id = MessageID} = Envelope,
 	case MessageType of
 		request ->
-			pre_client_channels:handle_request(ChannelMgr, ClientInfo, Channel, Id, Contents);
+			pre_client_channels:handle_request(ChannelMgr, ClientInfo, Channel, MessageID, Contents);
 		response ->
-			pre_client_channels:handle_response(ChannelMgr, ClientInfo, Channel, Id, Contents);
+			pre_client_channels:handle_response(ChannelMgr, ClientInfo, Channel, MessageID, Contents);
 		event ->
 			pre_client_channels:handle_event(ChannelMgr, ClientInfo, Channel, Contents)
 	end,
@@ -353,8 +353,8 @@ service_message(Request, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_channel(#envelope{type = Type, id = Id, contents = {struct, Request}}, State) ->
-	service_control_message(Type, Id, Request, State);
+service_control_channel(#envelope{type = Type, id = MessageID, contents = {struct, Request}}, State) ->
+	service_control_message(Type, MessageID, Request, State);
 
 service_control_channel(Thing, State) ->
 	?warning("Unhandled input:  ~p", [Thing]),
@@ -362,9 +362,9 @@ service_control_channel(Thing, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_message(Type, Id, Request, State) when Type =:= request; Type =:= event ->
+service_control_message(Type, MessageID, Request, State) when Type =:= request; Type =:= event ->
 	ReqType = proplists:get_value(<<"type">>, Request),
-	service_control_message(Type, ReqType, Id, Request, State);
+	service_control_message(Type, ReqType, MessageID, Request, State);
 
 service_control_message(Type, _, Request, State) ->
 	?warning("Unhandled ~p message:  ~p", [Type, Request]),
@@ -372,7 +372,7 @@ service_control_message(Type, _, Request, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_message(request, <<"login">>, Id, Request, State) ->
+service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	?info("starting authentication"),
 	?info("Request: ~p", [Request]),
 	% Check with authentication backends
@@ -399,7 +399,7 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 		{udpPort, UdpPort},
 		{tcpPort, 6007}
 	]},
-	Response = #envelope{id = Id, type = response, contents = LoginRep,
+	Response = #envelope{id = MessageID, type = response, contents = LoginRep,
 		channel = <<"control">>},
 	OutBin = wrap_for_send(Response),
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
@@ -418,7 +418,7 @@ service_control_message(request, <<"login">>, Id, Request, State) ->
 		}
 	};
 
-service_control_message(request, <<"getCharacters">>, Id, _Request, State) ->
+service_control_message(request, <<"getCharacters">>, MessageID, _Request, State) ->
 	?info("Retrieving character list for client ~p.", [State#state.client_info]),
 
 	GetCharsRep = {struct, [
@@ -426,10 +426,10 @@ service_control_message(request, <<"getCharacters">>, Id, _Request, State) ->
 			% TODO: Replace this with generated character list
 			{characters, [<<"Character 1">>, <<"Character 2">>, <<"Character 3">>]}
 	]},
-	respond(ssl, Id, <<"control">>, GetCharsRep),
+	respond(ssl, MessageID, <<"control">>, GetCharsRep),
 	State;
 
-service_control_message(request, <<"selectCharacter">>, Id, Request, State) ->
+service_control_message(request, <<"selectCharacter">>, MessageID, Request, State) ->
 	Character = proplists:get_value(<<"character">>, Request),
 	?info("Character selected: ~p", [Character]),
 
@@ -447,7 +447,7 @@ service_control_message(request, <<"selectCharacter">>, Id, Request, State) ->
 	CharSelRep = {struct, [
 		{confirm, true}
 	]},
-	respond(ssl, Id, <<"control">>, CharSelRep),
+	respond(ssl, MessageID, <<"control">>, CharSelRep),
 
 	State#state{
 		client_info = State#state.client_info#client_info{
@@ -461,16 +461,16 @@ service_control_message(event, <<"logout">>, _, _, _) ->
 
 %% ------------------------------------------------------------------
 
-respond(Socket, Id, Channel, Json) ->
-	respond(self(), Socket, Id, Channel, Json).
+respond(Socket, MessageID, Channel, Json) ->
+	respond(self(), Socket, MessageID, Channel, Json).
 
 %% ------------------------------------------------------------------
 
 generate_id() ->
-	IdRef = erlang:make_ref(),
-	IdList = io_lib:format("~p", [IdRef]),
-	Id = lists:flatten(IdList),
-	list_to_binary(Id).
+	MessageIDRef = erlang:make_ref(),
+	MessageIDList = io_lib:format("~p", [MessageIDRef]),
+	MessageID = lists:flatten(MessageIDList),
+	list_to_binary(MessageID).
 
 build_message(Type, Channel, Json) ->
 	build_message(Type, Channel, Json, undefined, undefined).
@@ -478,8 +478,8 @@ build_message(Type, Channel, Json) ->
 build_message(Type, Channel, Json, AESKey, AESVector) ->
 	build_message(Type, Channel, Json, AESKey, AESVector, true).
 
-build_message({Type, Id}, Channel, Json, AESKey, AESVector, UseNetstring) ->
-	Response = #envelope{id = Id, type = Type, contents = Json, channel = Channel},
+build_message({Type, MessageID}, Channel, Json, AESKey, AESVector, UseNetstring) ->
+	Response = #envelope{id = MessageID, type = Type, contents = Json, channel = Channel},
 	wrap_for_send(Response, AESKey, AESVector, UseNetstring);
 
 build_message(Type, Channel, Json, AESKey, AESVector, UseNetstring) ->
@@ -511,14 +511,14 @@ parse_netstring(Packet, Continuation) ->
 	netstring:decode(Packet, Continuation).
 
 envelope_to_json(Envelope) ->
-	#envelope{type = Type, channel = Channel, contents = Contents, id = Id} = Envelope,
+	#envelope{type = Type, channel = Channel, contents = Contents, id = MessageID} = Envelope,
 	Props = [{<<"type">>, Type},
 		{<<"channel">>, Channel},
 		{<<"contents">>, Contents}
 	],
-	case Id of
+	case MessageID of
 		undefined -> {struct, Props};
-		Id -> {struct, [{<<"id">>, Id} | Props]}
+		MessageID -> {struct, [{<<"id">>, MessageID} | Props]}
 	end.
 
 %% @doc Takes a json and turns it into an envelope record.
@@ -529,10 +529,10 @@ json_to_envelope(Json) when is_binary(Json) ->
 json_to_envelope({struct, Props}) ->
 	Type = proplists:get_value(<<"type">>, Props, <<>>),
 	Type0 = check_envelope_type(Type),
-	Id = proplists:get_value(<<"id">>, Props),
+	MessageID = proplists:get_value(<<"id">>, Props),
 	Contents = proplists:get_value(<<"contents">>, Props),
 	Channel = proplists:get_value(<<"channel">>, Props),
-	#envelope{type = Type0, id = Id, contents = Contents, channel = Channel}.
+	#envelope{type = Type0, id = MessageID, contents = Contents, channel = Channel}.
 
 check_envelope_type(<<"request">>) -> request;
 check_envelope_type(<<"response">>) -> response;
