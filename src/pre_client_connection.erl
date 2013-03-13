@@ -85,9 +85,9 @@ set_tcp(Pid, Socket, Message, Bins, Cont) ->
 	Channel :: binary(),
 	Json :: json().
 
-send(ClientInfo, S, R, C, J) when is_record(ClientInfo, client_info) ->
+send(ClientInfo, Socket, Type, Channel, Json) when is_record(ClientInfo, client_info) ->
 	Pid = ClientInfo#client_info.connection,
-	send(Pid, S, R, C, J);
+	send(Pid, Socket, Type, Channel, Json);
 
 send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
 	Id = generate_id(),
