@@ -1,6 +1,6 @@
 %%% @doc The game state engine - handles syncing of game state to the database and between nodes
 
--module(pre_gse).
+-module(pre_data).
 -behavior(gen_server).
 
 -include("log.hrl").
@@ -16,7 +16,6 @@
 
 -record(state, {
 	%TODO: Riak connection info
-	%TODO: ETS info? (needed?)
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -36,18 +35,33 @@ start_link() ->
     {ok, Value :: json()} | {error, Msg :: list()}.
 
 get(Bucket, Key) ->
-	{error, "FECK"}.
+	case get_cache(Bucket, Key) of
+		not_found ->
+			% Cache miss; look it up in Riak.
+			get_checked(Bucket, Key);
+		Resp ->
+			% We don't care about the return; get_cache returns sane values to the user, not us.
+			Resp
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Gets the contents of Bucket/Key from the local cache.
 %%
-%% This returns the value from the local ETS cache, returning 'undefined' if it was not found.
+%% This returns the value from the local ETS cache, returning 'not_found' if it was not found.
 -spec get_cache(Bucket::binary(), Key::binary()) ->
-    {ok, Value :: json()} | {error, Msg :: list()}.
+    {ok, Value :: json()} | {error, Msg :: list()} | not_found.
 
 get_cache(Bucket, Key) ->
-	{error, "FECK"}.
+	case ets:lookup(game_state, {Bucket, Key}) of
+		[] ->
+			not_found;
+		[Value] ->
+			Value;
+		_ ->
+			%TODO: Be more verbose here, or log, or something.
+			{error, "Error querying ETS cache."}
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -69,7 +83,13 @@ get_checked(Bucket, Key) ->
     ok | {error, Msg :: string()}.
 
 set(Bucket, Key, Value) ->
-	ets:insert(game_state, {{Bucket, Key}, Value}).
+	case set_cache(Bucket, Key, Value) of
+		ok ->
+			%TODO: Set this in Riak.
+			ok;
+		Resp ->
+			Resp
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -91,7 +111,14 @@ set_cache(Bucket, Key, Value) ->
     ok | {error, Msg :: string()}.
 
 set_cache(Bucket, Key, Value, NotifyPeers) ->
-	ets:insert(game_state, {{Bucket, Key}, Value}).
+	ets:insert(game_state, {{Bucket, Key}, Value}),
+	case NotifyPeers of
+		true ->
+			%TODO: Notify peer servers.
+			ok;
+		_ ->
+			ok
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -104,7 +131,9 @@ set_cache(Bucket, Key, Value, NotifyPeers) ->
 	ok | {siblings, SiblingValues :: [json()]} | {error, Msg :: string()}.
 
 set_checked(Bucket, Key, Value) ->
-	ets:insert(game_state, {{Bucket, Key}, Value}).
+	ets:insert(game_state, {{Bucket, Key}, Value}),
+	%TODO: Set the value in Riak, and check the results
+	ok.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -115,7 +144,13 @@ set_checked(Bucket, Key, Value) ->
     ok | {error, Msg :: string()}.
 
 delete(Bucket, Key) ->
-	{error, "FECK"}.
+	case delete_cache(Bucket, Key) of
+		ok ->
+			%TODO: Delete from Riak
+			ok;
+		Resp ->
+			Resp
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -137,7 +172,13 @@ delete_cache(Bucket, Key) ->
     ok | {error, Msg :: string()}.
 
 delete_cache(Bucket, Key, NotifyPeers) ->
-	{error, "FECK"}.
+	case ets:delete(game_state, {Bucket, Key}) of
+		true ->
+			ok;
+		_ ->
+			%TODO: Be more verbose, and put logging here.
+			{error, "Failed to delete object from ETS."}
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
