@@ -11,6 +11,7 @@
 -export([get/2, get_cache/2, get_checked/2]).
 -export([set/3, set_cache/3, set_cache/4, set_checked/3]).
 -export([delete/2, delete_cache/2, delete_cache/3, delete_checked/2]).
+
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
@@ -23,7 +24,7 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 start_link() ->
-	gen_server:start_link({local, ?MODULE}, [], []).
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -53,7 +54,7 @@ get(Bucket, Key) ->
     {ok, Value :: json()} | {error, Msg :: list()} | not_found.
 
 get_cache(Bucket, Key) ->
-	case ets:lookup(game_state, {Bucket, Key}) of
+	case ets:lookup(?MODULE, {Bucket, Key}) of
 		[] ->
 			not_found;
 		[Value] ->
@@ -111,7 +112,7 @@ set_cache(Bucket, Key, Value) ->
     ok | {error, Msg :: string()}.
 
 set_cache(Bucket, Key, Value, NotifyPeers) ->
-	ets:insert(game_state, {{Bucket, Key}, Value}),
+	ets:insert(?MODULE, {{Bucket, Key}, Value}),
 	case NotifyPeers of
 		true ->
 			%TODO: Notify peer servers.
@@ -131,9 +132,8 @@ set_cache(Bucket, Key, Value, NotifyPeers) ->
 	ok | {siblings, SiblingValues :: [json()]} | {error, Msg :: string()}.
 
 set_checked(Bucket, Key, Value) ->
-	ets:insert(game_state, {{Bucket, Key}, Value}),
 	%TODO: Set the value in Riak, and check the results
-	ok.
+	set_cache(Bucket, Key, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -172,7 +172,7 @@ delete_cache(Bucket, Key) ->
     ok | {error, Msg :: string()}.
 
 delete_cache(Bucket, Key, NotifyPeers) ->
-	case ets:delete(game_state, {Bucket, Key}) of
+	case ets:delete(?MODULE, {Bucket, Key}) of
 		true ->
 			ok;
 		_ ->
@@ -197,7 +197,7 @@ delete_checked(Bucket, Key) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 init([]) ->
-	ets:new(game_state, [set, protected, named_table]),
+	ets:new(?MODULE, [set, public, named_table]),
 	State = #state{
 	},
 	{ok, State}.

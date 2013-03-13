@@ -39,6 +39,8 @@ init(Args) ->
 
 	HooksKid = ?CHILD(pre_hooks, supervisor, []),
 
+	DataKid = ?CHILD(pre_data, worker, []),
+
 	EntityManagerArgs = proplists:get_value(entity_engine_sup, Args, []),
 	EntityManagerKid = ?CHILD(pre_entity_engine_sup, supervisor, [EntityManagerArgs]),
 
@@ -56,6 +58,7 @@ init(Args) ->
 		AuthManagerKid,
 		ListenerKid,
 		HooksKid,
+		DataKid,
 		EntityManagerKid,
 		EntityChannelKid
 	],
