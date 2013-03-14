@@ -38,7 +38,7 @@ start_link(Args) ->
 %% This returns the value from the local ETS cache, or queries Riak and caches the value if the value was not already
 %% in the cache.
 -spec get(Bucket::binary(), Key::binary()) ->
-    {ok, Value :: json()} | {error, Msg :: list()}.
+    {ok, Value :: json()} | not_found | {error, Msg :: list()}.
 
 get(Bucket, Key) ->
 	case get_cache(Bucket, Key) of
@@ -46,7 +46,10 @@ get(Bucket, Key) ->
 			% Cache miss; look it up in Riak.
 			case get_checked(Bucket, Key) of
 				{ok, Value} ->
-					set_cache(Bucket, Key, Value);
+					set_cache(Bucket, Key, Value),
+					Value;
+				{error, notfound} ->
+					not_found;
 				Error ->
 					?error("Unexpected response when setting cache during cache miss. Response: ~p", [Error]),
 					{error, "Failed to set cache with Riak's response."}
@@ -62,13 +65,13 @@ get(Bucket, Key) ->
 %%
 %% This returns the value from the local ETS cache, returning 'not_found' if it was not found.
 -spec get_cache(Bucket::binary(), Key::binary()) ->
-    {ok, Value :: json()} | {error, Msg :: list()} | not_found.
+    {ok, Value :: json()} | not_found | {error, Msg :: list()}.
 
 get_cache(Bucket, Key) ->
 	case ets:lookup(?MODULE, {Bucket, Key}) of
 		[] ->
 			not_found;
-		[Value] ->
+		[{_, Value}] ->
 			Value;
 		Else ->
 			?error("Unexpected response from ETS. Response was: ~p", [Else]),
@@ -81,7 +84,7 @@ get_cache(Bucket, Key) ->
 %%
 %% This queries Riak for the given value, and caches the value in ETS.
 -spec get_checked(Bucket::binary(), Key::binary()) ->
-    {ok, Value :: json()} | {error, Msg :: list()}.
+    {ok, Value :: json()} | not_found | {error, Msg :: list()}.
 
 get_checked(Bucket, Key) ->
 	gen_server:call(?MODULE, {get, Bucket, Key}).
@@ -248,8 +251,8 @@ handle_call({get, Bucket, Key}, _From, State) ->
 	RiakConn = State#state.riak_conn,
 	Resp = case riakc_pb_socket:get(RiakConn, Bucket, Key) of
 		{ok, RiakCObj} ->
-			JSON = riakc_obj:get_value(RiakCObj),
-			Value = parse_json(JSON),
+			JSONBin = riakc_obj:get_value(RiakCObj),
+			Value = pre_json:to_term(JSONBin),
 			{ok, Value};
 		Error ->
 			%TODO: Check for siblings... and do something?
@@ -259,10 +262,29 @@ handle_call({get, Bucket, Key}, _From, State) ->
 	{reply, Resp, State};
 
 handle_call({set, Bucket, Key, Value}, _From, State) ->
-	{reply, {error, 'FECK'}, State};
+	RiakConn = State#state.riak_conn,
+	JSONBin = pre_json:to_json(Value),
+	RiakObj = riakc_obj:new(Bucket, Key, JSONBin, "application/json"),
+	Resp = try riakc_pb_socket:put(RiakConn, RiakObj) of
+		Valid ->
+			Valid
+	catch
+		siblings ->
+			%TODO: Figure out how to retrieve the siblings.
+			{siblings, [RiakObj]}
+	end,
+	{reply, Resp, State};
 
 handle_call({delete, Bucket, Key}, _From, State) ->
-	{reply, {error, 'FECK'}, State};
+	RiakConn = State#state.riak_conn,
+	Resp = case riakc_pb_socket:delete(RiakConn, Bucket, Key) of
+		ok ->
+			ok;
+		{error, Error} ->
+			?error("Unexpected response from Riak. Response was: ~p", [Error]),
+			{error, "Error querying ETS cache."}
+	end,
+	{reply, Resp, State};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
@@ -276,11 +298,6 @@ handle_cast(_, State) ->
 
 handle_info(_, State) ->
     {noreply, State}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-parse_json(Bin) ->
-	{not_really_json}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
