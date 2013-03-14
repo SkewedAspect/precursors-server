@@ -7,7 +7,7 @@
 -include("pre_entity.hrl").
 
 % API
--export([start_link/0]).
+-export([start_link/1]).
 -export([get/2, get_cache/2, get_checked/2]).
 -export([set/3, set_cache/3, set_cache/4, set_checked/3]).
 -export([delete/2, delete_cache/2, delete_cache/3, delete_checked/2]).
@@ -15,16 +15,21 @@
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+% Default Riak connection parameters:
+-define(DEFAULT_RIAK_PB_PORT, 8087).
+
 -record(state, {
-	%TODO: Riak connection info
+	host = "localhost",
+	port = ?DEFAULT_RIAK_PB_PORT :: riakc_pb_socket:portnum(),
+	riak_conn :: pid()
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-start_link() ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+start_link(Args) ->
+	gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -39,7 +44,13 @@ get(Bucket, Key) ->
 	case get_cache(Bucket, Key) of
 		not_found ->
 			% Cache miss; look it up in Riak.
-			get_checked(Bucket, Key);
+			case get_checked(Bucket, Key) of
+				{ok, Value} ->
+					set_cache(Bucket, Key, Value);
+				Error ->
+					?error("Unexpected response when setting cache during cache miss. Response: ~p", [Error]),
+					{error, "Failed to set cache with Riak's response."}
+			end;
 		Resp ->
 			% We don't care about the return; get_cache returns sane values to the user, not us.
 			Resp
@@ -59,8 +70,8 @@ get_cache(Bucket, Key) ->
 			not_found;
 		[Value] ->
 			Value;
-		_ ->
-			%TODO: Be more verbose here, or log, or something.
+		Else ->
+			?error("Unexpected response from ETS. Response was: ~p", [Else]),
 			{error, "Error querying ETS cache."}
 	end.
 
@@ -73,7 +84,7 @@ get_cache(Bucket, Key) ->
     {ok, Value :: json()} | {error, Msg :: list()}.
 
 get_checked(Bucket, Key) ->
-	{error, "FECK"}.
+	gen_server:call(?MODULE, {get, Bucket, Key}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -86,8 +97,8 @@ get_checked(Bucket, Key) ->
 set(Bucket, Key, Value) ->
 	case set_cache(Bucket, Key, Value) of
 		ok ->
-			%TODO: Set this in Riak.
-			ok;
+			% Set Value in Riak.
+			gen_server:call(?MODULE, {set, Bucket, Key, Value});
 		Resp ->
 			Resp
 	end.
@@ -126,14 +137,19 @@ set_cache(Bucket, Key, Value, NotifyPeers) ->
 %% @doc Sets the contents of Bucket/Key to Value, checking to see whether the write succeeds and whether a sibling was
 %% created.
 %%
-%% This sets the value in the ETS cache and in Riak, and if no siblings were created in Riak, sends an update to the
-%% peer servers.
+%% This sets the value in Riak, and if no siblings were created, sets the value in the ETS cache and sends an update to
+%% the peer servers.
 -spec set_checked(Bucket::binary(), Key::binary(), Value::json()) ->
 	ok | {siblings, SiblingValues :: [json()]} | {error, Msg :: string()}.
 
 set_checked(Bucket, Key, Value) ->
-	%TODO: Set the value in Riak, and check the results
-	set_cache(Bucket, Key, Value).
+	% Set the value in Riak, and check the results
+	case gen_server:call(?MODULE, {set, Bucket, Key, Value}) of
+		ok ->
+			set_cache(Bucket, Key, Value);
+		Resp ->
+			Resp
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -146,8 +162,8 @@ set_checked(Bucket, Key, Value) ->
 delete(Bucket, Key) ->
 	case delete_cache(Bucket, Key) of
 		ok ->
-			%TODO: Delete from Riak
-			ok;
+			% Delete from Riak
+			gen_server:call(?MODULE, {delete, Bucket, Key});
 		Resp ->
 			Resp
 	end.
@@ -175,8 +191,8 @@ delete_cache(Bucket, Key, NotifyPeers) ->
 	case ets:delete(?MODULE, {Bucket, Key}) of
 		true ->
 			ok;
-		_ ->
-			%TODO: Be more verbose, and put logging here.
+		Resp ->
+			?error("Unexpected response while deleting object. Response: ~p", [Resp]),
 			{error, "Failed to delete object from ETS."}
 	end.
 
@@ -190,17 +206,41 @@ delete_cache(Bucket, Key, NotifyPeers) ->
 	ok | {newer_version, NewVersion :: json()} | {error, Msg::list()}.
 
 delete_checked(Bucket, Key) ->
-	{error, "FECK"}.
+	gen_server:call(?MODULE, {Bucket, Key}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
 %% --------------------------------------------------------------------------------------------------------------------
 
+init([Host, Port]) ->
+	ets:new(?MODULE, [set, public, named_table]),
+	?info("Host: ~p, Port: ~p", [Host, Port]),
+
+	% Connect to riak
+	{ok, RiakConn} = riakc_pb_socket:start_link(Host, Port),
+	State = #state{
+		host = Host,
+		port = Port,
+		riak_conn = RiakConn
+	},
+	{ok, State};
+
 init([]) ->
 	ets:new(?MODULE, [set, public, named_table]),
-	State = #state{
+	?info("Here, instead.", []),
+
+	% Pull state variables
+	State = #state{},
+	Host = State#state.host,
+	Port = State#state.port,
+
+	% Connect to riak
+	{ok, RiakConn} = riakc_pb_socket:start_link(Host, Port),
+	NewState = State#state{
+		riak_conn = RiakConn
 	},
-	{ok, State}.
+	{ok, NewState}.
+
 
 %% --------------------------------------------------------------------------------------------------------------------
 
