@@ -2,12 +2,12 @@
 %% backends.  Can itself be an authentication backend.  As such, the
 %% gen_event callback functions have two modes:  callback wrapper and
 %% direct responder.  Callback wrapping is simply to enforce behavior on
-%% other modules.  The actually implementation of the authentication 
+%% other modules.  The actually implementation of the authentication
 %% backends could be something completely different (gen_server is a solid
 %% choice).
 %%
 %% There are 4 callbacks in the behavior.
-%% 
+%%
 %% <b>init(InitArgs) -> {ok, BackendInfo}</b>
 %%
 %% Types:  <ul>
@@ -15,7 +15,7 @@
 %% <li>BackendInfo :: any()</li>
 %% </ul>
 %%
-%% BackendInfo is used for subsequent `handle_authentication/3' and 
+%% BackendInfo is used for subsequent `handle_authentication/3' and
 %% `get_user/2' calls.
 %%
 %% <b>handle_authentication(Username, Password, BackendInfo) -> Authy</b>
@@ -31,7 +31,7 @@
 %%
 %% When a user needs to be authenticated, each authentication backend in
 %% order of priority.  `Password' is plaintext.  `BackendInfo' what was
-%% returned from the init function.  If a backend returns `Error' 3 times, 
+%% returned from the init function.  If a backend returns `Error' 3 times,
 %% that backend is removed.
 %%
 %% <b>get_user(Username, BackendInfo) ->  UserInfo</b>
@@ -226,21 +226,21 @@ handle_call({authentication, Username, Password}, undefined) ->
 handle_call({authentication, Username, Password}, State) ->
 	#state{callback = Callback, substate = Substate, error_count = Errs} = State,
 	Out = Callback:handle_authentication(Username, Password, Substate),
-	Errcount = case Out of
+	ErrCount = case Out of
 		allow -> Errs;
 		{deny, _} -> Errs;
 		undefined -> Errs;
 		_Err -> Errs + 1
 	end,
-	case Errcount of
+	case ErrCount of
 		3 ->
-			?notice("backed ~s returned it's 3rd and final error ~p", [Callback, Out]),
+			?notice("Backend ~s returned its 3rd and final error ~p", [Callback, Out]),
 			remove_handler;
 		Errs ->
 			{ok, Out, State};
 		_ ->
-			?notice("backend ~s returned an error ~p; this is error ~p", [Callback, Out, Errcount]),
-			{ok, Out, State#state{error_count = Errcount}}
+			?notice("Backend ~s returned an error ~p; this is error ~p", [Callback, Out, ErrCount]),
+			{ok, Out, State#state{error_count = ErrCount}}
 	end;
 
 handle_call({get_user, Username}, undefined) ->
@@ -274,7 +274,7 @@ terminate(Why, State) ->
 	?info("Going down:  ~p", [Why]),
 	#state{callback = Callback, substate = Substate} = State,
 	Callback:terminate(Why, Substate).
-	
+
 %% ------------------------------------------------------------------
 %% code_change
 %% ------------------------------------------------------------------
@@ -308,7 +308,7 @@ authenticate([Handler | Tail], Username, Password) ->
 		undefined ->
 			authenticate(Tail, Username, Password);
 		Else ->
-			?info("Handler ~p returned an bad value ~p", [Handler, Else]),
+			?info("Handler ~p returned a bad value ~p", [Handler, Else]),
 			authenticate(Tail, Username, Password)
 	end.
 
@@ -328,29 +328,3 @@ proplist_to_user_auth(Proplist) ->
 	BaseRec = #user_auth{},
 	KeyPos = record_info(fields, user_auth),
 	{error, nyi}.
-
-%% ==================================================================
-%% API
-%% ==================================================================
-
-
-%% ==================================================================
-%% API
-%% ==================================================================
-
-%% ==================================================================
-%% API
-%% ==================================================================
-
-%% ==================================================================
-%% API
-%% ==================================================================
-
-%% ==================================================================
-%% API
-%% ==================================================================
-
-
-%% ------------------------------------------------------------------
-%% 
-%% ------------------------------------------------------------------
