@@ -2,7 +2,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 -include("log.hrl").
--include("pre_client.hrl").
+-include("pre_entity.hrl").
 
 pre_channel_input_test_()->
 	[{"Register Hooks Test",
@@ -20,15 +20,48 @@ pre_channel_input_test_()->
 		{"Client Request Test",
 			fun()->
 					meck:new(pre_entity),
-					meck:expect(pre_entity, client_request, fun(RequestType, EntityID, RequestID, Request)->
+					meck:expect(pre_entity, init, fun(substate) ->
+						{ok, substate}
+					end),
+					meck:expect(pre_entity, handle_call,
+						fun({client_request, EntityID, ClientInfo, Channel, RequestType, RequestID, Request}, _From, State) ->
+						Response = {reply, [
+							{confirm, false},
+							{reason, <<"VALID CRAPBACK: Invalid request!">>}
+						]},
+						{reply, {Response, #entity{}}, State}
+					end),
+					meck:expect(pre_entity, handle_cast, fun(_Request, State) ->
+						{noreply, State}
+					end),
+					meck:expect(pre_entity, handle_info, fun(_Info, State) ->
+						{noreply, State}
+					end),
+					meck:expect(pre_entity, terminate, fun(_Reason, State) ->
+						whatever
+					end),
+					meck:expect(pre_entity, code_change, fun(_OldVsn, _State, _Extra) ->
+						{error, ni}
+					end),
+
+					meck:expect(pre_entity, client_request, fun(RequestType, _EntityID, _RequestID, _Request)->
                                 ?assert(RequestType =:= <<"TestType">>),
 								ok
 						end),
-                    TestClient = #client_info{entity = <<"TestEntity">>},
-                    TestRequest = {struct, [{<<"type">>, <<"TestType">>}]},
-					pre_channel_input:client_request(TestClient, undefined, TestRequest, undefined),
-                    History = meck:history(pre_entity),
-                    ?assertEqual(1, length(History)),
+					{ok, TestEntityPid} = gen_server:start_link(pre_entity, substate, []),
+					TestEntityID = #entity_id{engine = TestEntityPid},
+                    TestClient = #client_info{entity = TestEntityID},
+                    TestRequest = [{type, <<"TestType">>}],
+					Response = pre_channel_input:client_request(TestClient, undefined, TestRequest, undefined),
+					%pre_channel_input:client_request(ClientInfo, RequestID, Request, _Info) ->
+					ExpectedResponse = {
+						{reply, [
+							{confirm, false},
+							{reason, <<"VALID CRAPBACK: Invalid request!">>}
+						]},
+						#entity{}
+					},
+					?assertEqual(ExpectedResponse, Response),
                     meck:unload(pre_entity)
             end},
 		{"Client Login Hook Trigger Test",
