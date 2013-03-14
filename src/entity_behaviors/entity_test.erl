@@ -91,10 +91,10 @@ timer_fired(EntityState, Tag) ->
 
 %% -------------------------------------------------------------------
 
-handle_input_command(EntityState, {struct, RawCommand}) ->
-	Command = proplists:get_value(<<"name">>, RawCommand),
-	Args = proplists:get_value(<<"args">>, RawCommand),
-	KWArgs = proplists:get_value(<<"kwargs">>, RawCommand),
+handle_input_command(EntityState, [{_, _} | _] = RawCommand) ->
+	Command = proplists:get_value(name, RawCommand),
+	Args = proplists:get_value(args, RawCommand),
+	KWArgs = proplists:get_value(kwargs, RawCommand),
 	handle_input_command(EntityState, Command, Args, KWArgs).
 
 %% -------------------------------------------------------------------
@@ -104,9 +104,9 @@ handle_input_command(EntityState, <<"test">>, _Args, _KWArgs) ->
 	#entity{
 		physical = Physical
 	} = EntityState,
-	Response = {reply, {struct, [
+	Response = {reply, [
 		{confirm, true}
-	]}},
+	]},
 	EntityState1 = EntityState#entity{
 		physical = Physical#physical{
 			position = {random:uniform() * 200 - 100, 700, 10}
@@ -116,8 +116,8 @@ handle_input_command(EntityState, <<"test">>, _Args, _KWArgs) ->
 
 handle_input_command(EntityState, Command, Args, KWArgs) ->
 	?info("Got unrecognized input command: ~p", [{Command, Args, KWArgs}]),
-	Response = {reply, {struct, [
+	Response = {reply, [
 		{confirm, false},
 		{reason, <<"VALID CRAPBACK: Unrecognized input command \"", Command/binary, "\"!">>}
-	]}},
+	]},
 	{Response, EntityState}.

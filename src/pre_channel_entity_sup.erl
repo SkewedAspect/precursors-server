@@ -55,7 +55,7 @@ client_request(Client, RequestID, Request, _Info) ->
 
 broadcast_update(EntityID, StateDelta) ->
 	Content = [
-		{state, {struct, StateDelta}}
+		{state, StateDelta}
 	],
 	broadcast_event(update, EntityID, Content).
 
@@ -74,8 +74,8 @@ broadcast_full_update(Entity) ->
 			} = Entity,
 
 			Content = [
-				{modelDef, {struct, ModelDef}},
-				{state, {struct, FullState}}
+				{modelDef, ModelDef},
+				{state, FullState}
 			],
 			broadcast_event(full, EntityID, Content, Timestamp)
 		end

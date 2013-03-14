@@ -13,7 +13,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/1,start/1]).
+-export([start_link/1, start/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -64,7 +64,7 @@ handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 		{[Binary | Tail], Cont} ->
 			% Decode message envelope
 			Message = pre_client_connection:json_to_envelope(Binary),
-			#envelope{type = request, channel = <<"control">>, contents = {struct, Request}} = Message,
+			#envelope{type = request, channel = <<"control">>, contents = Request} = Message,
 			Cookie = proplists:get_value(<<"cookie">>, Request),
 			% Look up client PID by cookie in ETS
 			?debug("Checking for cookie:  ~p", [Cookie]),

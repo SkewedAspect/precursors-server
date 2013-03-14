@@ -130,7 +130,7 @@ set_inhabited_entity(Pid, EntityID) ->
 init({Socket, Cookie}) ->
 	?info("New client connection"),
 	ssl:setopts(Socket, [{active, once}]),
-	{ok, Udp} = gen_udp:open(0, [{active, once}, binary, {ip, {0,0,0,0}}]),
+	{ok, Udp} = gen_udp:open(0, [{active, once}, binary, {ip, {0, 0, 0, 0}}]),
 	ClientInfo = #client_info{
 		connection = self()
 	},
@@ -353,7 +353,7 @@ service_message(Request, State) ->
 
 %% ------------------------------------------------------------------
 
-service_control_channel(#envelope{type = Type, id = MessageID, contents = {struct, Request}}, State) ->
+service_control_channel(#envelope{type = Type, id = MessageID, contents = Request}, State) ->
 	service_control_message(Type, MessageID, Request, State);
 
 service_control_channel(Thing, State) ->
@@ -392,13 +392,13 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	% Send login response
 	#state{cookie = Cookie, udp_socket = UdpSocket, client_info = ClientInfo} = State,
 	{ok, UdpPort} = inet:port(UdpSocket),
-	LoginRep = {struct, [
+	LoginRep = [
 		{confirm, Confirm},
 		{reason, Reason},
 		{cookie, Cookie},
 		{udpPort, UdpPort},
 		{tcpPort, 6007}
-	]},
+	],
 	Response = #envelope{id = MessageID, type = response, contents = LoginRep,
 		channel = <<"control">>},
 	OutBin = wrap_for_send(Response),
@@ -421,11 +421,11 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 service_control_message(request, <<"getCharacters">>, MessageID, _Request, State) ->
 	?info("Retrieving character list for client ~p.", [State#state.client_info]),
 
-	GetCharsRep = {struct, [
+	GetCharsRep = [
 		{confirm, true},
 			% TODO: Replace this with generated character list
 			{characters, [<<"Character 1">>, <<"Character 2">>, <<"Character 3">>]}
-	]},
+	],
 	respond(ssl, MessageID, <<"control">>, GetCharsRep),
 	State;
 
@@ -435,18 +435,18 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 
 	Connection = State#state.client_info#client_info.connection,
 	LevelUrl = <<"zones/test/TestArea.json">>,
-	LoadLevel = {struct, [
+	LoadLevel = [
 		{type, <<"setZone">>},
 		{level, LevelUrl}
-	]},
+	],
 	send(Connection, tcp, event, level, LoadLevel),
 
 	?info("Creating entity for client ~p.", [State#state.client_info]),
 	set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
 
-	CharSelRep = {struct, [
+	CharSelRep = [
 		{confirm, true}
-	]},
+	],
 	respond(ssl, MessageID, <<"control">>, CharSelRep),
 
 	State#state{
@@ -511,14 +511,20 @@ parse_netstring(Packet, Continuation) ->
 	netstring:decode(Packet, Continuation).
 
 envelope_to_json(Envelope) ->
-	#envelope{type = Type, channel = Channel, contents = Contents, id = MessageID} = Envelope,
-	Props = [{<<"type">>, Type},
-		{<<"channel">>, Channel},
-		{<<"contents">>, Contents}
+	#envelope{
+		type = Type,
+		channel = Channel,
+		contents = Contents,
+		id = MessageID
+	} = Envelope,
+	Props = [
+		{type, if is_binary(Type) -> Type; is_atom(Type) -> list_to_binary(atom_to_list(Type)) end},
+		{channel, Channel},
+		{contents, Contents}
 	],
 	case MessageID of
-		undefined -> {struct, Props};
-		MessageID -> {struct, [{<<"id">>, MessageID} | Props]}
+		undefined -> Props;
+		MessageID -> [{id, MessageID} | Props]
 	end.
 
 %% @doc Takes a json and turns it into an envelope record.
@@ -526,12 +532,12 @@ envelope_to_json(Envelope) ->
 json_to_envelope(Json) when is_binary(Json) ->
 	json_to_envelope(jsx:to_term(Json, [{labels, binary}]));
 
-json_to_envelope({struct, Props}) ->
-	Type = proplists:get_value(<<"type">>, Props, <<>>),
+json_to_envelope([{_, _} | _] = Props) ->
+	Type = proplists:get_value(type, Props, <<>>),
 	Type0 = check_envelope_type(Type),
-	MessageID = proplists:get_value(<<"id">>, Props),
-	Contents = proplists:get_value(<<"contents">>, Props),
-	Channel = proplists:get_value(<<"channel">>, Props),
+	MessageID = proplists:get_value(id, Props),
+	Contents = proplists:get_value(contents, Props),
+	Channel = proplists:get_value(channel, Props),
 	#envelope{type = Type0, id = MessageID, contents = Contents, channel = Channel}.
 
 check_envelope_type(<<"request">>) -> request;
@@ -569,7 +575,7 @@ aes_decrypt_envelope(Packet, State) ->
 handle_udp_connect_message(Message, State) ->
 	#state{cookie = Cookie} = State,
 	try begin
-		#envelope{type = request, channel = <<"control">>, contents = {struct, Request}} = Message,
+		#envelope{type = request, channel = <<"control">>, contents = Request} = Message,
 		case proplists:get_value(<<"type">>, Request) of
 			<<"connect">> ->
 				case proplists:get_value(<<"cookie">>, Request) of
@@ -582,7 +588,7 @@ handle_udp_connect_message(Message, State) ->
 		end
 	catch
 		What:Why ->
-			{What,Why}
+			{What, Why}
 	end.
 
 confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Message, State) ->
@@ -595,9 +601,9 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 	} = State,
 
 	% Send response over SSL transport
-	ConnectRep = {struct, [
+	ConnectRep = [
 		{confirm, true}
-	]},
+	],
 	OutBin = build_message({response, Message#envelope.id}, <<"control">>, ConnectRep),
 	SendRes = ssl:send(SSLSocket, OutBin),
 	?debug("Connect response ssl:send result:  ~p", [SendRes]),
@@ -637,25 +643,30 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 json_encode_decode_test_() -> [
 	{"json_to_envelope, simple success", fun() ->
 		Expected = #envelope{type = request, channel = <<"goober chan">>},
-		Out = json_to_envelope({struct, [{<<"type">>, <<"request">>},
-			{<<"channel">>, <<"goober chan">>}]}),
+		Out = json_to_envelope([
+			{type, <<"request">>},
+			{channel, <<"goober chan">>}
+		]),
 		?assertEqual(Expected, Out)
 	end},
 
 	{"json_to_envelope, explosion", fun() ->
 		Json = <<"\"not valid json\"">>,
-		?assertError({case_clause, _}, json_to_envelope(Json))
+		?assertError(badarg, json_to_envelope(Json))
 	end},
 
 	{"envelope_to_json, simple success", fun() ->
-		Expected = lists:sort([{<<"id">>, <<"an id">>},
-			{<<"channel">>, <<"goober chan">>}, {<<"type">>, request},
-			{<<"contents">>, <<"this is a string">>}]),
+		Expected = lists:sort([
+			{id, <<"an id">>},
+			{channel, <<"goober chan">>},
+			{type, <<"request">>},
+			{contents, <<"this is a string">>}
+		]),
 		Input = #envelope{type = request, channel = <<"goober chan">>,
 			id = <<"an id">>, contents = <<"this is a string">>},
-		{struct, Out} = envelope_to_json(Input),
-		Out0 = lists:sort(Out),
-		?assertEqual(Expected, Out0)
+		Out = lists:sort(envelope_to_json(Input)),
+		?assertEqual(Expected, Out)
 	end}
 	].
+
 -endif.

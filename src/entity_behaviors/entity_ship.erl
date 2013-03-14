@@ -80,10 +80,10 @@ timer_fired(EntityState, Tag) ->
 
 %% -------------------------------------------------------------------
 
-handle_input_command(EntityState, {struct, RawCommand}) ->
-	Command = proplists:get_value(<<"name">>, RawCommand),
-	Args = proplists:get_value(<<"args">>, RawCommand),
-	KWArgs = proplists:get_value(<<"kwargs">>, RawCommand),
+handle_input_command(EntityState, [{_, _} | _] = RawCommand) ->
+	Command = proplists:get_value(name, RawCommand),
+	Args = proplists:get_value(args, RawCommand),
+	KWArgs = proplists:get_value(kwargs, RawCommand),
 	handle_input_command(EntityState, Command, Args, KWArgs).
 
 %% -------------------------------------------------------------------
@@ -111,10 +111,10 @@ handle_input_command(EntityState, <<"yaw">>, [TargetVel], _KWArgs) ->
 % Catch-all
 handle_input_command(EntityState, Command, Args, KWArgs) ->
 	?info("Got unrecognized input command: ~p, ~p, ~p", [Command, Args, KWArgs]),
-	Response = {reply, {struct, [
+	Response = {reply, [
 		{confirm, false},
 		{reason, <<"VALID CRAPBACK: Unrecognized input command \"", Command/binary, "\"!">>}
-	]}},
+	]},
 	{Response, EntityState}.
 
 %% -------------------------------------------------------------------
@@ -132,9 +132,9 @@ set_target_angular_velocity(EntityState, New) ->
 			target_angular_velocity = update_vector(New, Current)
 		}
 	},
-	Response = {reply, {struct, [
+	Response = {reply, [
 		{confirm, true}
-	]}},
+	]},
 	{Response, EntityState1}.
 
 %% -------------------------------------------------------------------
@@ -152,9 +152,9 @@ set_target_linear_velocity(EntityState, New) ->
 			target_linear_velocity = update_vector(New, Current)
 		}
 	},
-	Response = {reply, {struct, [
+	Response = {reply, [
 		{confirm, true}
-	]}},
+	]},
 	{Response, EntityState1}.
 
 %% -------------------------------------------------------------------

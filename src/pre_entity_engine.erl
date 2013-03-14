@@ -234,8 +234,8 @@ client_request_internal(EntityID, _ClientInfo, <<"entity">>, <<"full">>, _Reques
 		{confirm, true},
 		{id, EntityID},
 		{timestamp, Timestamp},
-		{modelDef, {struct, ModelDef}},
-		{state, {struct, FullState}}
+		{modelDef, ModelDef},
+		{state, FullState}
 	],
 	{reply, Response, State};
 
@@ -244,8 +244,8 @@ client_request_internal(EntityID, ClientInfo, Channel, RequestType, RequestID, R
 
 %% -------------------------------------------------------------------
 
-message_type({struct, Request}) ->
-	proplists:get_value(<<"type">>, Request);
+message_type([{_, _} | _] = Request) ->
+	proplists:get_value(type, Request);
 
 message_type(_) ->
 	undefined.

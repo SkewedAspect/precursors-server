@@ -212,29 +212,29 @@ pid_to_bin(P) ->
 
 broadcast(_Message, []) ->
 	ok;
-broadcast(Message, [{C,_} | Tail]) ->
+broadcast(Message, [{C, _} | Tail]) ->
 	pre_client_connection:send(C, tcp, event, <<"chat">>, jsx:to_json(Message)),
 	broadcast(Message, Tail).
 
 remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
 	Controllers0 = lists:delete(Conn, Controllers),
-	Chatters0 = lists:filter(fun({P,_}) -> P =/= Conn end, Chatters),
+	Chatters0 = lists:filter(fun({P, _}) -> P =/= Conn end, Chatters),
 	MidOut = case {Controllers0, Chatters0} of
 		{[], [{New, NewName} | _]} ->
-			Message = {struct, [
-				{<<"message">>, <<"new_controller">>},
-				{<<"room">>, pid_to_bin(RoomPid)},
-				{<<"controller">>, NewName}
-			]},
+			Message = [
+				{message, <<"new_controller">>},
+				{room, pid_to_bin(RoomPid)},
+				{controller, NewName}
+			],
 			broadcast(Message, Chatters0),
 			{[New], Chatters0};
 		Out -> Out
 	end,
-	LeaveMsg = {struct, [
-		{<<"message">>, <<"chatter_left">>},
-		{<<"room">>, pid_to_bin(RoomPid)},
-		{<<"leaver">>, Name}
-	]},
+	LeaveMsg = [
+		{message, <<"chatter_left">>},
+		{room, pid_to_bin(RoomPid)},
+		{leaver, Name}
+	],
 	broadcast(LeaveMsg, Chatters0),
 	MidOut.
 
@@ -245,7 +245,7 @@ handle_call({leave, _Client}, _From, #state{mode = system, mode_meta =
 handle_call({leave, Client}, _From, State) ->
 	#state{chatters = Chatters, controllers = Controllers} = State,
 	#client_info{connection = Conn} = Client,
-	case [N || {P,N} <- Chatters, P =:= Conn] of
+	case [N || {P, N} <- Chatters, P =:= Conn] of
 		[] ->
 			{reply, {error, not_member}, State};
 		[Name] ->
@@ -267,11 +267,11 @@ handle_call({join, Client, Password}, _From, #state{password = Stateword} = Stat
 	#state{chatters = Chatters} = State,
 	#client_info{connection = Conn, username = Name} = Client,
 	Chatters0 = [{Conn, Name} | Chatters],
-	Msg = {struct, [
-		{<<"message">>, <<"chatter_joined">>},
-		{<<"room">>, pid_to_bin(self())},
-		{<<"joiner">>, Name}
-	]},
+	Msg = [
+		{message, <<"chatter_joined">>},
+		{room, pid_to_bin(self())},
+		{joiner, Name}
+	],
 	broadcast(Msg, Chatters0),
 	{reply, ok, State#state{chatters = Chatters0}};
 
@@ -310,14 +310,14 @@ handle_call({mute, Client, Target}, _From, State) ->
 			{reply, {error, no_target}, State};
 		{_, false} ->
 			{reply, {error, not_controller}, State};
-		{_,_} ->
+		{_, _} ->
 			Squelched = [TargetPid | State#state.squelched],
-			Msg = {struct, [
-				{<<"message">>, <<"muted">>},
-				{<<"room">>, pid_to_bin(self())}
-			]},
+			Msg = [
+				{message, <<"muted">>},
+				{room, pid_to_bin(self())}
+			],
 			broadcast(Msg, [{TargetPid, "name"}]),
-			{reply,ok,State#state{squelched = Squelched}}
+			{reply, ok, State#state{squelched = Squelched}}
 	end;
 
 handle_call({unmute, Client, Target}, _From, State) ->
@@ -342,16 +342,19 @@ handle_call({message, Client, Message}, _From, State) ->
 		true ->
 			{reply, {error, muted}, State};
 		false ->
-			Json = {struct, [
-				{<<"action">>, <<"message">>},
-				{<<"room">>, pid_to_bin(self())},
-				{<<"payload">>, Message},
-				{<<"user">>, Username}
-			]},
+			Json = [
+				{action, <<"message">>},
+				{room, pid_to_bin(self())},
+				{payload, Message},
+				{user, Username}
+			],
 			Pid = proc_lib:spawn(fun() ->
-						?info("Entered spawn with ~p", [Chatters]),
-						[begin ?info("Sending: ~p tp ~p", [Json, Pid]), pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json) end ||
-					{Pid, _} <- Chatters]
+				?info("Entered spawn with ~p", [Chatters]),
+				[begin
+					?info("Sending: ~p tp ~p", [Json, Pid]),
+					pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json)
+				end
+				|| {Pid, _} <- Chatters]
 			end),
 			?info("Handled message ~p ~p ~p", [Client, Message, Pid]),
 			{reply, ok, State}

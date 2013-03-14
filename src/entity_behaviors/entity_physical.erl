@@ -78,10 +78,10 @@ get_full_state(EntityState) ->
 client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Request) ->
 	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
 		[EntityState#entity.id, RequestType, Channel, Request]),
-	Response = {reply, {struct, [
+	Response = {reply, [
 		{confirm, false},
 		{reason, <<"VALID CRAPBACK: Invalid request!">>}
-	]}},
+	]},
 	{Response, EntityState}.
 
 %% -------------------------------------------------------------------

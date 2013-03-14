@@ -33,10 +33,9 @@ pre_channel_ping_test_()-> [
 	{"Client Request/5 Test", fun()->
 		meck:new(pre_client_connection),
 		meck:expect(pre_client_connection, send, fun(Connection, tcp, {response, Id}, <<"ping">>, PingResponse)->
-			{struct, Items} = PingResponse,
 			{Mega, Secs, _} = now(),
 			TestTimeStamp = Mega * 1000000 + Secs,
-			InTimeStamp = proplists:get_value(timestamp, Items),
+			InTimeStamp = proplists:get_value(timestamp, PingResponse),
 			?assert(InTimeStamp - TestTimeStamp =< 1),
 			?debug("Stamp difference: ~p", [InTimeStamp - TestTimeStamp]),
 			ok

@@ -47,10 +47,10 @@ client_event(_Client, _Event, _Info) ->
 client_request(<<"ping">>, Client, Id, _Request, _Info) ->
 	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
-	PingResponse = {struct, [
+	PingResponse = [
 		{confirm, true},
 		{timestamp, Timestamp}
-	]},
+	],
 	pre_client_connection:send(Client#client_info.connection, tcp,
 		{response, Id}, <<"ping">>, PingResponse),
 	{ok, []};
@@ -61,8 +61,8 @@ client_request(_RequestType, _Client, _Id, _Request, _Info) ->
 %% -------------------------------------------------------------------
 
 %% @hidden
-request_type({struct, Request}) ->
-	proplists:get_value(<<"type">>, Request);
+request_type([{_, _} | _] = Request) ->
+	proplists:get_value(type, Request);
 
 request_type(_) ->
 	undefined.

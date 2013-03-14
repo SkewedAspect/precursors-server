@@ -112,8 +112,8 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 		} = EntityDef,
 
 		FullUpdate = [
-			{modelDef, {struct, ModelDef}},
-			{state, {struct, FullState}}
+			{modelDef, ModelDef},
+			{state, FullState}
 		],
 		FullMessage = build_state_event(inhabit, FullUpdate, EntityDef#entity.id, Timestamp),
 		pre_client_connection:send(ConnectionPid, udp, event, entity, FullMessage)
@@ -124,9 +124,8 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 
 	{noreply, State#state{clients = Clients}};
 
-handle_cast({entity_event, _EntityID, Content}, State) ->
-	%?debug("Broadcasting event for entity ~p: ~p", [EntityID, Content]),
-	FullEvent = {struct, Content},
+handle_cast({entity_event, _EntityID, FullEvent}, State) ->
+	%?debug("Broadcasting event for entity ~p: ~p", [EntityID, FullEvent]),
 	%FIXME: Filter this so it only goes to clients within a certain distance!
 	%(ClientEntity#entity.physical#physical.position)
 	broadcast_event(FullEvent, State),
