@@ -245,7 +245,18 @@ init([]) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 handle_call({get, Bucket, Key}, _From, State) ->
-	{reply, {error, 'FECK'}, State};
+	RiakConn = State#state.riak_conn,
+	Resp = case riakc_pb_socket:get(RiakConn, Bucket, Key) of
+		{ok, RiakCObj} ->
+			JSON = riakc_obj:get_value(RiakCObj),
+			Value = parse_json(JSON),
+			{ok, Value};
+		Error ->
+			%TODO: Check for siblings... and do something?
+			?error("Unexpected response from Riak. Response was: ~p", [Error]),
+			{error, "Error querying ETS cache."}
+	end,
+	{reply, Resp, State};
 
 handle_call({set, Bucket, Key, Value}, _From, State) ->
 	{reply, {error, 'FECK'}, State};
@@ -265,6 +276,11 @@ handle_cast(_, State) ->
 
 handle_info(_, State) ->
     {noreply, State}.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+parse_json(Bin) ->
+	{not_really_json}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
