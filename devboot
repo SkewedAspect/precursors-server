@@ -109,6 +109,7 @@ if [ ! -f $CONFIG ] && [ ! -f "${CONFIG}.config" ]; then
 	{auth_backends, [
 		{config_auth, 2, [{allow, ["user"]}]}
 	]},
+	{riak_conn, ["localhost", 8081]},
 	{plugins, []}
 ]},
 
