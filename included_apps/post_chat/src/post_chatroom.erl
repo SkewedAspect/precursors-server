@@ -213,7 +213,7 @@ pid_to_bin(P) ->
 broadcast(_Message, []) ->
 	ok;
 broadcast(Message, [{C, _} | Tail]) ->
-	pre_client_connection:send(C, tcp, event, <<"chat">>, jsx:to_json(Message)),
+	pre_client_connection:send(C, tcp, event, <<"chat">>, pre_json:to_json(Message)),
 	broadcast(Message, Tail).
 
 remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->

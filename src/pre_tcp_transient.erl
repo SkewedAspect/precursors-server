@@ -65,7 +65,7 @@ handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 			% Decode message envelope
 			Message = pre_client_connection:json_to_envelope(Binary),
 			#envelope{type = request, channel = <<"control">>, contents = Request} = Message,
-			Cookie = proplists:get_value(<<"cookie">>, Request),
+			Cookie = proplists:get_value(cookie, Request),
 			% Look up client PID by cookie in ETS
 			?debug("Checking for cookie:  ~p", [Cookie]),
 			QH = qlc:q([X || #client_connection{tcp_socket = TestCookie} = X <- ets:table(client_ets), TestCookie =:= Cookie]),

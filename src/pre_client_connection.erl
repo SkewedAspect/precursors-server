@@ -363,7 +363,7 @@ service_control_channel(Thing, State) ->
 %% ------------------------------------------------------------------
 
 service_control_message(Type, MessageID, Request, State) when Type =:= request; Type =:= event ->
-	ReqType = proplists:get_value(<<"type">>, Request),
+	ReqType = proplists:get_value(type, Request),
 	service_control_message(Type, ReqType, MessageID, Request, State);
 
 service_control_message(Type, _, Request, State) ->
@@ -376,8 +376,8 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	?info("starting authentication"),
 	?info("Request: ~p", [Request]),
 	% Check with authentication backends
-	Username = proplists:get_value(<<"user">>, Request),
-	Password= proplists:get_value(<<"password">>, Request),
+	Username = proplists:get_value(user, Request),
+	Password= proplists:get_value(password, Request),
 	?info("Authenticating user: ~p", [Username]),
 	{Confirm, Reason} = case pre_gen_auth:authenticate(Username, Password) of
 		allow ->
@@ -406,8 +406,8 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	?debug("Login response ssl:send result:  ~p", [SendRes]),
 
 	% Record login information in state
-	AESKey = base64:decode(proplists:get_value(<<"key">>, Request)),
-	AESVector = base64:decode(proplists:get_value(<<"vector">>, Request)),
+	AESKey = base64:decode(proplists:get_value(key, Request)),
+	AESVector = base64:decode(proplists:get_value(vector, Request)),
 	State#state{
 		cookie = Cookie,
 		udp_remote_info = undefined,
@@ -430,7 +430,7 @@ service_control_message(request, <<"getCharacters">>, MessageID, _Request, State
 	State;
 
 service_control_message(request, <<"selectCharacter">>, MessageID, Request, State) ->
-	Character = proplists:get_value(<<"character">>, Request),
+	Character = proplists:get_value(character, Request),
 	?info("Character selected: ~p", [Character]),
 
 	Connection = State#state.client_info#client_info.connection,
@@ -490,13 +490,12 @@ wrap_for_send(Recthing) ->
 
 wrap_for_send(Recthing, AESKey, AESVector, UseNetstring) ->
 	Json = envelope_to_json(Recthing),
-	JsonEnc = jsx:to_json(Json),
-	Binary = list_to_binary(lists:flatten(JsonEnc)),
+	JsonBin = pre_json:to_json(Json),
 	EncryptedIfNeeded = case {AESKey, AESVector} of
 		{undefined, undefined} ->
-			Binary;
+			JsonBin;
 		{_, _} ->
-			aes_encrypt(Binary, AESKey, AESVector)
+			aes_encrypt(JsonBin, AESKey, AESVector)
 	end,
 	case UseNetstring of
 		true -> netstring:encode(EncryptedIfNeeded);
@@ -530,7 +529,7 @@ envelope_to_json(Envelope) ->
 %% @doc Takes a json and turns it into an envelope record.
 -spec(json_to_envelope/1 :: (Json :: binary()) -> #envelope{}).
 json_to_envelope(Json) when is_binary(Json) ->
-	json_to_envelope(jsx:to_term(Json, [{labels, binary}]));
+	json_to_envelope(pre_json:to_term(Json));
 
 json_to_envelope([{_, _} | _] = Props) ->
 	Type = proplists:get_value(type, Props, <<>>),
@@ -576,9 +575,9 @@ handle_udp_connect_message(Message, State) ->
 	#state{cookie = Cookie} = State,
 	try begin
 		#envelope{type = request, channel = <<"control">>, contents = Request} = Message,
-		case proplists:get_value(<<"type">>, Request) of
+		case proplists:get_value(type, Request) of
 			<<"connect">> ->
-				case proplists:get_value(<<"cookie">>, Request) of
+				case proplists:get_value(cookie, Request) of
 					Cookie ->
 						{ok, State};
 					_ -> badcookie

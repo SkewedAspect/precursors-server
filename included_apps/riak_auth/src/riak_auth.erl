@@ -208,10 +208,10 @@ check_cred(_Username, CheckPassword, Credential) ->
 	%     "salt": "1yfcsqA9MYJz",
 	%     "type": "local"
 	% }
-	StoredPasswordHash = proplists:get_value(<<"hash">>, Credential),
-	PasswordSalt = proplists:get_value(<<"salt">>, Credential),
-	Iterations = proplists:get_value(<<"iterations">>, Credential, ?DEFAULT_PBKDF2_ITERATIONS),
-	PseudoRandomFunction = proplists:get_value(<<"prf">>, Credential, ?DEFAULT_PBKDF2_PRF),
+	StoredPasswordHash = proplists:get_value(hash, Credential),
+	PasswordSalt = proplists:get_value(salt, Credential),
+	Iterations = proplists:get_value(iterations, Credential, ?DEFAULT_PBKDF2_ITERATIONS),
+	PseudoRandomFunction = proplists:get_value(prf, Credential, ?DEFAULT_PBKDF2_PRF),
 	DerivedLength = ?DEFAULT_PBKDF2_DERIVED_LENGTH,  %FIXME: Determine this from the PRF!
 
 	case PseudoRandomFunction of
@@ -229,11 +229,6 @@ check_cred(_Username, CheckPassword, Credential) ->
 	end.
 
 
-%% @doc Parse the given binary as JSON, into the eep18 format.
-parse_json(Bin) ->
-	jsx:to_term(Bin, [{labels, binary}]).
-
-
 %% @doc Retrieve the account record from the database
 get_account_info(Username, State) ->
 	#state{
@@ -245,7 +240,7 @@ get_account_info(Username, State) ->
 			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname_bin">>, Username) of
 				{ok, RiakCObj} ->
 					AccountBin = riakc_obj:get_value(RiakCObj),
-					parse_json(AccountBin);
+					pre_json:to_term(AccountBin);
 				Error ->
 					Error
 			end;
@@ -253,7 +248,7 @@ get_account_info(Username, State) ->
 			case riakc_pb_socket:get(RiakConn, <<"account">>, Username) of
 				{ok, RiakCObj2} ->
 					Account2Bin = riakc_obj:get_value(RiakCObj2),
-					parse_json(Account2Bin);
+					pre_json:to_term(Account2Bin);
 				Error2 ->
 					Error2
 			end
@@ -271,7 +266,7 @@ get_account_credentials(Username, State) ->
 			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname_bin">>, Username) of
 				{ok, RiakCObj} ->
 					AccountBin = riakc_obj:get_value(RiakCObj),
-					Account = parse_json(AccountBin),
+					Account = pre_json:to_term(AccountBin),
 					proplists:get_value(email, Account);
 				Error ->
 					Error
@@ -289,7 +284,7 @@ get_account_credentials(Username, State) ->
 		{ok, [{1, Results}]} ->
 			lists:map(
 				fun (CredentialBin) ->
-					parse_json(CredentialBin)
+					pre_json:to_term(CredentialBin)
 				end,
 				Results
 				);
