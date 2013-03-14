@@ -8,7 +8,8 @@
 
 % API
 -export([start_link/1]).
--export([get/2, get_cache/2, get_checked/2]).
+-export([get_riak_conn/0]).
+-export([get/2, get_cache/2, get_checked/2, get_with_meta/2]).
 -export([set/3, set_cache/3, set_cache/4, set_checked/3]).
 -export([delete/2, delete_cache/2, delete_cache/3, delete_checked/2]).
 
@@ -33,6 +34,17 @@ start_link(Args) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @doc Gets the current connection to riak.
+%%
+%% This returns the current connection to riak.
+-spec get_riak_conn() ->
+	RiakConn :: pid().
+
+get_riak_conn() ->
+	gen_server:call(?MODULE, riak_conn).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
 %% @doc Gets the contents of Bucket/Key.
 %%
 %% This returns the value from the local ETS cache, or queries Riak and caches the value if the value was not already
@@ -45,7 +57,7 @@ get(Bucket, Key) ->
 		not_found ->
 			% Cache miss; look it up in Riak.
 			case get_checked(Bucket, Key) of
-				{ok, Value} ->
+				{ok, Value, _} ->
 					set_cache(Bucket, Key, Value),
 					Value;
 				{error, notfound} ->
@@ -82,11 +94,23 @@ get_cache(Bucket, Key) ->
 
 %% @doc Gets the contents of Bucket/Key from Riak, skipping the cache.
 %%
-%% This queries Riak for the given value, and caches the value in ETS.
+%% This queries Riak for the given value, and returns it.
 -spec get_checked(Bucket::binary(), Key::binary()) ->
     {ok, Value :: json()} | not_found | {error, Msg :: list()}.
 
 get_checked(Bucket, Key) ->
+	{ok, Value, _} = gen_server:call(?MODULE, {get, Bucket, Key}),
+	{ok, Value}.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Gets the contents and metadata of Bucket/Key from Riak, skipping the cache.
+%%
+%% This queries Riak for the given value, and returns the value and the metadata
+-spec get_with_meta(Bucket::binary(), Key::binary()) ->
+	{ok, Value :: json(), Metadata :: dict()} | not_found | {error, Msg :: list()}.
+
+get_with_meta(Bucket, Key) ->
 	gen_server:call(?MODULE, {get, Bucket, Key}).
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -193,7 +217,13 @@ delete_cache(Bucket, Key) ->
 delete_cache(Bucket, Key, NotifyPeers) ->
 	case ets:delete(?MODULE, {Bucket, Key}) of
 		true ->
-			ok;
+			case NotifyPeers of
+				true ->
+					%TODO: Notify peer servers.
+					ok;
+				_ ->
+					ok
+			end;
 		Resp ->
 			?error("Unexpected response while deleting object. Response: ~p", [Resp]),
 			{error, "Failed to delete object from ETS."}
@@ -247,13 +277,17 @@ init([]) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @doc Gets the value of Bucket/Key from riak.
+%%
+%% This gets the object specified by Bucket, Key from the riak database.
 handle_call({get, Bucket, Key}, _From, State) ->
 	RiakConn = State#state.riak_conn,
 	Resp = case riakc_pb_socket:get(RiakConn, Bucket, Key) of
-		{ok, RiakCObj} ->
-			JSONBin = riakc_obj:get_value(RiakCObj),
+		{ok, RiakObj} ->
+			JSONBin = riakc_obj:get_value(RiakObj),
+			Metadata = riakc_obj:get_metadata(RiakObj),
 			Value = pre_json:to_term(JSONBin),
-			{ok, Value};
+			{ok, Value, Metadata};
 		Error ->
 			%TODO: Check for siblings... and do something?
 			?error("Unexpected response from Riak. Response was: ~p", [Error]),
@@ -261,6 +295,9 @@ handle_call({get, Bucket, Key}, _From, State) ->
 	end,
 	{reply, Resp, State};
 
+%% @doc Sets Bucket/Key's value to Value in riak.
+%%
+%% This sets the object specified by Bucket, Key to Value in the riak database.
 handle_call({set, Bucket, Key, Value}, _From, State) ->
 	RiakConn = State#state.riak_conn,
 	JSONBin = pre_json:to_json(Value),
@@ -275,6 +312,9 @@ handle_call({set, Bucket, Key, Value}, _From, State) ->
 	end,
 	{reply, Resp, State};
 
+%% @doc Deletes Bucket/Key from riak.
+%%
+%% This deletes the object specified by Bucket, Key from the riak database.
 handle_call({delete, Bucket, Key}, _From, State) ->
 	RiakConn = State#state.riak_conn,
 	Resp = case riakc_pb_socket:delete(RiakConn, Bucket, Key) of
@@ -285,6 +325,13 @@ handle_call({delete, Bucket, Key}, _From, State) ->
 			{error, "Error querying ETS cache."}
 	end,
 	{reply, Resp, State};
+
+%% @doc Returns the riak connection object.
+%%
+%% This returns our riak connection, which eis useful for external applications, so they don't have to create their own
+%% connection.
+handle_call(riak_conn, _From, State) ->
+	{reply, State#state.riak_conn, State};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
