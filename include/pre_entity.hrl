@@ -5,7 +5,7 @@
 	id :: #entity_id{},
 	client :: #client_info{},
 	physical = #physical{} :: #physical{},
-	model_def = [{model, <<"Ships/ares">>}] :: [{atom(), term()}],
+	model_def = [{model, <<"Ships/ares">>}] :: json_object(),
 	callback_module = entity_test :: module(),
 	behavior_data :: any()
 }).

@@ -1,8 +1,13 @@
+%% JSON types; here because this is included everywhere, though they should really get moved to their own header.
+-type(json_pod() :: binary() | number() | boolean() | 'null').
+-type(json_array() :: [json()]).
+-type(json_key() :: binary() | atom()).
+-type(json_object() :: [{json_key(), json()}, ...] | [{} | []]).
+-type(json() :: json_pod() | json_array() | json_object()).
+
+
 %% because the loggers rarely include everything I'd like to see,
 %% this wraps 'em up.
-
--type(json() :: binary() | [json()] | {'struct', [{binary(), json()}]} | 
-	integer() | float()).
 
 -ifdef(TEST).
 
