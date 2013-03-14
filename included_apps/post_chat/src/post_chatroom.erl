@@ -80,7 +80,7 @@
 }).
 
 %% ==================================================================
-%% API 
+%% API
 %% ==================================================================
 
 %% @doc Creates a new chat room.  Name is the display name of the channel
@@ -213,9 +213,9 @@ pid_to_bin(P) ->
 broadcast(_Message, []) ->
 	ok;
 broadcast(Message, [{C,_} | Tail]) ->
-	pre_client_connection:send(C, tcp, event, <<"chat">>, mochijson2:encode(Message)),
+	pre_client_connection:send(C, tcp, event, <<"chat">>, jsx:to_json(Message)),
 	broadcast(Message, Tail).
-	
+
 remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
 	Controllers0 = lists:delete(Conn, Controllers),
 	Chatters0 = lists:filter(fun({P,_}) -> P =/= Conn end, Chatters),
@@ -238,7 +238,7 @@ remove_chatter(Conn, Name, Chatters, Controllers, RoomPid) ->
 	broadcast(LeaveMsg, Chatters0),
 	MidOut.
 
-handle_call({leave, _Client}, _From, #state{mode = system, mode_meta = 
+handle_call({leave, _Client}, _From, #state{mode = system, mode_meta =
 	#system_opts{leavable = no_leavers}} = State) ->
 	{reply, {error, no_leavers}, State};
 

@@ -231,7 +231,7 @@ check_cred(_Username, CheckPassword, Credential) ->
 
 %% @doc Parse the given binary as JSON, into the eep18 format.
 parse_json(Bin) ->
-	mochijson2:decode(Bin, [{format, eep18}]).
+	jsx:to_term(Bin, [{labels, binary}]).
 
 
 %% @doc Retrieve the account record from the database
@@ -289,7 +289,7 @@ get_account_credentials(Username, State) ->
 		{ok, [{1, Results}]} ->
 			lists:map(
 				fun (CredentialBin) ->
-					mochijson2:decode(CredentialBin, [{format, eep18}])
+					parse_json(CredentialBin)
 				end,
 				Results
 				);

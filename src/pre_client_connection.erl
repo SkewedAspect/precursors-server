@@ -490,7 +490,7 @@ wrap_for_send(Recthing) ->
 
 wrap_for_send(Recthing, AESKey, AESVector, UseNetstring) ->
 	Json = envelope_to_json(Recthing),
-	JsonEnc = mochijson2:encode(Json),
+	JsonEnc = jsx:to_json(Json),
 	Binary = list_to_binary(lists:flatten(JsonEnc)),
 	EncryptedIfNeeded = case {AESKey, AESVector} of
 		{undefined, undefined} ->
@@ -524,7 +524,7 @@ envelope_to_json(Envelope) ->
 %% @doc Takes a json and turns it into an envelope record.
 -spec(json_to_envelope/1 :: (Json :: binary()) -> #envelope{}).
 json_to_envelope(Json) when is_binary(Json) ->
-	json_to_envelope(mochijson2:decode(Json));
+	json_to_envelope(jsx:to_term(Json, [{labels, binary}]));
 
 json_to_envelope({struct, Props}) ->
 	Type = proplists:get_value(<<"type">>, Props, <<>>),
