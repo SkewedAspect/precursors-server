@@ -83,8 +83,8 @@ acting_as_manager_test_() ->
 				{error, the_pain}
 			end),
 			pre_gen_auth:add_backend(failmode, 1, substate),
-			[?assertMatch({deny,_Msg}, pre_gen_auth:authenticate("gerald", "herber")) ||
-				_ <- lists:seq(1,4)],
+			[?assertMatch({deny, _Msg}, pre_gen_auth:authenticate("gerald", "herber")) ||
+				_ <- lists:seq(1, 4)],
 			?assert(receive_truths(3)),
 			meck:unload(failmode),
 			pre_gen_auth:remove_backend(failmode, 1)
