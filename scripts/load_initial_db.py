@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import base64
 import rkit
 from django.utils import crypto
@@ -110,6 +112,22 @@ louis.first_name = "Louis"
 louis.last_name = "Capelle"
 louis.save()
 
+karon = Character()
+karon.account = burst
+karon.game = precursors
+karon.first_name = "Karon"
+karon.middle_name = ""
+karon.last_name = ""
+karon.save()
+
+gerald = Character()
+gerald.account = lordnull
+gerald.game = precursors
+gerald.first_name = "Gerald"
+gerald.middle_name = ""
+gerald.last_name = ""
+gerald.save()
+
 print "Finished Characters."
 
 
@@ -122,10 +140,10 @@ def makeCred(account, password):
     cred.account = account
     return cred
 
-makeCred(whitelynx, "Schwannoma1024").save()
-makeCred(morgul, "archigos").save()
-makeCred(burst, "f41th").save()
-makeCred(lordnull, "horta").save()
+makeCred(whitelynx, "pass").save()
+makeCred(morgul, "pass").save()
+makeCred(burst, "pass").save()
+makeCred(lordnull, "pass").save()
 
 print "Finished Credentials."
 
