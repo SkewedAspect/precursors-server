@@ -175,7 +175,7 @@ handle_auth(Username, Password, State) ->
 		Credentials when is_list(Credentials) ->
 			?info("Got credentials for account '~s': ~p", [Username, Credentials]),
 			case lists:any(
-					fun ({CredentialProps}) -> check_cred(Username, Password, CredentialProps) end,
+					fun (CredentialProps) -> check_cred(Username, Password, CredentialProps) end,
 					Credentials) of
 				true ->
 					allow;
