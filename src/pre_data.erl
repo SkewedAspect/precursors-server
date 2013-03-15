@@ -57,7 +57,7 @@ get(Bucket, Key) ->
 		not_found ->
 			% Cache miss; look it up in Riak.
 			case get_checked(Bucket, Key) of
-				{ok, Value, _} ->
+				{ok, Value} ->
 					set_cache(Bucket, Key, Value),
 					Value;
 				{error, notfound} ->
