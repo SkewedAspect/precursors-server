@@ -421,17 +421,43 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 service_control_message(request, <<"getCharacters">>, MessageID, _Request, State) ->
 	?info("Retrieving character list for client ~p.", [State#state.client_info]),
 
+	%TODO: Make sure that Username is the Key for account, and not a secondary index, like nick name.
+	ClientInfo = State#state.client_info,
+	Username = ClientInfo#client_info.username,
+
+	% Lookup the account
+	{ok, _Account, AccountMeta} = pre_data:get_with_meta(<<"account">>, Username),
+	Links = riakc_obj:get_all_links(AccountMeta),
+	CharacterLinks = proplists:get_value(<<"character">>, Links),
+
+	% Fetch all charcters
+	Characters = fetch_characters(CharacterLinks),
+
 	GetCharsRep = [
 		{confirm, true},
-			% TODO: Replace this with generated character list
-			{characters, [<<"Character 1">>, <<"Character 2">>, <<"Character 3">>]}
+			{characters, Characters}
 	],
 	respond(ssl, MessageID, <<"control">>, GetCharsRep),
 	State;
 
 service_control_message(request, <<"selectCharacter">>, MessageID, Request, State) ->
-	Character = proplists:get_value(character, Request),
-	?info("Character selected: ~p", [Character]),
+	CharId = proplists:get_value(character, Request),
+	?info("Character selected: ~p", [CharId]),
+
+	% Get the character.
+	Character = pre_data:get(<<"character">>, CharId),
+
+	% Store character and id in state.
+	ClientInfo = State#state.client_info,
+	ClientInfo#client_info {
+		character_id = CharId,
+		character = Character
+	},
+
+	% Update the state
+	State#state {
+		client_info = ClientInfo
+	},
 
 	Connection = State#state.client_info#client_info.connection,
 	LevelUrl = <<"zones/test/TestArea.json">>,
@@ -632,6 +658,21 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 			?error("ChannelMgr already set for client ~p! Skipping instantiation.", [ClientInfo]),
 			{ok, State}
 	end.
+
+%% ------------------------------------------------------------------
+
+%% @doc Fetches characters from Riak, given a list of Bucket, Key tuples.
+fetch_characters([{Bucket, Key} | Rest]) ->
+	{ok, PlainChar} = pre_data:get_checked(Bucket, Key),
+
+	% Append the id of the character to the json.
+	Char = [{id, Key} | PlainChar],
+
+	% Recursively call fetch_characters.
+	[Char | fetch_characters(Rest)];
+
+fetch_characters([]) ->
+	[].
 
 %% ------------------------------------------------------------------
 %% Tests

@@ -1,8 +1,3 @@
--record(character_info, {
-	id :: any(),
-	name :: binary()
-}).
-
 -record(entity_id, {
 	engine :: pid(),
 	ref :: reference()
@@ -14,7 +9,8 @@
 	user_id :: any(),
 	username :: binary(),
 	show_account :: 'hidden' | 'public',
-	character :: #character_info{},
+	character_id :: binary(),
+	character :: json(),
 	entity :: #entity_id{}
 }).
 
