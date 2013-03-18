@@ -448,16 +448,13 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	Character = pre_data:get(<<"character">>, CharId),
 
 	% Store character and id in state.
-	ClientInfo = State#state.client_info,
-	ClientInfo#client_info {
+	State#state{
+		client_info = State#state.client_info#client_info{
 		character_id = CharId,
-		character = Character
+			character = Character
+		}
 	},
 
-	% Update the state
-	State#state {
-		client_info = ClientInfo
-	},
 
 	Connection = State#state.client_info#client_info.connection,
 	LevelUrl = <<"zones/test/TestArea.json">>,
@@ -467,19 +464,14 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	],
 	send(Connection, tcp, event, level, LoadLevel),
 
+	%TODO: Look up existing entity, if possible.
 	?info("Creating entity for client ~p.", [State#state.client_info]),
 	set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
 
 	CharSelRep = [
 		{confirm, true}
 	],
-	respond(ssl, MessageID, <<"control">>, CharSelRep),
-
-	State#state{
-		client_info = State#state.client_info#client_info{
-			character = Character
-		}
-	};
+	respond(ssl, MessageID, <<"control">>, CharSelRep);
 
 service_control_message(event, <<"logout">>, _, _, _) ->
 	?info("Got logout event from client."),
