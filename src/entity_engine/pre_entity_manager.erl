@@ -1,4 +1,7 @@
-%%% @doc The behavior for all of our entity behavior modules. Provides a basic interface that we can count on.
+%%% @doc This is a simple wrapper interface to pre_entity_engine_sup to make it a bit cleaner to call, and a bit more
+%%% intuitive what module is supposed to be used.
+%%%
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_entity_manager).
 
@@ -18,8 +21,8 @@
 -spec get_entity(EntityID :: binary()) ->
 	{ok, Entity :: #entity{}} | not_found | {error, Msg :: string()}.
 
-get_entity(_EntityID) ->
-	{error, "Not implemented."}.
+get_entity(EntityID) ->
+	gen_server:call(pre_entity_engine_sup, {get_entity, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -30,8 +33,18 @@ get_entity(_EntityID) ->
 -spec create_entity(Behavior::atom(), Definition::json()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
-create_entity(_Behavior, _Definition) ->
-	{failed, "Not implemented."}.
+create_entity(Behavior, Definition) ->
+	Entity = #entity {
+		behavior = Behavior,
+		definition = Definition,
+
+		%TODO: What's a good default to use for model? undefined?
+		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
+	},
+
+	% Get the best entity engine to send this entity to, and then add it.
+	EnginePid = gen_server:call(pre_entity_engine_sup, {get_best_engine, Entity}),
+	pre_entity_engine:add_entity(EnginePid, Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -49,11 +62,31 @@ create_entity(_Behavior, _Definition) ->
 	(Behavior::atom(), Definition::json(), EntityEngine::pid()) ->
 		{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
-create_entity(_Behavior, _Definition, _ClientInfo=#client_info{}) ->
-	{failed, "Not implemented."};
+create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
+	Entity = #entity {
+		behavior = Behavior,
+		definition = Definition,
+		client = ClientInfo,
 
-create_entity(_Behavior, _Definition, _EnittyEngine) ->
-	{failed, "Not implemented."}.
+		%TODO: What's a good default to use for model? undefined?
+		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
+	},
+
+	% Get the best entity engine to send this entity to, and then add it.
+	EnginePid = gen_server:call(pre_entity_engine_sup, {get_best_engine, Entity}),
+	pre_entity_engine:add_entity(EnginePid, Entity);
+
+create_entity(Behavior, Definition, EntityEngine) ->
+	Entity = #entity {
+		behavior = Behavior,
+		definition = Definition,
+
+		%TODO: What's a good default to use for model? undefined?
+		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
+	},
+
+	% Add this to the specified entity engine.
+	pre_entity_engine:add_entity(EntityEngine, Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -64,8 +97,18 @@ create_entity(_Behavior, _Definition, _EnittyEngine) ->
 -spec create_entity(Behavior::atom(), Definition::json(), ClientInfo::#client_info{}, EntityEngine::pid()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
-create_entity(_Behavior, _Definition, _ClientInfo=#client_info{}, _EntityEngine) ->
-	{failed, "Not implemented."}.
+create_entity(Behavior, Definition, ClientInfo=#client_info{}, EntityEngine) ->
+	Entity = #entity {
+		behavior = Behavior,
+		definition = Definition,
+		client = ClientInfo,
+
+		%TODO: What's a good default to use for model? undefined?
+		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
+	},
+
+	% Add this to the specified entity engine.
+	pre_entity_engine:add_entity(EntityEngine, Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %%
@@ -75,8 +118,8 @@ create_entity(_Behavior, _Definition, _ClientInfo=#client_info{}, _EntityEngine)
 -spec start_entity_engine(Args::list()) ->
 	started | {failed, Reason::string()}.
 
-start_entity_engine(_Args) ->
-	{failed, "Not implemented."}.
+start_entity_engine(Args) ->
+	gen_server:call(pre_entity_engine_sup, {start_entity_engine, Args}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
