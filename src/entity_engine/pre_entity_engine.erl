@@ -12,11 +12,11 @@
 -behavior(gen_server).
 
 -include("log.hrl").
--include("pre_entity_new.hrl").
+-include("pre_entity.hrl").
 
 % API
 -export([start_link/1]).
--export([add_entity/1, remove_entity/1, update_entity_state/3]).
+-export([add_entity/1, remove_entity/1, get_entity/1, update_entity_state/3]).
 -export([add_watcher/2, remove_watcher/2, send_to_watchers/2]).
 
 % gen_server
@@ -51,12 +51,23 @@ add_entity(Entity) ->
 
 %% @doc Removes the entity given by id from the simulation list.
 %%
-%% Looks up the entity
+%% Removed the given entity from the simulation list.
 -spec remove_entity(EntityID::binary()) ->
 	ok | not_found | {error, Msg::list()}.
 
 remove_entity(EntityID) ->
 	gen_server:call({remove, EntityID}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Retrieves an entity by id.
+%%
+%% Looks up the entity by id and returns it.
+-spec get_entity(EntityID::binary()) ->
+	{ok, Entity::#entity{}} | not_found | {error, Msg::list()}.
+
+get_entity(EntityID) ->
+	gen_server:call({get, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -129,12 +140,20 @@ handle_call({add, Entity}, _From, State) ->
 	},
     {reply, ok, NewState};
 
+
 handle_call({remove, EntityID}, _From, State) ->
 	Entities = State#state.entities,
 	NewState = State#state {
 		entities = dict:erase(EntityID, Entities)
 	},
     {reply, ok, NewState};
+
+
+handle_call({get, EntityID}, _From, State) ->
+	Entities = State#state.entities,
+	Entity = dict:fetch(EntityID, Entities),
+    {reply, {ok, Entity}, State};
+
 
 handle_call({update, EntityID, _OldEntState, _NewEntState}, _From, State) ->
 	Entities = State#state.entities,
