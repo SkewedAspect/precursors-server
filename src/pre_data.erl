@@ -1,4 +1,6 @@
 %%% @doc The game state engine - handles syncing of game state to the database and between nodes
+%%%
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_data).
 -behavior(gen_server).
