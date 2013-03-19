@@ -7,7 +7,6 @@
 %%%
 %%% --------------------------------------------------------------------------------------------------------------------
 
-
 -module(pre_entity_engine).
 -behavior(gen_server).
 
@@ -16,14 +15,18 @@
 
 % API
 -export([start_link/1]).
--export([add_entity/1, remove_entity/1, get_entity/1, update_entity_state/3]).
--export([add_watcher/2, remove_watcher/2, send_to_watchers/2]).
+-export([add_entity/2, remove_entity/2, get_entity/2, update_entity_state/4]).
+-export([add_watcher/3, remove_watcher/3, send_to_watchers/2]).
+-export([client_request/6, client_event/5]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 % Simulation interval
 -define(INTERVAL, 17). % 1/60th of a second.
+
+% Full Update interval
+-define(FULL_INTERVAL, 30000). % 30 seconds.
 
 -record(state, {
 	entities :: dict()
@@ -37,48 +40,50 @@ start_link(Args) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
 
 %% --------------------------------------------------------------------------------------------------------------------
+%% Enitty API
+%% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Adds the given entity to our simulation list.
 %%
 %% This assumes we are being passed a valid entity record, and adds it to our simulation list.
--spec add_entity(Entity::#entity{}) ->
+-spec add_entity(Pid::pid(), Entity::#entity{}) ->
 	ok | {error, Msg::list()}.
 
-add_entity(Entity) ->
-	gen_server:call({add, Entity}).
+add_entity(Pid, Entity) ->
+	gen_server:call(Pid, {add, Entity}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Removes the entity given by id from the simulation list.
 %%
 %% Removed the given entity from the simulation list.
--spec remove_entity(EntityID::binary()) ->
+-spec remove_entity(Pid::pid(), EntityID::binary()) ->
 	ok | not_found | {error, Msg::list()}.
 
-remove_entity(EntityID) ->
-	gen_server:call({remove, EntityID}).
+remove_entity(Pid, EntityID) ->
+	gen_server:call(Pid, {remove, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Retrieves an entity by id.
 %%
 %% Looks up the entity by id and returns it.
--spec get_entity(EntityID::binary()) ->
+-spec get_entity(Pid::pid(), EntityID::binary()) ->
 	{ok, Entity::#entity{}} | not_found | {error, Msg::list()}.
 
-get_entity(EntityID) ->
-	gen_server:call({get, EntityID}).
+get_entity(Pid, EntityID) ->
+	gen_server:call(Pid, {get, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Looks up the given entity by id, and then adds it to our simulation list.
 %%
 %% This attempts to look up the entity from pre_data, and then adds it to the simulation list.
--spec update_entity_state(EntityID::binary(), OldState::json(), NewState::json()) ->
+-spec update_entity_state(Pid::pid(), EntityID::binary(), OldState::json(), NewState::json()) ->
 	ok | newer_version | {error, Msg::list()}.
 
-update_entity_state(EntityID, OldState, NewState) ->
-	gen_server:call({update, EntityID, OldState, NewState}).
+update_entity_state(Pid, EntityID, OldState, NewState) ->
+	gen_server:call(Pid, {update, EntityID, OldState, NewState}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Watcher API
@@ -87,22 +92,22 @@ update_entity_state(EntityID, OldState, NewState) ->
 %% @doc Adds a watcher to be notified on updates.
 %%
 %% Adds a watcher pid to the list of watchers for this entity. This always assumes the watcher was correctly added.
--spec add_watcher(EntityID::binary(), Watcher::pid()) ->
+-spec add_watcher(Pid::pid(), EntityID::binary(), Watcher::pid()) ->
 	ok.
 
-add_watcher(EntityID, Watcher) ->
-	gen_server:cast({add_watcher, EntityID, Watcher}).
+add_watcher(Pid, EntityID, Watcher) ->
+	gen_server:cast(Pid, {add_watcher, EntityID, Watcher}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Removes a watcher from the entity..
 %%
 %% Removes a watcher pid from the entity. This always assumes the watcher was correctly removed.
--spec remove_watcher(EntityID::binary(), Watcher::pid()) ->
+-spec remove_watcher(Pid::pid(), EntityID::binary(), Watcher::pid()) ->
 	ok.
 
-remove_watcher(EntityID, Watcher) ->
-	gen_server:cast({remove_watcher, EntityID, Watcher}).
+remove_watcher(Pid, EntityID, Watcher) ->
+	gen_server:cast(Pid, {remove_watcher, EntityID, Watcher}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -116,6 +121,33 @@ remove_watcher(EntityID, Watcher) ->
 send_to_watchers(Entity, State) ->
 	Watchers = Entity#entity.watchers,
 	send_to_watchers(Watchers, Entity#entity.id, State).
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% Client API
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Passes the client request to the appropriate behavior to be handled.
+%%
+%% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
+%% is always expected.
+-spec client_request(Pid::pid(), EntityID::binary(), Channel::atom(), RequestType::binary(), RequestID::integer(), Request::json()) ->
+	Response::json().
+
+client_request(Pid, EntityID, Channel, RequestType, RequestID, Request) ->
+	gen_server:call(Pid, {request, EntityID, Channel, RequestType, RequestID, Request}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Passes the client event to the appropriate behavior to be handled.
+%%
+%% This passes an event from the client to the behavior of the entity the client is currently controlling. No response
+%% is expected.
+-spec client_event(Pid::pid(), EntityID::binary(), Channel::atom(), EventType::binary(), Event::json()) ->
+	Response::json().
+
+client_event(Pid, EntityID, Channel, EventType, Event) ->
+	gen_server:call(Pid, {event, EntityID, Channel, EventType, Event}).
+
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
@@ -138,6 +170,9 @@ handle_call({add, Entity}, _From, State) ->
 	NewState = State#state {
 		entities = dict:append(Entity#entity.id, Entity, Entities)
 	},
+
+	% Start full update timer
+	erlang:send_after(?FULL_INTERVAL, self(), {full_update, Entity#entity.id}),
     {reply, ok, NewState};
 
 
@@ -164,6 +199,27 @@ handle_call({update, EntityID, _OldEntState, _NewEntState}, _From, State) ->
 	},
     {reply, ok, NewState};
 
+
+handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From, State) ->
+	Entities = State#state.entities,
+	Entity = dict:fetch(EntityID, Entities),
+	Behavior = Entity#entity.behavior,
+
+	% Call the behavior
+	{Response, NewState} = Behavior:client_request(Entity, Channel, RequestType, RequestID, Request),
+    {reply, Response, NewState};
+
+
+handle_call({event, EntityID, Channel, EventType, Event}, _From, State) ->
+	Entities = State#state.entities,
+	Entity = dict:fetch(EntityID, Entities),
+	Behavior = Entity#entity.behavior,
+
+	% Call the behavior
+	{Response, NewState} = Behavior:client_request(Entity, Channel, EventType, Event),
+    {reply, Response, NewState};
+
+
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
 
@@ -180,6 +236,18 @@ handle_info(simulate, State) ->
 
 	% Start new timer
     erlang:send_after(?INTERVAL, self(), simulate),
+
+    {noreply, State};
+
+
+handle_info({full_update, EntityID}, State) ->
+	Entities = State#state.entities,
+	_Entity = dict:fetch(EntityID, Entities),
+
+	%TODO: Send full update here!
+
+	% Reset timer
+	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
 
     {noreply, State};
 
