@@ -1,16 +1,17 @@
-%%% @doc The entity/client interface.
+%%% @doc The entity/client communication interface.
 %%%
 %%% This module is simply an interface from the channel logic to the entity engine and vice versa.
 %%%
 %%% --------------------------------------------------------------------------------------------------------------------
 
--module(pre_entity_interface).
+-module(pre_entity_comm).
 
 -include("log.hrl").
 -include("pre_entity.hrl").
 
 % API
 -export([client_request/5, client_event/4]).
+-export([broadcast_event/3, broadcast_update/2, broadcast_full_update/1]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
@@ -45,6 +46,38 @@ client_event(ClientInfo, Channel, EventType, Event) ->
 
 	% Call the entity engine
 	pre_entity_engine:client_event(EntityEngine, EntityID, Channel, EventType, Event).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Broadcasts an event to all clients.
+%%
+%% This broadcasts an event to every client.
+-spec broadcast_event(EventType::binary(), EntityID::binary(), EventContents::json()) ->
+	ok.
+
+broadcast_event(EventType, EntityID, EventContents) ->
+	pre_channel_entity_sup:broadcast_event(EventType, EntityID, EventContents).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Broadcasts a delta update to all clients.
+%%
+%% This broadcasts a partial state update to all connected clients..
+-spec broadcast_update(EntityID::binary(), PartialState::json()) ->
+	ok.
+
+broadcast_update(EntityID, PartialState) ->
+	pre_channel_entity_sup:broadcast_update(EntityID, PartialState).
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% @doc Broadcasts an event to all entities.
+%%
+%% This broadcasts an event to every entity.
+-spec broadcast_full_update(Entity::#entity{}) ->
+	ok.
+
+broadcast_full_update(Entity) ->
+	pre_channel_entity_sup:broadcast_event(Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 

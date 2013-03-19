@@ -120,7 +120,13 @@ remove_watcher(Pid, EntityID, Watcher) ->
 
 send_to_watchers(Entity, State) ->
 	Watchers = Entity#entity.watchers,
-	send_to_watchers(Watchers, Entity#entity.id, State).
+	EntityID = Entity#entity.id,
+
+	% We send the update to all clients; this is how we inform them of partial updates.
+	pre_entity_comm:broadcast_update(EntityID, State),
+
+	% Broadcast the update to all watchers
+	send_to_watchers(Watchers, EntityID, State).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Client API
@@ -199,6 +205,22 @@ handle_call({update, EntityID, _OldEntState, _NewEntState}, _From, State) ->
 	},
     {reply, ok, NewState};
 
+
+% Handle full update requests ourself, since the behavior doesn't need to handle them.
+handle_call({request, EntityID, <<"entity">>, <<"full">>, _RequestID, _Request}, _From, State) ->
+	#state{entities = Entities} = State,
+	Entity = dict:fetch(EntityID, Entities),
+	ModelDef = Entity#entity.model,
+	EntState = Entity#entity.state,
+
+	Response = [
+		{confirm, true},
+		{id, EntityID},
+		{timestamp, generate_timestamp()},
+		{modelDef, ModelDef},
+		{state, EntState}
+	],
+	{reply, Response, State};
 
 handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From, State) ->
 	Entities = State#state.entities,
@@ -327,5 +349,10 @@ send_to_watchers([Watcher | Rest], EntityID, State) ->
 	% Send `{update, EntityID, State}` to Watcher
 	Watcher ! {update, EntityID, State},
 	send_to_watchers(Rest, EntityID, State).
+
+
+generate_timestamp() ->
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
 
 %% --------------------------------------------------------------------------------------------------------------------
