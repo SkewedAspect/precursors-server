@@ -1,8 +1,3 @@
--record(entity_id, {
-	engine :: pid(),
-	ref :: reference()
-}).
-
 -record(client_info, {
 	connection :: pid(),
 	channel_manager :: pid(),
@@ -11,7 +6,8 @@
 	show_account :: 'hidden' | 'public',
 	character_id :: binary(),
 	character :: json(),
-	entity :: #entity_id{}
+	entity :: binary(),
+	entity_engine :: pid()
 }).
 
 %%-----------------------------------------------------------------------
