@@ -119,7 +119,7 @@ create_entity(Behavior, Definition, ClientInfo=#client_info{}, EntityEngine) ->
 	started | {failed, Reason::string()}.
 
 start_entity_engine(Args) ->
-	gen_server:call(pre_entity_engine_sup, {start_entity_engine, Args}).
+	gen_server:cast(pre_entity_engine_sup, {start_entity_engine, Args}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
