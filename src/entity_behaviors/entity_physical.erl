@@ -4,6 +4,7 @@
 
 -include("log.hrl").
 -include("pre_entity.hrl").
+-include("pre_physics.hrl").
 
 % pre_entity
 -export([init/2, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
@@ -18,10 +19,10 @@ init(EntityID, Behavior) ->
 	pre_entity_engine:start_entity_timer(EntityID, ?STEP_SIZE, do_physics),
 	#entity{
 		id = EntityID,
-		callback_module = Behavior,
-		physical = #physical{
-			last_update = os:timestamp()
-		}
+		behavior = Behavior,
+		state = [
+			{physical, #physical{ last_update = os:timestamp() }}
+		]
 	}.
 
 %% -------------------------------------------------------------------
@@ -49,9 +50,11 @@ get_full_state(EntityState) ->
 		inverse_mass = InverseMass,
 		inertia_tensor = InertiaTensor,
 		inverse_inertia_tensor = InverseInertiaTensor
-	} = EntityState#entity.physical,
+	} = proplists:get_value(physical, EntityState#entity.state),
 
 	FullState = [
+		{behavior, <<"Physical">>},
+
 		{position, vector:vec_to_list(Position)},
 		{linear_momentum, vector:vec_to_list(LinearMomentum)},
 		{orientation, quaternion:quat_to_list(Orientation)},
@@ -94,16 +97,15 @@ client_event(EntityState, _ClientInfo, Channel, EventType, Event) ->
 %% -------------------------------------------------------------------
 
 timer_fired(EntityState, do_physics) ->
-	#entity{
-		physical = #physical{
-			last_update = LastUpdate
-		} = LastPhysical
-	} = EntityState,
+	LastPhysical = proplists:get_value(physical, EntityState#entity.state),
+	#physical{
+		last_update = LastUpdate
+	} = LastPhysical,
 	ThisUpdate = os:timestamp(),
 	Physical = pre_physics_rk4:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
 	EntityState1 = EntityState#entity{
-		physical = Physical#physical{
-			last_update = ThisUpdate
-		}
+		state = lists:keystore(physical, 1, EntityState#entity.state,
+			{physical, Physical#physical{ last_update = ThisUpdate }}
+		)
 	},
 	{noreply, EntityState1}.

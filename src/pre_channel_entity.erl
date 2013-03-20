@@ -55,20 +55,16 @@ broadcast_event(Pid, EntityID, Content) ->
 
 %% -------------------------------------------------------------------
 
+-spec build_state_event(EventType, StateUpdate, EntityID, Timestamp) -> json() when
+	EventType :: binary(),
+	StateUpdate :: json(),
+	EntityID :: binary(),
+	Timestamp :: number().
+
 build_state_event(EventType, StateUpdate, EntityID, Timestamp) ->
-	#entity_id{
-		engine = EntityEngine,
-		ref = EntityRef
-	} = EntityID,
-
-	NetworkEntityID = [
-		list_to_binary(erlang:pid_to_list(EntityEngine)),
-		list_to_binary(erlang:ref_to_list(EntityRef))
-	],
-
 	[
 		{type, EventType},
-		{id, NetworkEntityID},
+		{id, EntityID},
 		{timestamp, Timestamp}
 		| StateUpdate
 	].
@@ -108,7 +104,7 @@ handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
 	Clients = lists:keyreplace(ConnectionPid, 1, State#state.clients, {ConnectionPid, EntityDef}),
 	pre_entity_engine:get_full_state_async(EntityDef, fun (Timestamp, FullState) ->
 		#entity{
-			model_def = ModelDef
+			model = ModelDef
 		} = EntityDef,
 
 		FullUpdate = [

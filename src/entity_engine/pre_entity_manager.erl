@@ -36,7 +36,6 @@ get_entity(EntityID) ->
 create_entity(Behavior, Definition) ->
 	Entity = #entity {
 		behavior = Behavior,
-		definition = Definition,
 
 		%TODO: What's a good default to use for model? undefined?
 		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
@@ -65,7 +64,6 @@ create_entity(Behavior, Definition) ->
 create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 	Entity = #entity {
 		behavior = Behavior,
-		definition = Definition,
 		client = ClientInfo,
 
 		%TODO: What's a good default to use for model? undefined?
@@ -79,7 +77,6 @@ create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 create_entity(Behavior, Definition, EntityEngine) ->
 	Entity = #entity {
 		behavior = Behavior,
-		definition = Definition,
 
 		%TODO: What's a good default to use for model? undefined?
 		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
@@ -100,7 +97,6 @@ create_entity(Behavior, Definition, EntityEngine) ->
 create_entity(Behavior, Definition, ClientInfo=#client_info{}, EntityEngine) ->
 	Entity = #entity {
 		behavior = Behavior,
-		definition = Definition,
 		client = ClientInfo,
 
 		%TODO: What's a good default to use for model? undefined?
@@ -120,6 +116,3 @@ create_entity(Behavior, Definition, ClientInfo=#client_info{}, EntityEngine) ->
 
 start_entity_engine(Args) ->
 	gen_server:cast(pre_entity_engine_sup, {start_entity_engine, Args}).
-
-%% --------------------------------------------------------------------------------------------------------------------
-

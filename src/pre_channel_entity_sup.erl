@@ -51,7 +51,9 @@ client_request(Client, RequestID, Request, _Info) ->
 
 %% -------------------------------------------------------------------
 
--spec broadcast_update(EntityID :: #entity_id{}, StateDelta :: [{atom(), term()}]) -> 'ok'.
+-spec broadcast_update(EntityID, StateDelta) -> 'ok' when
+	EntityID :: binary(),
+	StateDelta :: [{atom(), term()}].
 
 broadcast_update(EntityID, StateDelta) ->
 	Content = [
@@ -70,7 +72,7 @@ broadcast_full_update(Entity) ->
 		begin
 			#entity{
 				id = EntityID,
-				model_def = ModelDef
+				model = ModelDef
 			} = Entity,
 
 			Content = [
@@ -85,7 +87,7 @@ broadcast_full_update(Entity) ->
 
 -spec broadcast_event(EventType, EntityID, EventContents) -> 'ok' when
 	EventType :: pre_channel_entity:entity_event_type(),
-	EntityID :: #entity_id{},
+	EntityID :: binary(),
 	EventContents :: [{atom(), term()}].
 
 broadcast_event(EventType, EntityID, EventContents) ->
@@ -97,7 +99,7 @@ broadcast_event(EventType, EntityID, EventContents) ->
 
 -spec broadcast_event(EventType, EntityID, EventContents, Timestamp) -> 'ok' when
 	EventType :: pre_channel_entity:entity_event_type(),
-	EntityID :: #entity_id{},
+	EntityID :: binary(),
 	EventContents :: [{atom(), term()}],
 	Timestamp :: float().
 

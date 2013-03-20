@@ -4,9 +4,10 @@
 
 -include("log.hrl").
 -include("pre_entity.hrl").
+-include("pre_physics.hrl").
 
 % pre_entity
--export([init/2, get_client_behavior/1, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
+-export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
 
 %% -------------------------------------------------------------------
 %% API
@@ -14,46 +15,45 @@
 
 init(EntityID, Behavior) ->
 	InitialEntity = entity_physical:init(EntityID, Behavior),
-	InitialPhysical = InitialEntity#entity.physical,
+	InitialPhysical = proplists:get_value(physical, InitialEntity#entity.state),
 	Choice = random:uniform(),
 	if
 		Choice < 0.5 ->
 			% Flying in a circle.
 			InitialEntity#entity{
-				physical = InitialPhysical#physical{
-					% Updated values (assume these change every frame)
-					position = {100, 500, -10},
-					linear_momentum = {0, 30, 0},
-					orientation = {1, 0, 0, 0},
+				state = lists:keystore(physical, 1, InitialEntity#entity.state,
+					{physical, InitialPhysical#physical{
+						% Updated values (assume these change every frame)
+						position = {100, 500, -10},
+						linear_momentum = {0, 30, 0},
+						orientation = {1, 0, 0, 0},
 
-					% Input-only values
-					force_relative = {-9, 0, 0},
+						% Input-only values
+						force_relative = {-9, 0, 0},
 
-					% Purely calculated values (DON'T try to change these externally)
-					angular_velocity = {0.9887710779360422, 0.0, 0.0, 0.14943813247359922}
-				}
+						% Purely calculated values (DON'T try to change these externally)
+						angular_velocity = {0.9887710779360422, 0.0, 0.0, 0.14943813247359922}
+					}}
+				)
 			};
 		true ->
 			% Rotating in place.
 			InitialEntity#entity{
-				physical = InitialPhysical#physical{
-					position = {random:uniform() * 200 - 100, 700, 10},
-					angular_velocity = quaternion:from_axis_angle(
-						vector:unit({
-							random:uniform(),
-							random:uniform(),
-							random:uniform()
+				state = lists:keystore(physical, 1, InitialEntity#entity.state,
+					{physical, InitialPhysical#physical{
+						position = {random:uniform() * 200 - 100, 700, 10},
+						angular_velocity = quaternion:from_axis_angle(
+							vector:unit({
+								random:uniform(),
+								random:uniform(),
+								random:uniform()
 							}),
-						random:uniform() * math:pi()
+							random:uniform() * math:pi()
 						)
-				}
+					}}
+				)
 			}
 	end.
-
-%% -------------------------------------------------------------------
-
-get_client_behavior(EntityState) ->
-	{<<"Physical">>, EntityState}.
 
 %% -------------------------------------------------------------------
 
@@ -86,8 +86,8 @@ client_event(EntityState, ClientInfo, Channel, EventType, Event) ->
 
 %% -------------------------------------------------------------------
 
-timer_fired(EntityState, Tag) ->
-	entity_physical:timer_fired(EntityState, Tag).
+simulate(EntityRecord, EntityEngineState) ->
+	entity_physical:simulate(EntityRecord, EntityEngineState).
 
 %% -------------------------------------------------------------------
 
@@ -101,16 +101,17 @@ handle_input_command(EntityState, [{_, _} | _] = RawCommand) ->
 
 handle_input_command(EntityState, <<"test">>, _Args, _KWArgs) ->
 	?info("Confirming \"test\" input command."),
-	#entity{
-		physical = Physical
-	} = EntityState,
+	Physical = proplists:get_value(physical, EntityState#entity.state),
 	Response = {reply, [
 		{confirm, true}
 	]},
 	EntityState1 = EntityState#entity{
-		physical = Physical#physical{
-			position = {random:uniform() * 200 - 100, 700, 10}
-		}
+		state = [
+			{physical, Physical#physical{
+				position = {random:uniform() * 200 - 100, 700, 10}
+			}}
+		| proplists:delete(physical, EntityState#entity.state)
+		]
 	},
 	{Response, EntityState1};
 

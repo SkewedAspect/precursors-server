@@ -16,20 +16,19 @@
 % API
 -export([start_link/1]).
 -export([add_entity/2, remove_entity/2, get_entity/2, update_entity_state/4]).
--export([add_watcher/3, remove_watcher/3, send_to_watchers/2]).
 -export([client_request/6, client_event/5]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 % Simulation interval
--define(INTERVAL, 17). % 1/60th of a second.
+-define(INTERVAL, 16). % about 1/60th of a second. (16 ms)
 
 % Full Update interval
 -define(FULL_INTERVAL, 30000). % 30 seconds.
 
 -record(state, {
-	entities :: dict()
+	entities :: list()
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -86,49 +85,6 @@ update_entity_state(Pid, EntityID, OldState, NewState) ->
 	gen_server:call(Pid, {update, EntityID, OldState, NewState}).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% Watcher API
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Adds a watcher to be notified on updates.
-%%
-%% Adds a watcher pid to the list of watchers for this entity. This always assumes the watcher was correctly added.
--spec add_watcher(Pid::pid(), EntityID::binary(), Watcher::pid()) ->
-	ok.
-
-add_watcher(Pid, EntityID, Watcher) ->
-	gen_server:cast(Pid, {add_watcher, EntityID, Watcher}).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Removes a watcher from the entity..
-%%
-%% Removes a watcher pid from the entity. This always assumes the watcher was correctly removed.
--spec remove_watcher(Pid::pid(), EntityID::binary(), Watcher::pid()) ->
-	ok.
-
-remove_watcher(Pid, EntityID, Watcher) ->
-	gen_server:cast(Pid, {remove_watcher, EntityID, Watcher}).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Sends an update message to watchers for the given entity.
-%%
-%% This sends an `{updated, EntityID, State}` message to all pids in the entity's watchers list. This does not report
-%% errors if it fails to send the message.
--spec send_to_watchers(Entity::#entity{}, State::json()) ->
-	ok.
-
-send_to_watchers(Entity, State) ->
-	Watchers = Entity#entity.watchers,
-	EntityID = Entity#entity.id,
-
-	% We send the update to all clients; this is how we inform them of partial updates.
-	pre_entity_comm:broadcast_update(EntityID, State),
-
-	% Broadcast the update to all watchers
-	send_to_watchers(Watchers, EntityID, State).
-
-%% --------------------------------------------------------------------------------------------------------------------
 %% Client API
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -161,8 +117,12 @@ client_event(Pid, EntityID, Channel, EventType, Event) ->
 
 init([]) ->
 	State = #state{
-		entities = dict:new()
+		entities = []
 	},
+	
+	% Join the entity_updates process group.
+	pg2:create(entity_updates),
+	pg2:join(entity_updates, self()),
 
 	% Start the simulation timer
 	erlang:send_after(?INTERVAL, self(), simulate),
@@ -254,12 +214,12 @@ handle_cast(_, State) ->
 
 handle_info(simulate, State) ->
 	% Simulate all our entities
-	simulate_entities(dict:to_list(State#state.entities), State),
+	{ok, State1} = simulate_entities(State#state.entities, [], State),
 
 	% Start new timer
     erlang:send_after(?INTERVAL, self(), simulate),
 
-    {noreply, State};
+    {noreply, State1};
 
 
 handle_info({full_update, EntityID}, State) ->
@@ -272,47 +232,6 @@ handle_info({full_update, EntityID}, State) ->
 	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
 
     {noreply, State};
-
-
-handle_info({add_watcher, EntityID, Watcher}, State) ->
-	Entities = State#state.entities,
-	Entity = dict:fetch(EntityID, Entities),
-	Watchers = Entity#entity.watchers,
-
-	% Append new watcher
-	NewWatchers = lists:append(Watchers, [Watcher]),
-
-	% Update Entity
-	NewEntity = Entity#entity {
-		watchers = NewWatchers
-	},
-
-	% Update state
-	NewState = State#state {
-		entities = dict:store(EntityID, NewEntity, Entities)
-	},
-
-    {noreply, NewState};
-
-handle_info({remove_watcher, EntityID, Watcher}, State) ->
-	Entities = State#state.entities,
-	Entity = dict:fetch(EntityID, Entities),
-	Watchers = Entity#entity.watchers,
-
-	% Remove Watcher
-	NewWatchers = lists:delete(Watcher, Watchers),
-
-	% Update Entity
-	NewEntity = Entity#entity {
-		watchers = NewWatchers
-	},
-
-	% Update state
-	NewState = State#state {
-		entities = dict:store(EntityID, NewEntity, Entities)
-	},
-
-    {noreply, NewState};
 
 
 handle_info(_, State) ->
@@ -331,24 +250,24 @@ code_change(_OldVersion, State, _Extra) ->
 %% Internal API
 %% --------------------------------------------------------------------------------------------------------------------
 
-simulate_entities([], _State) ->
-	ok;
+simulate_entities([], NewEntities, State) ->
+	{ok, State#state{
+		entities = NewEntities
+	}};
 
-simulate_entities([{EntityID, Entity} | Rest], State) ->
+simulate_entities([Entity | Rest], NewEntities, State) ->
 	% Simulate this entity's behavior.
 	Behavior = Entity#entity.behavior,
-	NewEntity = apply(Behavior, simulate, [{Entity, State}]),
-	dict:store(EntityID, NewEntity, State#state.entities),
-	simulate_entities(Rest, State).
-
-
-send_to_watchers([], _EntityID, _State) ->
-	ok;
-
-send_to_watchers([Watcher | Rest], EntityID, State) ->
-	% Send `{update, EntityID, State}` to Watcher
-	Watcher ! {update, EntityID, State},
-	send_to_watchers(Rest, EntityID, State).
+	NewEntity = case Behavior:simulate(Entity, State) of
+		{noupdate, NewEntity1} ->
+			NewEntity1;
+		{update, UpdateJSON, NewEntity2} ->
+			SelfPid = self(),
+			[Pid ! {entity_update, Entity#entity.id, UpdateJSON}
+				|| Pid <- pg2:get_members(entity_updates), Pid =/= SelfPid],
+			NewEntity2
+	end,
+	simulate_entities(Rest, [NewEntity | NewEntities], State).
 
 
 generate_timestamp() ->

@@ -4,6 +4,7 @@
 
 -include("log.hrl").
 -include("pre_entity.hrl").
+-include("pre_physics.hrl").
 
 % pre_entity
 -export([init/2, get_client_behavior/1, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
@@ -28,21 +29,23 @@
 
 init(EntityID, Behavior) ->
 	InitialEntity = entity_physical:init(EntityID, Behavior),
-	InitialPhysical = InitialEntity#entity.physical,
+	InitialPhysical = proplists:get_value(physical, InitialEntity#entity.state),
 	% Random initial position and orientation.
 	InitialEntity#entity{
-		physical = InitialPhysical#physical{
-			position = {random:uniform() * 200 - 100, random:uniform() * 200 + 600, random:uniform() * 20},
-			orientation = quaternion:from_axis_angle(
-				vector:unit({
-					random:uniform(),
-					random:uniform(),
-					random:uniform()
+		state = lists:keystore(physical, 1,
+			lists:keystore(ship, 1, InitialEntity#entity.state, {ship, #ship_data{}}),
+			{physical, InitialPhysical#physical{
+				position = {random:uniform() * 200 - 100, random:uniform() * 200 + 600, random:uniform() * 20},
+				orientation = quaternion:from_axis_angle(
+					vector:unit({
+						random:uniform(),
+						random:uniform(),
+						random:uniform()
 					}),
-				random:uniform() * math:pi()
+					random:uniform() * math:pi()
 				)
-		},
-		behavior_data = #ship_data{}
+			}}
+		)
 	}.
 
 %% -------------------------------------------------------------------
@@ -121,16 +124,17 @@ handle_input_command(EntityState, Command, Args, KWArgs) ->
 
 set_target_angular_velocity(EntityState, New) ->
 	%?debug("Setting orientation velocity to ~p.", [New]),
-	#entity{
-		behavior_data = #ship_data{
-			target_angular_velocity = Current
-		} = ShipData
-	} = EntityState,
+	ShipData = proplists:get_value(ship, EntityState#entity.state),
+	#ship_data{
+		target_angular_velocity = Current
+	} = ShipData,
 
 	EntityState1 = EntityState#entity{
-		behavior_data = ShipData#ship_data{
-			target_angular_velocity = update_vector(New, Current)
-		}
+		state = lists:keystore(ship, 1, EntityState#entity.state, {ship,
+			ShipData#ship_data{
+				target_angular_velocity = update_vector(New, Current)
+			}
+		})
 	},
 	Response = {reply, [
 		{confirm, true}
@@ -141,16 +145,17 @@ set_target_angular_velocity(EntityState, New) ->
 
 set_target_linear_velocity(EntityState, New) ->
 	%?debug("Setting position velocity to ~p.", [New]),
-	#entity{
-		behavior_data = #ship_data{
-			target_linear_velocity = Current
-		} = ShipData
-	} = EntityState,
+	ShipData = proplists:get_value(ship, EntityState#entity.state),
+	#ship_data{
+		target_angular_velocity = Current
+	} = ShipData,
 
 	EntityState1 = EntityState#entity{
-		behavior_data = ShipData#ship_data{
-			target_linear_velocity = update_vector(New, Current)
-		}
+		state = lists:keystore(ship, 1, EntityState#entity.state, {ship,
+			ShipData#ship_data{
+				target_linear_velocity = update_vector(New, Current)
+			}
+		})
 	},
 	Response = {reply, [
 		{confirm, true}
@@ -160,26 +165,27 @@ set_target_linear_velocity(EntityState, New) ->
 %% -------------------------------------------------------------------
 
 do_flight_control(EntityState) ->
-	#entity{
-		physical = #physical{
-			orientation = Orientation,
-			linear_velocity = PositionVelAbs,
-			% Since Euler vectors are {X, Y, Z} where unit({X, Y, Z}) is the axis of rotation and magnitude({X, Y, Z})
-			% is the speed of rotation, that works out to {1, 0, 0} being pitch (rotation around X), {0, 1, 0} being
-			% roll (rotation around Y), etc. Therefore, decomposing each of the rotations gives us {Pitch, Roll, Yaw}.
-			angular_velocity = AngularVelAbs
-		} = Physical,
-		behavior_data = #ship_data{
-			target_linear_velocity = {TX, TY, TZ},
-			target_angular_velocity = {TPitch, TRoll, TYaw},
-			linear_target_velocity_scaling = {TXScale, TYScale, TZScale},
-			angular_target_velocity_scaling = {TPitchScale, TRollScale, TYawScale},
-			max_linear_thrust = {MaxXT, MaxYT, MaxZT},
-			max_angular_thrust = {MaxPitchT, MaxRollT, MaxYawT},
-			linear_responsiveness = {XR, YR, ZR},
-			angular_responsiveness = {PitchR, RollR, YawR}
-		}
-	} = EntityState,
+	Physical = proplists:get_value(physical, EntityState#entity.state),
+	#physical{
+		orientation = Orientation,
+		linear_velocity = PositionVelAbs,
+		% Since Euler vectors are {X, Y, Z} where unit({X, Y, Z}) is the axis of rotation and magnitude({X, Y, Z})
+		% is the speed of rotation, that works out to {1, 0, 0} being pitch (rotation around X), {0, 1, 0} being
+		% roll (rotation around Y), etc. Therefore, decomposing each of the rotations gives us {Pitch, Roll, Yaw}.
+		angular_velocity = AngularVelAbs
+	} = Physical,
+
+	ShipData = proplists:get_value(ship, EntityState#entity.state),
+	#ship_data{
+		target_linear_velocity = {TX, TY, TZ},
+		target_angular_velocity = {TPitch, TRoll, TYaw},
+		linear_target_velocity_scaling = {TXScale, TYScale, TZScale},
+		angular_target_velocity_scaling = {TPitchScale, TRollScale, TYawScale},
+		max_linear_thrust = {MaxXT, MaxYT, MaxZT},
+		max_angular_thrust = {MaxPitchT, MaxRollT, MaxYawT},
+		linear_responsiveness = {XR, YR, ZR},
+		angular_responsiveness = {PitchR, RollR, YawR}
+	} = ShipData,
 
 	{XVel, YVel, ZVel} = quaternion:rotate(PositionVelAbs, quaternion:reciprocal(Orientation)),
 	{PitchVel, RollVel, YawVel} = quaternion:rotate(AngularVelAbs, quaternion:reciprocal(Orientation)),
@@ -197,10 +203,12 @@ do_flight_control(EntityState) ->
 	},
 
 	EntityState#entity{
-		physical = Physical#physical{
-			force_relative = Force,
-			torque_relative = Torque
-		}
+		state = lists:keystore(physical, 1, EntityState#entity.state,
+			{physical, Physical#physical{
+				force_relative = Force,
+				torque_relative = Torque
+			}}
+		)
 	}.
 
 calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
@@ -222,20 +230,4 @@ first_defined(undefined, R1) ->
 	R1;
 
 first_defined(Val, _) ->
-	Val.
-
-%% -------------------------------------------------------------------
-
-first_defined(undefined, R1, R2) ->
-	first_defined(R1, R2);
-
-first_defined(Val, _, _) ->
-	Val.
-
-%% -------------------------------------------------------------------
-
-first_defined(undefined, R1, R2, R3) ->
-	first_defined(R1, R2, R3);
-
-first_defined(Val, _, _, _) ->
 	Val.

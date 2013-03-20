@@ -117,7 +117,7 @@ respond(Pid, Socket, MessageID, Channel, Json) ->
 
 -spec set_inhabited_entity(Pid, EntityID) -> 'ok' when
 	Pid :: pid() | #client_info{},
-	EntityID :: #entity_id{}.
+	EntityID :: binary().
 
 set_inhabited_entity(Pid, EntityID) ->
 	gen_server:cast(Pid, {inhabit_entity, EntityID}).
@@ -450,7 +450,7 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	% Store character and id in state.
 	State#state{
 		client_info = State#state.client_info#client_info{
-		character_id = CharId,
+			character_id = CharId,
 			character = Character
 		}
 	},
