@@ -13,7 +13,7 @@
 %%% `client_event` is called by the entity/client interface (pre_entity_interface) when an event comes in that the
 %%% behavior needs to process. No response is expected.
 %%%
-%%% --------------------------------------------------------------------------------------------------------------------
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(entity_behavior).
 -export([behaviour_info/1]).
@@ -23,7 +23,7 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 behaviour_info(callbacks) ->
-	[{simulate, 2}, {get_full_update, 1}, {client_request, 5}, {client_event, 5}];
+	[{simulate, 2}, {get_full_state, 1}, {client_request, 6}, {client_event, 5}];
 
 behaviour_info(_) ->
     undefined.

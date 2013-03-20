@@ -1,4 +1,5 @@
-%%% @doc The test entity!
+%%% @doc An entity representing a ship.
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(entity_ship).
 
@@ -6,8 +7,10 @@
 -include("pre_entity.hrl").
 -include("pre_physics.hrl").
 
+-behaviour(entity_behavior).
+
 % pre_entity
--export([init/2, get_client_behavior/1, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
+-export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
 
 -record(ship_data, {
 	% Current state
@@ -23,9 +26,9 @@
 	angular_responsiveness = {3, 3, 3} :: vector:vec() %  {pitch, roll, yaw}
 }).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 %% API
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 init(EntityID, Behavior) ->
 	InitialEntity = entity_physical:init(EntityID, Behavior),
@@ -48,17 +51,12 @@ init(EntityID, Behavior) ->
 		)
 	}.
 
-%% -------------------------------------------------------------------
-
-get_client_behavior(EntityState) ->
-	{<<"Physical">>, EntityState}.
-
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 get_full_state(EntityState) ->
 	entity_physical:get_full_state(EntityState).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 client_request(EntityState, _ClientInfo, input, <<"command">>, _RequestID, Request) ->
 	handle_input_command(EntityState, Request);
@@ -66,7 +64,7 @@ client_request(EntityState, _ClientInfo, input, <<"command">>, _RequestID, Reque
 client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request) ->
 	entity_physical:client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 client_event(EntityState, _ClientInfo, input, <<"command">>, Event) ->
 	{_Response, EntityState1} = handle_input_command(EntityState, Event),
@@ -75,13 +73,13 @@ client_event(EntityState, _ClientInfo, input, <<"command">>, Event) ->
 client_event(EntityState, ClientInfo, Channel, EventType, Event) ->
 	entity_physical:client_event(EntityState, ClientInfo, Channel, EventType, Event).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-timer_fired(EntityState, Tag) ->
+simulate(EntityState, EntityEngineState) ->
 	EntityState1 = do_flight_control(EntityState),
-	entity_physical:timer_fired(EntityState1, Tag).
+	entity_physical:simulate(EntityState1, EntityEngineState).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 handle_input_command(EntityState, [{_, _} | _] = RawCommand) ->
 	Command = proplists:get_value(name, RawCommand),
@@ -89,7 +87,7 @@ handle_input_command(EntityState, [{_, _} | _] = RawCommand) ->
 	KWArgs = proplists:get_value(kwargs, RawCommand),
 	handle_input_command(EntityState, Command, Args, KWArgs).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 % Positional target velocity
 handle_input_command(EntityState, <<"sideslip">>, [TargetVel], _KWArgs) ->
@@ -120,7 +118,7 @@ handle_input_command(EntityState, Command, Args, KWArgs) ->
 	]},
 	{Response, EntityState}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 set_target_angular_velocity(EntityState, New) ->
 	%?debug("Setting orientation velocity to ~p.", [New]),
@@ -141,7 +139,7 @@ set_target_angular_velocity(EntityState, New) ->
 	]},
 	{Response, EntityState1}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 set_target_linear_velocity(EntityState, New) ->
 	%?debug("Setting position velocity to ~p.", [New]),
@@ -162,7 +160,7 @@ set_target_linear_velocity(EntityState, New) ->
 	]},
 	{Response, EntityState1}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 do_flight_control(EntityState) ->
 	Physical = proplists:get_value(physical, EntityState#entity.state),
@@ -215,7 +213,7 @@ calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
 	DMToP = 2 * MaxTh / math:pi(),
 	DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 update_vector({UpdateX, UpdateY, UpdateZ}, {CurrentX, CurrentY, CurrentZ}) ->
 	{
@@ -224,7 +222,7 @@ update_vector({UpdateX, UpdateY, UpdateZ}, {CurrentX, CurrentY, CurrentZ}) ->
 		first_defined(UpdateZ, CurrentZ)
 		}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 first_defined(undefined, R1) ->
 	R1;

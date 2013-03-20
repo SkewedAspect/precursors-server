@@ -1,4 +1,5 @@
 %%% @doc An entity representing a physical object.
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(entity_physical).
 
@@ -6,14 +7,16 @@
 -include("pre_entity.hrl").
 -include("pre_physics.hrl").
 
+-behaviour(entity_behavior).
+
 % pre_entity
--export([init/2, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
+-export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
 
 -define(STEP_SIZE, 50).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 %% API
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 init(EntityID, Behavior) ->
 	pre_entity_engine:start_entity_timer(EntityID, ?STEP_SIZE, do_physics),
@@ -25,7 +28,23 @@ init(EntityID, Behavior) ->
 		]
 	}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
+
+simulate(EntityState, _EntityEngineState) ->
+	LastPhysical = proplists:get_value(physical, EntityState#entity.state),
+	#physical{
+		last_update = LastUpdate
+	} = LastPhysical,
+	ThisUpdate = os:timestamp(),
+	Physical = pre_physics_rk4:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
+	EntityState1 = EntityState#entity{
+		state = lists:keystore(physical, 1, EntityState#entity.state,
+			{physical, Physical#physical{ last_update = ThisUpdate }}
+		)
+	},
+	{noreply, EntityState1}.
+
+%% --------------------------------------------------------------------------------------------------------------------
 
 get_full_state(EntityState) ->
 	#physical{
@@ -76,7 +95,7 @@ get_full_state(EntityState) ->
 
 	{FullState, EntityState}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Request) ->
 	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
@@ -87,25 +106,9 @@ client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Reque
 	]},
 	{Response, EntityState}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 client_event(EntityState, _ClientInfo, Channel, EventType, Event) ->
 	?debug("~p received invalid event ~p on channel ~p! (full event: ~p)",
 		[EntityState#entity.id, EventType, Channel, Event]),
 	{noreply, EntityState}.
-
-%% -------------------------------------------------------------------
-
-timer_fired(EntityState, do_physics) ->
-	LastPhysical = proplists:get_value(physical, EntityState#entity.state),
-	#physical{
-		last_update = LastUpdate
-	} = LastPhysical,
-	ThisUpdate = os:timestamp(),
-	Physical = pre_physics_rk4:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
-	EntityState1 = EntityState#entity{
-		state = lists:keystore(physical, 1, EntityState#entity.state,
-			{physical, Physical#physical{ last_update = ThisUpdate }}
-		)
-	},
-	{noreply, EntityState1}.

@@ -1,4 +1,5 @@
 %%% @doc The test entity!
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(entity_test).
 
@@ -6,12 +7,14 @@
 -include("pre_entity.hrl").
 -include("pre_physics.hrl").
 
+-behaviour(entity_behavior).
+
 % pre_entity
 -export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
 
-%% -------------------------------------------------------------------
-%% API
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
+%% External API
+%% --------------------------------------------------------------------------------------------------------------------
 
 init(EntityID, Behavior) ->
 	InitialEntity = entity_physical:init(EntityID, Behavior),
@@ -55,12 +58,17 @@ init(EntityID, Behavior) ->
 			}
 	end.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
+
+simulate(EntityRecord, EntityEngineState) ->
+	entity_physical:simulate(EntityRecord, EntityEngineState).
+
+%% --------------------------------------------------------------------------------------------------------------------
 
 get_full_state(EntityState) ->
 	entity_physical:get_full_state(EntityState).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 %client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request) ->
 %	ClientInfo = EntityState#entity.client,
@@ -75,7 +83,7 @@ client_request(EntityState, _ClientInfo, input, <<"command">>, _RequestID, Reque
 client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request) ->
 	entity_physical:client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 client_event(EntityState, _ClientInfo, input, <<"command">>, Event) ->
 	{_Response, EntityState1} = handle_input_command(EntityState, Event),
@@ -84,12 +92,9 @@ client_event(EntityState, _ClientInfo, input, <<"command">>, Event) ->
 client_event(EntityState, ClientInfo, Channel, EventType, Event) ->
 	entity_physical:client_event(EntityState, ClientInfo, Channel, EventType, Event).
 
-%% -------------------------------------------------------------------
-
-simulate(EntityRecord, EntityEngineState) ->
-	entity_physical:simulate(EntityRecord, EntityEngineState).
-
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
+%% Internal API
+%% --------------------------------------------------------------------------------------------------------------------
 
 handle_input_command(EntityState, [{_, _} | _] = RawCommand) ->
 	Command = proplists:get_value(name, RawCommand),
@@ -97,7 +102,7 @@ handle_input_command(EntityState, [{_, _} | _] = RawCommand) ->
 	KWArgs = proplists:get_value(kwargs, RawCommand),
 	handle_input_command(EntityState, Command, Args, KWArgs).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 handle_input_command(EntityState, <<"test">>, _Args, _KWArgs) ->
 	?info("Confirming \"test\" input command."),
