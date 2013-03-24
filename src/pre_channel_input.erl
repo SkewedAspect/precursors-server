@@ -40,7 +40,9 @@ client_request(ClientInfo, RequestID, Request, _Info) ->
 	#client_info{
 		entity = EntityID
 	} = ClientInfo,
-	pre_entity_engine:client_request(EntityID, ClientInfo, input, RequestID, Request).
+	{ok, EnginePid} = pre_entity_engine_sup:get_entity_engine(EntityID),
+	%FIXME: Where the hell does RequestType come from?
+	pre_entity_engine:client_request(EnginePid, EntityID, input, RequestType, RequestID, Request).
 
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.
