@@ -124,7 +124,11 @@ if [ ! -f $CONFIG ] && [ ! -f "${CONFIG}.config" ]; then
 ]},
 
 {sasl, [
-	{errlog_type, error} % disable SASL progress reports
+	{errlog_type, error} % Disable SASL progress reports
+]},
+
+{kernel, [
+	{start_pg2, true} % Start the pg2 server
 ]}].
 
 % vim: ft=erlang
