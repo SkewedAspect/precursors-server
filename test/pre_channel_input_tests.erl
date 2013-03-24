@@ -24,44 +24,55 @@ pre_channel_input_test_() ->
 
 		{"Client Request Test",
 			fun() ->
-				meck:new(pre_entity),
-				meck:expect(pre_entity, init,
+				meck:new(pre_entity_engine),
+				meck:expect(pre_entity_engine, init,
 					fun(substate) ->
 						{ok, substate}
 					end),
-				meck:expect(pre_entity, handle_call,
-					fun({client_request, EntityID, ClientInfo, Channel, RequestType, RequestID, Request}, _From, State) ->
+				meck:expect(pre_entity_engine, handle_call,
+					fun({client_request, _EntityID, _ClientInfo, _Channel, _RequestType, _RequestID, _Request}, _From, State) ->
 						Response = {reply, [
 							{confirm, false},
 							{reason, <<"VALID CRAPBACK: Invalid request!">>}
 						]},
 						{reply, {Response, #entity{}}, State}
 					end),
-				meck:expect(pre_entity, handle_cast,
+				meck:expect(pre_entity_engine, handle_cast,
 					fun(_Request, State) ->
 						{noreply, State}
 					end),
-				meck:expect(pre_entity, handle_info,
+				meck:expect(pre_entity_engine, handle_info,
 					fun(_Info, State) ->
 						{noreply, State}
 					end),
-				meck:expect(pre_entity, terminate,
-					fun(_Reason, State) ->
+				meck:expect(pre_entity_engine, terminate,
+					fun(_Reason, _State) ->
 						whatever
 					end),
-				meck:expect(pre_entity, code_change,
+				meck:expect(pre_entity_engine, code_change,
 					fun(_OldVsn, _State, _Extra) ->
 						{error, ni}
 					end),
-				meck:expect(pre_entity, client_request,
-					fun(RequestType, _EntityID, _RequestID, _Request) ->
+				meck:expect(pre_entity_engine, client_request,
+					fun(_Pid, _EntityID, _Channel, RequestType, _RequestID, _Request) ->
 						?assert(RequestType =:= <<"TestType">>),
 						ok
 					end),
-				{ok, TestEntityPid} = gen_server:start_link(pre_entity, substate, []),
-				TestEntityID = #entity_id{engine = TestEntityPid},
-				TestClient = #client_info{entity = TestEntityID},
+
+				{ok, TestEntityEnginePid} = gen_server:start_link(pre_entity_engine, substate, []),
+				TestEntityID = <<"TestEntity 1">>,
+				TestClient = #client_info{
+					entity = TestEntityID,
+					entity_engine = TestEntityEnginePid
+				},
 				TestRequest = [{type, <<"TestType">>}],
+
+				meck:new(pre_entity_engine_sup),
+				meck:expect(pre_entity_engine_sup, get_entity_engine,
+					fun(EntityID) ->
+						TestEntityID = EntityID,
+						{ok, TestEntityEnginePid}
+					end),
 
 				Response = pre_channel_input:client_request(TestClient, undefined, TestRequest, undefined),
 				ExpectedResponse = {
@@ -73,7 +84,8 @@ pre_channel_input_test_() ->
 				},
 				?assertEqual(ExpectedResponse, Response),
 
-				meck:unload(pre_entity)
+				meck:unload(pre_entity_engine_sup),
+				meck:unload(pre_entity_engine)
 			end},
 
 		{"Client Login Hook Trigger Test",
