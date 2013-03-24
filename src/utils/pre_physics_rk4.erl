@@ -1,29 +1,28 @@
-%% ------------------------------------------------------------------------
-%% @doc Physics: 4th-order Runge-Kutta integration
-%%
-%% @copyright 2012 David H. Bronke
-%% Licensed under the MIT license; see the LICENSE file for details.
-%% ------------------------------------------------------------------------
-%% This module is loosely based on concepts from the following articles:
-%% * http://gafferongames.com/game-physics/integration-basics/
-%% * http://gafferongames.com/game-physics/physics-in-3d/
-%% ------------------------------------------------------------------------
+%%% @doc Physics: 4th-order Runge-Kutta integration
+%%%
+%%% @copyright 2012 David H. Bronke
+%%% Licensed under the MIT license; see the LICENSE file for details.
+%%% -------------------------------------------------------------------------------------------------------------------
+%%% This module is loosely based on concepts from the following articles:
+%%% * http://gafferongames.com/game-physics/integration-basics/
+%%% * http://gafferongames.com/game-physics/physics-in-3d/
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_physics_rk4).
 
-% -------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-% external api 
+% external api
 -export([simulate/2]).
 
-% -------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 -include("log.hrl").
 -include("pre_physics.hrl").
 
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 %% External API
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 -spec evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) -> {Velocity, Force, Spin, Torque, State} when
 	TimeDelta :: float(),
@@ -68,7 +67,7 @@ evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) ->
 
 	{NextVelocity, NextForce, NextSpin, NextTorque, State2}.
 
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 -spec forces(TimeDelta, State) -> {Force, Torque} when
 	TimeDelta :: float(),
@@ -91,7 +90,7 @@ forces(_TimeDelta, State) ->
 
 	{Force, Torque}.
 
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 -spec update_state(State) -> {Spin, AngularVelocity} when
 	State :: #physical{},
@@ -126,9 +125,9 @@ update_state(State) ->
 	},
 	{Spin, NewState}.
 
-%% ------------------------------------------------------------------------
-
+%% --------------------------------------------------------------------------------------------------------------------
 %% @doc Simulate physical movement of the 'physical' object represented by `State`, over the given `TimeDelta`.
+
 simulate(TimeDelta, State) ->
 	#physical{
 		position = Position,
@@ -136,7 +135,7 @@ simulate(TimeDelta, State) ->
 		orientation = {OrientW, OrientX, OrientY, OrientZ},
 		angular_momentum = AngularMomentum
 	} = State,
-	
+
 	{Velocity1, Force1, Spin1, Torque1, State1} = evaluate(0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0}, State),
 	{Velocity2, Force2, Spin2, Torque2, State2} = evaluate(TimeDelta * 0.5, Velocity1, Force1, Spin1, Torque1, State1),
 	{Velocity3, Force3, Spin3, Torque3, State3} = evaluate(TimeDelta * 0.5, Velocity2, Force2, Spin2, Torque2, State2),
@@ -144,7 +143,7 @@ simulate(TimeDelta, State) ->
 
 	NewVelocity = vector:multiply(1.0 / 6.0, vector:add(Velocity1, vector:multiply(2.0, vector:add(Velocity2, Velocity3)), Velocity4)),
 	NewAcceleration = vector:multiply(1.0 / 6.0, vector:add(Force1, vector:multiply(2.0, vector:add(Force2, Force3)), Force4)),
-	
+
 	{Spin1W, Spin1X, Spin1Y, Spin1Z} = Spin1,
 	{Spin2W, Spin2X, Spin2Y, Spin2Z} = Spin2,
 	{Spin3W, Spin3X, Spin3Y, Spin3Z} = Spin3,
