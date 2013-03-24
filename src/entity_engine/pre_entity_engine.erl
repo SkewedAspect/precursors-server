@@ -1,11 +1,10 @@
 %%% @doc The entity simulation engine.
 %%%
 %%% This module is designed to be the heart of our entity simulation engine. It holds on to a dictionary of entities,
-%%% and every simulation interval it runs through all of it's entities, and calls `simulate` on their behaviors. The only
-%%% other thing it does is to provide behaviors a simple way to inform any watchers that something has changed in the
-%%% entity's state. It's not in charge of maintaining that list; it's just the one who sends the messages.
-%%%
-%%% --------------------------------------------------------------------------------------------------------------------
+%%% and every simulation interval it runs through all of it's entities, and calls `simulate` on their behaviors. The
+%%% only other thing it does is to provide behaviors a simple way to inform any watchers that something has changed in
+%%% the entity's state.
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_entity_engine).
 -behavior(gen_server).
@@ -17,6 +16,9 @@
 -export([start_link/1]).
 -export([add_entity/2, remove_entity/2, get_entity/2, update_entity_state/4]).
 -export([client_request/6, client_event/5]).
+
+% Internal
+-export([send_entity_to/3]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -32,19 +34,21 @@
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% API
+%% Supervision API
 %% --------------------------------------------------------------------------------------------------------------------
 
 start_link(Args) ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
+	gen_server:start_link(?MODULE, Args, []).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Enitty API
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% --------------------------------------------------------------------------------------------------------------------
 %% @doc Adds the given entity to our simulation list.
 %%
 %% This assumes we are being passed a valid entity record, and adds it to our simulation list.
+
 -spec add_entity(Pid::pid(), Entity::#entity{}) ->
 	ok | {error, Msg::list()}.
 
@@ -52,10 +56,21 @@ add_entity(Pid, Entity) ->
 	gen_server:call(Pid, {add, Entity}).
 
 %% --------------------------------------------------------------------------------------------------------------------
+%% @doc Moves the given entity to our simulation list.
+%%
+%% This assumes we are being passed a valid entity record, and adds it to our simulation list.
 
+-spec receive_entity(Pid::pid(), Entity::#entity{}) ->
+	ok | {error, Msg::list()}.
+
+receive_entity(Pid, Entity) ->
+	gen_server:call(Pid, {receive_entity, Entity}).
+
+%% --------------------------------------------------------------------------------------------------------------------
 %% @doc Removes the entity given by id from the simulation list.
 %%
 %% Removed the given entity from the simulation list.
+
 -spec remove_entity(Pid::pid(), EntityID::binary()) ->
 	ok | not_found | {error, Msg::list()}.
 
@@ -63,10 +78,10 @@ remove_entity(Pid, EntityID) ->
 	gen_server:call(Pid, {remove, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
-
 %% @doc Retrieves an entity by id.
 %%
 %% Looks up the entity by id and returns it.
+
 -spec get_entity(Pid::pid(), EntityID::binary()) ->
 	{ok, Entity::#entity{}} | not_found | {error, Msg::list()}.
 
@@ -74,10 +89,10 @@ get_entity(Pid, EntityID) ->
 	gen_server:call(Pid, {get, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
-
 %% @doc Looks up the given entity by id, and then adds it to our simulation list.
 %%
 %% This attempts to look up the entity from pre_data, and then adds it to the simulation list.
+
 -spec update_entity_state(Pid::pid(), EntityID::binary(), OldState::json(), NewState::json()) ->
 	ok | newer_version | {error, Msg::list()}.
 
@@ -119,7 +134,11 @@ init([]) ->
 	State = #state{
 		entities = []
 	},
-	
+
+	% Join the entity_engines process group.
+	pg2:create(entity_engines),
+	pg2:join(entity_engines, self()),
+
 	% Join the entity_updates process group.
 	pg2:create(entity_updates),
 	pg2:join(entity_updates, self()),
@@ -132,13 +151,9 @@ init([]) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 handle_call({add, Entity}, _From, State) ->
-	Entities = State#state.entities,
-	NewState = State#state {
-		entities = dict:append(Entity#entity.id, Entity, Entities)
-	},
-
-	% Start full update timer
-	erlang:send_after(?FULL_INTERVAL, self(), {full_update, Entity#entity.id}),
+	NewState = add_entity(Entity, State),
+	% Notify all engine supervisors that we now own this entity.
+	pre_entity_engine_sup:cast_all({entity_added, Entity#entity.id, self()}),
     {reply, ok, NewState};
 
 
@@ -154,6 +169,12 @@ handle_call({get, EntityID}, _From, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
     {reply, {ok, Entity}, State};
+
+
+handle_call({receive_entity, Entity}, _From, State) ->
+	NewState = add_entity_internal(Entity, State),
+	% FromEngine should be calling all engine supervisors with {entity_moved, ...}.
+    {reply, ok, NewState};
 
 
 handle_call({update, EntityID, _OldEntState, _NewEntState}, _From, State) ->
@@ -206,6 +227,13 @@ handle_call(_, _From, State) ->
     {reply, invalid, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+handle_cast({send_entity, EntityID, TargetNode}, State) ->
+	Entities = State#state.entities,
+	Entity = dict:fetch(EntityID, Entities),
+	spawn(?MODULE, send_entity_to, [self(), Entity, TargetNode]),
+    {reply, ok, State};
+
 
 handle_cast(_, State) ->
     {noreply, State}.
@@ -274,4 +302,24 @@ generate_timestamp() ->
 	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
 	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
 
-%% --------------------------------------------------------------------------------------------------------------------
+
+add_entity_internal(Entity, State) ->
+	Entities = State#state.entities,
+	EntityID = Entity#entity.id,
+
+	% Start full update timer
+	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
+
+	State#state {
+		entities = dict:append(EntityID, Entity, Entities)
+	}.
+
+
+send_entity_to(FromEnginePid, Entity, TargetNode) ->
+	{ok, NewEnginePid} = gen_server:call({TargetNode, pre_entity_engine_sup}, {move_to_local_engine, Entity, FromEnginePid}),
+	ok = gen_server:call(FromEnginePid, {forward_to, Entity, NewEnginePid}),
+
+	%TODO: Test responses!
+	pre_entity_engine_sup:call_all({entity_moved, Entity#entity.id, NewEnginePid}),
+
+	ok = gen_server:call(FromEnginePid, {forget, Entity}).
