@@ -13,8 +13,8 @@
 -include("pre_entity.hrl").
 
 % API
--export([start_link/1]).
--export([add_entity/2, remove_entity/2, get_entity/2, update_entity_state/4]).
+-export([start_link/0]).
+-export([add_entity/2, remove_entity/2, get_entity/2]).
 -export([client_request/6, client_event/5]).
 
 % Internal
@@ -30,18 +30,18 @@
 -define(FULL_INTERVAL, 30000). % 30 seconds.
 
 -record(state, {
-	entities :: list()
+	entities = dict:new()
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Supervision API
 %% --------------------------------------------------------------------------------------------------------------------
 
-start_link(Args) ->
-	gen_server:start_link(?MODULE, Args, []).
+start_link() ->
+	gen_server:start_link(?MODULE, [], []).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% Enitty API
+%% Entity API
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -131,10 +131,6 @@ client_event(Pid, EntityID, Channel, EventType, Event) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 init([]) ->
-	State = #state{
-		entities = []
-	},
-
 	% Join the entity_engines process group.
 	pg2:create(entity_engines),
 	pg2:join(entity_engines, self()),
@@ -146,12 +142,12 @@ init([]) ->
 	% Start the simulation timer
 	erlang:send_after(?INTERVAL, self(), simulate),
 
-	{ok, State}.
+	{ok, #state{}}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 handle_call({add, Entity}, _From, State) ->
-	NewState = add_entity(Entity, State),
+	NewState = add_entity_internal(Entity, State),
 	% Notify all engine supervisors that we now own this entity.
 	pre_entity_engine_sup:cast_all({entity_added, Entity#entity.id, self()}),
     {reply, ok, NewState};
@@ -167,25 +163,18 @@ handle_call({remove, EntityID}, _From, State) ->
 
 handle_call({get, EntityID}, _From, State) ->
 	Entities = State#state.entities,
-	Entity = dict:fetch(EntityID, Entities),
-    {reply, {ok, Entity}, State};
+    case dict:find(EntityID, Entities) of
+        {ok, Entity} ->
+            {reply, {ok, Entity}, State};
+        error ->
+            {reply, {error, not_found}, State}
+    end;
 
 
 handle_call({receive_entity, Entity}, _From, State) ->
 	NewState = add_entity_internal(Entity, State),
 	% FromEngine should be calling all engine supervisors with {entity_moved, ...}.
     {reply, ok, NewState};
-
-
-handle_call({update, EntityID, _OldEntState, _NewEntState}, _From, State) ->
-	Entities = State#state.entities,
-	%TODO: Compare OldEntState to the current entity's state. If the match, we then update to NewEntState. Otherwise, we
-	% error.
-	NewState = State#state {
-		entities = lists:store(EntityID, #entity{}, Entities)
-	},
-    {reply, ok, NewState};
-
 
 % Handle full update requests ourself, since the behavior doesn't need to handle them.
 handle_call({request, EntityID, <<"entity">>, <<"full">>, _RequestID, _Request}, _From, State) ->
@@ -311,7 +300,7 @@ add_entity_internal(Entity, State) ->
 	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
 
 	State#state {
-		entities = dict:append(EntityID, Entity, Entities)
+		entities = dict:store(EntityID, Entity, Entities)
 	}.
 
 
