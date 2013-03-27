@@ -14,7 +14,7 @@
 
 % API
 -export([start_link/1]).
--export([add_entity/2, remove_entity/2, get_entity/2, update_entity_state/4]).
+-export([add_entity/2, receive_entity/2 remove_entity/2, get_entity/2, update_entity_state/4]).
 -export([client_request/6, client_event/5]).
 
 % Internal
@@ -41,7 +41,7 @@ start_link(Args) ->
 	gen_server:start_link(?MODULE, Args, []).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% Enitty API
+%% Entity API
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -151,7 +151,7 @@ init([]) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 handle_call({add, Entity}, _From, State) ->
-	NewState = add_entity(Entity, State),
+	NewState = add_entity_internal(Entity, State),
 	% Notify all engine supervisors that we now own this entity.
 	pre_entity_engine_sup:cast_all({entity_added, Entity#entity.id, self()}),
     {reply, ok, NewState};
@@ -179,8 +179,8 @@ handle_call({receive_entity, Entity}, _From, State) ->
 
 handle_call({update, EntityID, _OldEntState, _NewEntState}, _From, State) ->
 	Entities = State#state.entities,
-	%TODO: Compare OldEntState to the current entity's state. If the match, we then update to NewEntState. Otherwise, we
-	% error.
+	%TODO: Compare OldEntState to the current entity's state. If the match, we then update to NewEntState. Otherwise,
+	% we error.
 	NewState = State#state {
 		entities = lists:store(EntityID, #entity{}, Entities)
 	},
@@ -219,7 +219,7 @@ handle_call({event, EntityID, Channel, EventType, Event}, _From, State) ->
 	Behavior = Entity#entity.behavior,
 
 	% Call the behavior
-	{Response, NewState} = Behavior:client_request(Entity, Channel, EventType, Event),
+	{Response, NewState} = Behavior:client_event(Entity, Channel, EventType, Event),
     {reply, Response, NewState};
 
 
