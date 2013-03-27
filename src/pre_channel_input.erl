@@ -27,7 +27,7 @@ register_hooks() ->
 %% pre_client_channels
 %% -------------------------------------------------------------------
 
-client_request(#client_info{entity = undefined} = ClientInfo, _RequestID, Request, _Info) ->
+client_request(#client_info{entity = undefined} = _ClientInfo, _RequestID, _Request, _Info) ->
 	% INCREDIBLY NOISY:
 	%?warning("Can't process input request ~p for client ~p; no entity inhabited!", [Request, ClientInfo]),
 	Response = [
@@ -37,21 +37,15 @@ client_request(#client_info{entity = undefined} = ClientInfo, _RequestID, Reques
 	{reply, Response};
 
 client_request(ClientInfo, RequestID, Request, _Info) ->
-	#client_info{
-		entity = EntityID
-	} = ClientInfo,
-	{ok, EnginePid} = pre_entity_engine_sup:get_entity_engine(EntityID),
-	%FIXME: Where the hell does RequestType come from?
-	pre_entity_engine:client_request(EnginePid, EntityID, input, RequestType, RequestID, Request).
+	RequestType = proplists:get_value(type, Request),
+	pre_entity_comm:client_request(ClientInfo, input, RequestType, RequestID, Request).
 
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.
 
 client_event(ClientInfo, Event, _Info) ->
-	#client_info{
-		entity = EntityID
-	} = ClientInfo,
-	pre_entity_engine:client_event(EntityID, ClientInfo, input, Event).
+	EventType = proplists:get_value(type, Event),
+	pre_entity_comm:client_event(ClientInfo, input, EventType, Event).
 
 %% -------------------------------------------------------------------
 
