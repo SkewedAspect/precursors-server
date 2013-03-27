@@ -40,7 +40,7 @@ general_test_() ->
                 ?assertEqual(ok, Return),
                 Return2 = pre_entity_engine:get_entity(Pid, <<"0">>),
                 ?assertEqual({ok, #entity{id = <<"0">>}}, Return2)
-                end},
+                end}
 
             ]
         end}.
