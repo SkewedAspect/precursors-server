@@ -89,17 +89,6 @@ get_entity(Pid, EntityID) ->
 	gen_server:call(Pid, {get, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Looks up the given entity by id, and then adds it to our simulation list.
-%%
-%% This attempts to look up the entity from pre_data, and then adds it to the simulation list.
-
--spec update_entity_state(Pid::pid(), EntityID::binary(), OldState::json(), NewState::json()) ->
-	ok | newer_version | {error, Msg::list()}.
-
-update_entity_state(Pid, EntityID, OldState, NewState) ->
-	gen_server:call(Pid, {update, EntityID, OldState, NewState}).
-
-%% --------------------------------------------------------------------------------------------------------------------
 %% Client API
 %% --------------------------------------------------------------------------------------------------------------------
 
