@@ -14,7 +14,7 @@
 
 % API
 -export([start_link/0]).
--export([add_entity/2, remove_entity/2, get_entity/2]).
+-export([add_entity/2, receive_entity/2, remove_entity/2, get_entity/2]).
 -export([client_request/6, client_event/5]).
 
 % Internal
@@ -208,7 +208,7 @@ handle_call({event, EntityID, Channel, EventType, Event}, _From, State) ->
 	Behavior = Entity#entity.behavior,
 
 	% Call the behavior
-	{Response, NewState} = Behavior:client_request(Entity, Channel, EventType, Event),
+	{Response, NewState} = Behavior:client_event(Entity, Channel, EventType, Event),
     {reply, Response, NewState};
 
 
