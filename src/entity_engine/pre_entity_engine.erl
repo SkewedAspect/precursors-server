@@ -14,7 +14,7 @@
 
 % API
 -export([start_link/1]).
--export([add_entity/2, receive_entity/2 remove_entity/2, get_entity/2, update_entity_state/4]).
+-export([add_entity/2, receive_entity/2, remove_entity/2, get_entity/2, update_entity_state/4]).
 -export([client_request/6, client_event/5]).
 
 % Internal
