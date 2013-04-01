@@ -258,14 +258,14 @@ code_change(_OldVersion, State, _Extra) ->
 
 simulate_entities(State) ->
 	Entities = State#state.entities,
-	NewEntities = dict:map(fun(_EntitiyID, Entity) ->
+	NewEntities = dict:map(fun(EntityID, Entity) ->
 		Behavior = Entity#entity.behavior,
 		case Behavior:simulate(Entity, State) of
 			{undefined, NewEntity} ->
 				NewEntity;
 			{Update, NewEntity1} ->
 				% Send the entity update
-				pre_entity_engine_sup:broadcast_update(Update),
+				pre_entity_engine_sup:broadcast_update(EntityID, Update),
 				NewEntity1
 		end
 	end, Entities),

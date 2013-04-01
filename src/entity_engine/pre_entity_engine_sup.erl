@@ -10,7 +10,7 @@
 -include("supervisor.hrl").
 
 % External API
--export([start_link/1, call_all/1, cast_all/1, broadcast_update/1, get_entity_engine/1]).
+-export([start_link/1, call_all/1, cast_all/1, broadcast_update/2, get_entity_engine/1]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -29,18 +29,42 @@ start_link([]) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @doc Calls all other entity engine supervisors with Request.
+%%
+%% This makes a call into the other entity engine supervisors, and returns the results, along with any nodes that didn't
+%% respond.
+
+-spec call_all(Request :: term()) ->
+	{Replies :: [{Node :: atom(), Reply :: term()}], BadNodes :: [Node :: atom()]}.
+
 call_all(Request) ->
 	gen_server:multi_call(?MODULE, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Casts to all other entity engine supervisors with Request.
+%%
+%% This makes a cast into the other entity engine supervisors, returning immediately.
+
+-spec cast_all(Request :: term()) ->
+	abcast.
 
 cast_all(Request) ->
 	gen_server:abcast(?MODULE, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-broadcast_update(Update) ->
-	cast_all({update, Update}).
+%% @doc Sends an entity update to all other entity engines.
+%%
+%% Convience function for sending a `cast_all` to the other listening entity engine supervisors with an update message.
+%% The message is a json structure indicating the portions of state that have changed.
+
+-spec broadcast_update(EntityID::binary(), Update :: json()) ->
+	ok.
+
+broadcast_update(EntityID, Update) ->
+	cast_all({update, EntityID, Update}),
+	ok.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
