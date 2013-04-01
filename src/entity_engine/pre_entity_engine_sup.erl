@@ -10,7 +10,7 @@
 -include("supervisor.hrl").
 
 % External API
--export([start_link/1, call_all/1, cast_all/1, get_entity_engine/1]).
+-export([start_link/1, call_all/1, cast_all/1, broadcast_update/1, get_entity_engine/1]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -36,6 +36,11 @@ call_all(Request) ->
 
 cast_all(Request) ->
 	gen_server:abcast(?MODULE, Request).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+broadcast_update(Update) ->
+	cast_all({update, Update}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
