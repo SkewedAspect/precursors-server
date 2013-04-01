@@ -228,18 +228,6 @@ handle_info(simulate, State) ->
     {noreply, State1};
 
 
-handle_info({full_update, EntityID}, State) ->
-	Entities = State#state.entities,
-	_Entity = dict:fetch(EntityID, Entities),
-
-	%TODO: Send full update here!
-
-	% Reset timer
-	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
-
-    {noreply, State};
-
-
 handle_info(_, State) ->
     {noreply, State}.
 
@@ -282,9 +270,6 @@ generate_timestamp() ->
 add_entity_internal(Entity, State) ->
 	Entities = State#state.entities,
 	EntityID = Entity#entity.id,
-
-	% Start full update timer
-	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
 
 	State#state {
 		entities = dict:store(EntityID, Entity, Entities)
