@@ -44,7 +44,7 @@ pre_channel_input_test_() ->
 pre_channel_input_request_test_() ->
 	{setup,
 		fun() ->
-			meck:new(pre_entity_engine),
+			meck:new(pre_entity_engine, [passthrough]),
 			meck:new(pre_entity_engine_sup)
 		end,
 		fun(_) ->
@@ -53,14 +53,14 @@ pre_channel_input_request_test_() ->
 		end,
 		fun(_) ->
 			[
-				{"Client Request Test",
+				{"Client request",
 					fun() ->
 						meck:expect(pre_entity_engine, init,
 							fun(substate) ->
 								{ok, substate}
 							end),
 						meck:expect(pre_entity_engine, handle_call,
-							fun({client_request, _EntityID, _ClientInfo, _Channel, _RequestType, _RequestID, _Request}, _From, State) ->
+							fun({request, _EntityID, _Channel, _RequestType, _RequestID, _Request}, _From, State) ->
 								Response = {reply, [
 									{confirm, false},
 									{reason, <<"VALID CRAPBACK: Invalid request!">>}
@@ -82,11 +82,6 @@ pre_channel_input_request_test_() ->
 						meck:expect(pre_entity_engine, code_change,
 							fun(_OldVsn, _State, _Extra) ->
 								{error, ni}
-							end),
-						meck:expect(pre_entity_engine, client_request,
-							fun(_Pid, _EntityID, _Channel, RequestType, _RequestID, _Request) ->
-								?assert(RequestType =:= <<"TestType">>),
-								ok
 							end),
 
 						{ok, TestEntityEnginePid} = gen_server:start_link(pre_entity_engine, substate, []),
