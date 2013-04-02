@@ -20,80 +20,54 @@
 
 init(EntityID, Behavior) ->
 	pre_entity_engine:start_entity_timer(EntityID, ?STEP_SIZE, do_physics),
+	State = dict:new(),
+	Physical = dict:new(),
+	dict:store(physical, dict:store(last_update, os:timestamp(), Physical), State),
 	#entity{
 		id = EntityID,
 		behavior = Behavior,
-		state = [
-			{physical, #physical{ last_update = os:timestamp() }}
-		]
+		state = State
 	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-simulate(EntityState, _EntityEngineState) ->
-	LastPhysical = proplists:get_value(physical, EntityState#entity.state),
-	#physical{
-		last_update = LastUpdate
-	} = LastPhysical,
+simulate(Entity, _EntityEngineState) ->
+	EntityState = Entity#entity.state,
+	LastPhysical = dict:fetch(physical, EntityState),
+	LastUpdate = dict:fetch(last_update, LastPhysical),
 	ThisUpdate = os:timestamp(),
+
+	% Do physics simulation
 	Physical = pre_physics_rk4:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
-	EntityState1 = EntityState#entity{
-		state = lists:keystore(physical, 1, EntityState#entity.state,
-			{physical, Physical#physical{ last_update = ThisUpdate }}
-		)
+
+	% Calculate the updated state
+	{Update, Entity1} = entity_base:calc_update(Physical, Entity),
+
+	% Update last_updated
+	Entity2 = Entity1#entity{
+		state = dict:store(physical, dict:store(last_update, ThisUpdate, Physical), EntityState)
 	},
-	{noreply, EntityState1}.
+
+	{Update, Entity2}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-get_full_state(EntityState) ->
-	#physical{
-		% Updated values (assume these change every frame)
-		position = Position,
-		linear_momentum = LinearMomentum,
-		orientation = Orientation,
-		angular_momentum = AngularMomentum,
+get_full_state(Entity) ->
+	EntityState = dict:fetch(physical, Entity#entity.state),
 
-		% Input-only values
-		force_absolute = AbsoluteForce,
-		force_relative = RelativeForce,
-		torque_absolute = AbsoluteTorque,
-		torque_relative = RelativeTorque,
+	% Note, we start the accumulator with the behavior key for simplicity's sake.
+	FullState = entity_base:gen_full_update(fun (Value) ->
+		case Value of
+			{_, _, _} ->
+				vector:vec_to_list(Value);
+			{_, _, _, _} ->
+				quaternion:quat_to_list(Value);
+			_ ->
+				Value
+			end
+	end, [{behavior, <<"Physical">>}], EntityState),
 
-		% Purely calculated values (DON'T try to change these externally)
-		linear_velocity = LinearVelocity,
-		angular_velocity = AngularVelocity,
-
-		% Intrinsic values (should NOT change during the life of an object)
-		mass = Mass,
-		inverse_mass = InverseMass,
-		inertia_tensor = InertiaTensor,
-		inverse_inertia_tensor = InverseInertiaTensor
-	} = proplists:get_value(physical, EntityState#entity.state),
-
-	FullState = [
-		{behavior, <<"Physical">>},
-
-		{position, vector:vec_to_list(Position)},
-		{linear_momentum, vector:vec_to_list(LinearMomentum)},
-		{orientation, quaternion:quat_to_list(Orientation)},
-		{angular_momentum, vector:vec_to_list(AngularMomentum)},
-
-		{force_absolute, vector:vec_to_list(AbsoluteForce)},
-		{force_relative, vector:vec_to_list(RelativeForce)},
-		{torque_absolute, vector:vec_to_list(AbsoluteTorque)},
-		{torque_relative, vector:vec_to_list(RelativeTorque)},
-
-		{linear_velocity, vector:vec_to_list(LinearVelocity)},
-		{angular_velocity, vector:vec_to_list(AngularVelocity)},
-
-		{mass, Mass},
-		{inverse_mass, InverseMass},
-		{inertia_tensor, InertiaTensor},
-		{inverse_inertia_tensor, InverseInertiaTensor}
-	],
-
-	{FullState, EntityState}.
+	{FullState, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -102,7 +76,7 @@ client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Reque
 		[EntityState#entity.id, RequestType, Channel, Request]),
 	Response = {reply, [
 		{confirm, false},
-		{reason, <<"VALID CRAPBACK: Invalid request!">>}
+		{reason, <<"Invalid request!">>}
 	]},
 	{Response, EntityState}.
 

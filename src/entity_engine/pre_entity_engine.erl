@@ -116,7 +116,7 @@ client_request(Pid, EntityID, Channel, RequestType, RequestID, Request) ->
 	Response::json().
 
 client_event(Pid, EntityID, Channel, EventType, Event) ->
-	gen_server:call(Pid, {event, EntityID, Channel, EventType, Event}).
+	gen_server:cast(Pid, {event, EntityID, Channel, EventType, Event}).
 
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -195,26 +195,25 @@ handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From
     {reply, Response, NewState};
 
 
-handle_call({event, EntityID, Channel, EventType, Event}, _From, State) ->
-	Entities = State#state.entities,
-	Entity = dict:fetch(EntityID, Entities),
-	Behavior = Entity#entity.behavior,
-
-	% Call the behavior
-	{Response, NewState} = Behavior:client_event(Entity, Channel, EventType, Event),
-    {reply, Response, NewState};
-
-
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+handle_cast({event, EntityID, Channel, EventType, Event}, State) ->
+	Entities = State#state.entities,
+	Entity = dict:fetch(EntityID, Entities),
+	Behavior = Entity#entity.behavior,
+
+	% Call the behavior
+	NewState = Behavior:client_event(Entity, Channel, EventType, Event),
+    {noreply, NewState};
+
 handle_cast({send_entity, EntityID, TargetNode}, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
 	spawn(?MODULE, send_entity_to, [self(), Entity, TargetNode]),
-    {reply, ok, State};
+    {noreply, State};
 
 
 handle_cast(_, State) ->
