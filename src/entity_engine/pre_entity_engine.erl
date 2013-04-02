@@ -172,10 +172,8 @@ handle_call({receive_entity, Entity}, _From, State) ->
 handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
-	Behavior = Entity#entity.behavior,
-
-	% Call the behavior
-	{Response, NewState} = Behavior:client_request(Entity, Channel, RequestType, RequestID, Request),
+	{Response, NewState} = call_behavior_func(Entity, client_request,
+		[Entity, Channel, RequestType, RequestID, Request], State),
     {reply, Response, NewState};
 
 
@@ -187,10 +185,7 @@ handle_call(_, _From, State) ->
 handle_cast({event, EntityID, Channel, EventType, Event}, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
-	Behavior = Entity#entity.behavior,
-
-	% Call the behavior
-	NewState = Behavior:client_event(Entity, Channel, EventType, Event),
+	NewState = call_behavior_func(Entity, client_event, [Entity, Channel, EventType, Event], State),
     {noreply, NewState};
 
 handle_cast({send_entity, EntityID, TargetNode}, State) ->
@@ -233,16 +228,8 @@ code_change(_OldVersion, State, _Extra) ->
 
 simulate_entities(State) ->
 	Entities = State#state.entities,
-	NewEntities = dict:map(fun(EntityID, Entity) ->
-		Behavior = Entity#entity.behavior,
-		case Behavior:simulate(Entity, State) of
-			{undefined, NewEntity} ->
-				NewEntity;
-			{Update, NewEntity1} ->
-				% Send the entity update
-				pre_entity_engine_sup:broadcast_update(EntityID, Update),
-				NewEntity1
-		end
+	NewEntities = dict:map(fun(_EntityID, Entity) ->
+		call_behavior_func(Entity, simulate, [Entity, State])
 	end, Entities),
 	State#state{
 		entities = NewEntities
@@ -266,3 +253,47 @@ send_entity_to(FromEnginePid, Entity, TargetNode) ->
 	pre_entity_engine_sup:call_all({entity_moved, Entity#entity.id, NewEnginePid}),
 
 	ok = gen_server:call(FromEnginePid, {forget, Entity}).
+
+
+call_behavior_func(#entity{} = Entity, Func, Args, State) ->
+	NewEntity = call_behavior_func(Entity, Func, Args),
+
+	State#state{
+		entities = dict:store(Entity#entity.id, NewEntity, State#state.entities)
+	};
+
+call_behavior_func(EntityID, Func, Args, State) ->
+	Entities = State#state.entities,
+	Entity = dict:fetch(EntityID, Entities),
+	call_behavior_func(Entity, Func, Args, State).
+
+
+call_behavior_func(Entity, Func, Args) ->
+	#entity{
+		id = EntityID,
+		behavior = Behavior
+	} = Entity,
+
+	% Call the behavior
+	try apply(Behavior, Func, Args) of
+		{undefined, NewEntity1} ->
+			NewEntity1;
+
+		{Update1, NewEntity2} ->
+			% Send the entity update
+			pre_entity_engine_sup:broadcast_update(EntityID, Update1),
+			NewEntity2;
+
+		{Reply1, undefined, NewEntity3} ->
+			{Reply1, NewEntity3};
+
+		{Reply2, Update2, NewEntity4} ->
+			pre_entity_engine_sup:broadcast_update(EntityID, Update2),
+			{Reply2, NewEntity4}
+
+	catch
+		Exception ->
+			?error("Exception while calling behavior function ~p:~p(~p) for entity ~p: ~p",
+				[Behavior, Func, Args, EntityID, Exception]),
+			Entity
+	end.
