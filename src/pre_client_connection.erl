@@ -448,7 +448,7 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	Character = pre_data:get(<<"character">>, CharId),
 
 	% Store character and id in state.
-	State#state{
+	NewState = State#state{
 		client_info = State#state.client_info#client_info{
 			character_id = CharId,
 			character = Character
@@ -472,7 +472,8 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	CharSelRep = [
 		{confirm, true}
 	],
-	respond(ssl, MessageID, <<"control">>, CharSelRep);
+	respond(ssl, MessageID, <<"control">>, CharSelRep),
+	NewState;
 
 service_control_message(event, <<"logout">>, _, _, _) ->
 	?info("Got logout event from client."),
