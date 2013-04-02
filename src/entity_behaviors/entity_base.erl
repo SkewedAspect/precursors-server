@@ -12,7 +12,7 @@
 -export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
 
 % helpers
--export([diff_state/2, calc_update/2]).
+-export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
 
 -define(STEP_SIZE, 50).
 
@@ -59,6 +59,60 @@ client_event(EntityState, _ClientInfo, Channel, EventType, Event) ->
 %% --------------------------------------------------------------------------------------------------------------------
 %% Helpers
 %% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Returns a json term representing the full state of the entity.
+%%
+%% Allows you to pass in a transformation function and initial accumulator state for the generation. The transformation
+%% function is expected to take a value, and return the new value.
+
+-spec gen_full_state(TransformFun :: fun(), InitialAcc :: list(), State :: dict()) ->
+	[{Key :: binary(), Value::term()}].
+
+gen_full_state(TransformFun, InitialAcc, State) ->
+	dict:fold(fun(Key, Value, AccIn) ->
+		NewVal = TransformFun(Value),
+		[{Key, NewVal} | AccIn]
+	end, InitialAcc, State).
+
+
+%% @doc Returns a json term representing the full state of the entity.
+%%
+%% Allows you to pass in a transformation function _or_ initial accumulator state for the generation. If the
+%% transformation function it omitted, it simply assumes value requires no transformation.
+
+-spec gen_full_state(TransformFun | InitialAcc, State :: dict()) ->
+	[{Key :: binary(), Value::term()}] when
+	TransformFun :: fun(),
+	InitialAcc :: list().
+
+
+gen_full_state(TransformFun, State) when is_function(TransformFun) ->
+	dict:fold(fun(Key, Value, AccIn) ->
+		NewVal = TransformFun(Value),
+		[{Key, NewVal} | AccIn]
+		end, [], State);
+
+gen_full_state(InitialAcc, State) when is_list(InitialAcc) ->
+	dict:fold(fun(Key, Value, AccIn) ->
+		[{Key, Value} | AccIn]
+		end, InitialAcc, State).
+
+
+%% @doc Returns a json term representing the full state of the entity.
+%%
+%% Assumes value requires no transformation, and simply returns the json.
+
+-spec gen_full_state(State :: dict()) ->
+	[{Key :: binary(), Value::term()}].
+
+
+gen_full_state(State) ->
+	dict:fold(fun(Key, Value, AccIn) ->
+		[{Key, Value} | AccIn]
+		end, [], State).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
 
 %% @doc Returns the difference of two state dictionaries.
 %%
