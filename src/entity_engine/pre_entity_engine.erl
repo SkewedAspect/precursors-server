@@ -21,7 +21,11 @@
 -export([send_entity_to/3]).
 
 % gen_server
+-ifdef(TEST).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3, simulate_entities/1]).
+-else.
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-endif.
 
 % Simulation interval
 -define(INTERVAL, 16). % about 1/60th of a second. (16 ms)

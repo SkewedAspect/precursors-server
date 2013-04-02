@@ -47,22 +47,32 @@ general_test_() ->
                     end},
                 {"Get Invalid Entity Test", fun() ->
                     Return = pre_entity_engine:get_entity(Pid, <<"1">>),
-                    ?assertEqual({error, not_found}, Return)
-                    end
-                    },
-                {"Remove Entity Test", fun() ->
-                    Return = pre_entity_engine:remove_entity(Pid, <<"0">>),
-                    ?assertEqual(ok, Return),
-                    Return2 = pre_entity_engine:get_entity(Pid, <<"0">>),
-                    ?assertEqual({error, not_found}, Return2)
-                    end},
-                {"Remove Invalid Entity Test", fun() ->
-                pre_entity_engine:add_entity(Pid, #entity{id = <<"0">>}),
-                Return = pre_entity_engine:remove_entity(Pid, <<"1">>),
-                ?assertEqual(ok, Return),
-                Return2 = pre_entity_engine:get_entity(Pid, <<"0">>),
-                ?assertEqual({ok, #entity{id = <<"0">>}}, Return2)
-                end}
-
+					?assertEqual({error, not_found}, Return)
+				end
+				},
+				{"Remove Entity Test", fun() ->
+					Return = pre_entity_engine:remove_entity(Pid, <<"0">>),
+					?assertEqual(ok, Return),
+					Return2 = pre_entity_engine:get_entity(Pid, <<"0">>),
+					?assertEqual({error, not_found}, Return2)
+				end},
+				{"Remove Invalid Entity Test", fun() ->
+					pre_entity_engine:add_entity(Pid, #entity{id = <<"0">>}),
+					Return = pre_entity_engine:remove_entity(Pid, <<"1">>),
+					?assertEqual(ok, Return),
+					Return2 = pre_entity_engine:get_entity(Pid, <<"0">>),
+					?assertEqual({ok, #entity{id = <<"0">>}}, Return2)
+				end},
+				%% TODO: Complete this test
+				{"Simulate Entities No Update Test", fun() ->
+					meck:new(behave),
+					meck:expect(behave, simulate, fun(Entity, State) -> {undefined, Entity} end),
+					TestEntities = dict:new(),
+					TestState = #state{ entities = dict:store(<<"0">>, #entity{id = <<"o">>, behavior = behave }, TestEntities) },
+					NewEntity = pre_entity_engine:simulate_entities(TestState),
+					?assert(meck:validate(behave)),
+					meck:unload(behave)
+				end
+					}
             ]
         end}.
