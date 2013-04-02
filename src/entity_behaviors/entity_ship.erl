@@ -5,26 +5,11 @@
 
 -include("log.hrl").
 -include("pre_entity.hrl").
--include("pre_physics.hrl").
 
 -behaviour(entity_behavior).
 
 % pre_entity
 -export([init/2, simulate/2, get_full_state/1, client_request/5, client_event/5]).
-
--record(ship_data, {
-	% Current state
-	target_linear_velocity = {0, 0, 0} :: vector:vec(),
-	target_angular_velocity = {0, 0, 0} :: vector:vec(),
-
-	% Intrinsic ship parameters
-	linear_target_velocity_scaling = {600, 800, 500} :: vector:vec(), % {sideslip, throttle, lift}
-	angular_target_velocity_scaling = {2, 2, 2} :: vector:vec(), %  {pitch, roll, yaw}
-	max_linear_thrust = {300, 400, 250} :: vector:vec(), % {sideslip, throttle, lift}
-	max_angular_thrust = {2, 2, 2} :: vector:vec(), %  {pitch, roll, yaw}
-	linear_responsiveness = {3, 3, 3} :: vector:vec(), % {sideslip, throttle, lift}
-	angular_responsiveness = {3, 3, 3} :: vector:vec() %  {pitch, roll, yaw}
-}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
@@ -33,12 +18,12 @@
 init(EntityID, Behavior) ->
 	InitialEntity = entity_physical:init(EntityID, Behavior),
 
-	% -----------------------------------------------------------------------------------------------------------------
+	% -------------------------------------------------------------------------
 
-	% Setup initial physical state
+	% Set up initial physical state
 	InitialPhysical = dict:fetch(physical, InitialEntity#entity.state),
 
-	% Setup default physical state with random position/orientation
+	% Set up default physical state with random position/orientation
 	DefaultPhysical = dict:from_list([
 		{
 			position, {
@@ -65,9 +50,9 @@ init(EntityID, Behavior) ->
 		InitialVal
 	end, InitialPhysical, DefaultPhysical),
 
-	% -----------------------------------------------------------------------------------------------------------------
+	% -------------------------------------------------------------------------
 
-	% Setup ship state
+	% Set up ship state
 	InitialShip = dict:fetch(ship, InitialEntity#entity.state),
 
 	DefaultShip = dict:from_list([
@@ -89,7 +74,7 @@ init(EntityID, Behavior) ->
 		InitialVal
 	end, InitialShip, DefaultShip),
 
-	% -----------------------------------------------------------------------------------------------------------------
+	% -------------------------------------------------------------------------
 
 	% Set up our initial state
 	InitialState = InitialEntity#entity.state,
