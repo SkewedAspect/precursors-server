@@ -169,22 +169,6 @@ handle_call({receive_entity, Entity}, _From, State) ->
 	% FromEngine should be calling all engine supervisors with {entity_moved, ...}.
     {reply, ok, NewState};
 
-% Handle full update requests ourself, since the behavior doesn't need to handle them.
-handle_call({request, EntityID, <<"entity">>, <<"full">>, _RequestID, _Request}, _From, State) ->
-	#state{entities = Entities} = State,
-	Entity = dict:fetch(EntityID, Entities),
-	ModelDef = Entity#entity.model,
-	EntState = Entity#entity.state,
-
-	Response = [
-		{confirm, true},
-		{id, EntityID},
-		{timestamp, generate_timestamp()},
-		{modelDef, ModelDef},
-		{state, EntState}
-	],
-	{reply, Response, State};
-
 handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
@@ -263,11 +247,6 @@ simulate_entities(State) ->
 	State#state{
 		entities = NewEntities
 	}.
-
-
-generate_timestamp() ->
-	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
-	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
 
 
 add_entity_internal(Entity, State) ->

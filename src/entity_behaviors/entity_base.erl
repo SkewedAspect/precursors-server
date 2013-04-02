@@ -9,7 +9,7 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
+-export([init/2, simulate/2, get_full_state/1, client_request/5, client_event/5]).
 
 % helpers
 -export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
@@ -35,26 +35,39 @@ simulate(Entity, _EntityEngineState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-get_full_state(EntityState) ->
-	{[{behavior, <<"Base">>}], EntityState}.
+get_full_state(Entity) ->
+	{[{behavior, <<"Base">>}], Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Request) ->
+client_request(Entity, <<"entity">>, <<"full">>, _RequestID, _Request) ->
+	ModelDef = Entity#entity.model,
+	EntState = Entity#entity.state,
+
+	Response = {reply, [
+		{confirm, true},
+		{id, Entity#entity.id},
+		{timestamp, generate_timestamp()},
+		{modelDef, ModelDef},
+		{state, EntState}
+	]},
+	{Response, Entity};
+
+client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
-		[EntityState#entity.id, RequestType, Channel, Request]),
+		[Entity#entity.id, RequestType, Channel, Request]),
 	Response = {reply, [
 		{confirm, false},
 		{reason, <<"Base entity does not acknowledge your pathetic requests.">>}
 	]},
-	{Response, EntityState}.
+	{Response, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_event(EntityState, _ClientInfo, Channel, EventType, Event) ->
+client_event(Entity, _ClientInfo, Channel, EventType, Event) ->
 	?debug("~p received invalid event ~p on channel ~p! (full event: ~p)",
-		[EntityState#entity.id, EventType, Channel, Event]),
-	{noreply, EntityState}.
+		[Entity#entity.id, EventType, Channel, Event]),
+	{noreply, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Helpers
@@ -151,3 +164,12 @@ calc_update(NewState, Entity) ->
 			{Update, NewEntity}
 	end.
 
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Generates a timestamp for a network message.
+%%
+%% This just generates a (floating-point) number representing a number of seconds.
+
+generate_timestamp() ->
+	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
