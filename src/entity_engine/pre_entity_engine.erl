@@ -220,24 +220,12 @@ handle_cast(_, State) ->
 
 handle_info(simulate, State) ->
 	% Simulate all our entities
-	{ok, State1} = simulate_entities(State#state.entities, [], State),
+	{ok, State1} = simulate_entities(State),
 
 	% Start new timer
     erlang:send_after(?INTERVAL, self(), simulate),
 
     {noreply, State1};
-
-
-handle_info({full_update, EntityID}, State) ->
-	Entities = State#state.entities,
-	_Entity = dict:fetch(EntityID, Entities),
-
-	%TODO: Send full update here!
-
-	% Reset timer
-	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
-
-    {noreply, State};
 
 
 handle_info(_, State) ->
@@ -256,24 +244,22 @@ code_change(_OldVersion, State, _Extra) ->
 %% Internal API
 %% --------------------------------------------------------------------------------------------------------------------
 
-simulate_entities([], NewEntities, State) ->
-	{ok, State#state{
+simulate_entities(State) ->
+	Entities = State#state.entities,
+	NewEntities = dict:map(fun(EntityID, Entity) ->
+		Behavior = Entity#entity.behavior,
+		case Behavior:simulate(Entity, State) of
+			{undefined, NewEntity} ->
+				NewEntity;
+			{Update, NewEntity1} ->
+				% Send the entity update
+				pre_entity_engine_sup:broadcast_update(EntityID, Update),
+				NewEntity1
+		end
+	end, Entities),
+	State#state{
 		entities = NewEntities
-	}};
-
-simulate_entities([Entity | Rest], NewEntities, State) ->
-	% Simulate this entity's behavior.
-	Behavior = Entity#entity.behavior,
-	NewEntity = case Behavior:simulate(Entity, State) of
-		{noupdate, NewEntity1} ->
-			NewEntity1;
-		{update, UpdateJSON, NewEntity2} ->
-			SelfPid = self(),
-			[Pid ! {entity_update, Entity#entity.id, UpdateJSON}
-				|| Pid <- pg2:get_members(entity_updates), Pid =/= SelfPid],
-			NewEntity2
-	end,
-	simulate_entities(Rest, [NewEntity | NewEntities], State).
+	}.
 
 
 generate_timestamp() ->
@@ -284,9 +270,6 @@ generate_timestamp() ->
 add_entity_internal(Entity, State) ->
 	Entities = State#state.entities,
 	EntityID = Entity#entity.id,
-
-	% Start full update timer
-	erlang:send_after(?FULL_INTERVAL, self(), {full_update, EntityID}),
 
 	State#state {
 		entities = dict:store(EntityID, Entity, Entities)
