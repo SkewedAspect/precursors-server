@@ -10,7 +10,7 @@
 -include("supervisor.hrl").
 
 % External API
--export([start_link/1, call_all/1, cast_all/1, broadcast_update/2, get_entity_engine/1]).
+-export([start_link/1, call_all/1, cast_all/1, broadcast_update/2, get_entity_engine/1, add_entity/1]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -72,6 +72,19 @@ get_entity_engine(EntityID) ->
 	gen_server:call(?MODULE, {get_entity_engine, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Sends an entity update to all other entity engines.
+%%
+%% Convience function for sending a `cast_all` to the other listening entity engine supervisors with an update message.
+%% The message is a json structure indicating the portions of state that have changed.
+
+-spec add_entity(Entity::#entity{}) ->
+	ok.
+
+add_entity(Entity) ->
+	gen_server:cast(?MODULE, {add_entity, Entity}).
+
+%% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -125,6 +138,10 @@ handle_call(_, _From, State) ->
 handle_cast({start_entity_engine, _Args}, State) ->
 	start_engine(State),
     {noreply, State};
+
+handle_cast({add_entity, Entity}, State) ->
+	{_, NewState} = add_to_local_engine(Entity, State),
+    {noreply, NewState};
 
 handle_cast({entity_added, EntityID, EnginePid}, State) ->
 	NewEntityMapping = dict:store(EntityID, EnginePid, State#state.entity_mapping),

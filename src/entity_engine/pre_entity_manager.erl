@@ -5,7 +5,7 @@
 
 -module(pre_entity_manager).
 
--export([get_entity/1, create_entity/2, create_entity/3, create_entity/4]).
+-export([get_entity/1, create_entity/2, create_entity/3]).
 -export([start_entity_engine/1]).
 
 -include("log.hrl").
@@ -52,14 +52,7 @@ create_entity(Behavior, Definition) ->
 %% This creates a new entity, using the provided behavior and definition, as well as setting the entity's client_info
 %% field. This adds the entity to the least utilized entity engine.
 -spec create_entity(Behavior::atom(), Definition::json(), ClientInfo::#client_info{}) ->
-	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()};
-
-	%% @doc Creates a new entity with the given behavior and definition.
-	%%
-	%% This creates a new entity, using the provided behavior and definition. This adds the entity to the specified
-	%% entity engine.
-	(Behavior::atom(), Definition::json(), EntityEngine::pid()) ->
-		{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
+	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 	Entity = #entity {
@@ -70,41 +63,7 @@ create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
 	},
 
-	% Get the best entity engine to send this entity to, and then add it.
-	EnginePid = gen_server:call(pre_entity_engine_sup, {get_best_engine, Entity}),
-	pre_entity_engine:add_entity(EnginePid, Entity);
-
-create_entity(Behavior, Definition, EntityEngine) ->
-	Entity = #entity {
-		behavior = Behavior,
-
-		%TODO: What's a good default to use for model? undefined?
-		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
-	},
-
-	% Add this to the specified entity engine.
-	pre_entity_engine:add_entity(EntityEngine, Entity).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Creates a new entity with the given behavior and definition.
-%%
-%% This creates a new entity, using the provided behavior and definition, as well as setting the entity's client_info
-%% field. This adds the entity to the specified entity engine.
--spec create_entity(Behavior::atom(), Definition::json(), ClientInfo::#client_info{}, EntityEngine::pid()) ->
-	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
-
-create_entity(Behavior, Definition, ClientInfo=#client_info{}, EntityEngine) ->
-	Entity = #entity {
-		behavior = Behavior,
-		client = ClientInfo,
-
-		%TODO: What's a good default to use for model? undefined?
-		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
-	},
-
-	% Add this to the specified entity engine.
-	pre_entity_engine:add_entity(EntityEngine, Entity).
+	pre_entity_engine_sup:add_entity(Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %%
