@@ -10,7 +10,7 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
+-export([init/2, simulate/2, get_full_state/1, client_request/5, client_event/5]).
 
 -define(STEP_SIZE, 50).
 
@@ -71,7 +71,7 @@ get_full_state(Entity) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Request) ->
+client_request(EntityState, Channel, RequestType, _RequestID, Request) ->
 	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
 		[EntityState#entity.id, RequestType, Channel, Request]),
 	Response = {reply, [

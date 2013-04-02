@@ -10,7 +10,7 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/2, simulate/2, get_full_state/1, client_request/6, client_event/5]).
+-export([init/2, simulate/2, get_full_state/1, client_request/5, client_event/5]).
 
 -record(ship_data, {
 	% Current state
@@ -58,11 +58,11 @@ get_full_state(EntityState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_request(EntityState, _ClientInfo, input, <<"command">>, _RequestID, Request) ->
+client_request(EntityState, input, <<"command">>, _RequestID, Request) ->
 	handle_input_command(EntityState, Request);
 
-client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request) ->
-	entity_physical:client_request(EntityState, ClientInfo, Channel, RequestType, RequestID, Request).
+client_request(EntityState, Channel, RequestType, RequestID, Request) ->
+	entity_physical:client_request(EntityState, Channel, RequestType, RequestID, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
