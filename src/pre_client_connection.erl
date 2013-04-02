@@ -332,7 +332,8 @@ service_message(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
 service_message(Envelope, #state{channel_mgr = undefined} = _State) when is_record(Envelope, envelope) ->
-	?warning("service_message: Got message ~p while channel_mgr=undefined! Ignoring message.", [Envelope]);
+	?warning("service_message: Got message ~p while channel_mgr=undefined! Ignoring message.", [Envelope]),
+	State;
 
 service_message(Envelope, State) when is_record(Envelope, envelope) ->
 	#state{client_info = ClientInfo, channel_mgr = ChannelMgr} = State,
