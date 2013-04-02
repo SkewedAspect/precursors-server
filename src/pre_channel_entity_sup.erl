@@ -122,7 +122,7 @@ init(supervisor_start) ->
 	},
 	{ok, {{simple_one_for_one, 2, 2}, [ChildSpec]}};
 
-init(Options) ->
+init(Options) when is_list(Options) ->
 	{ok, Supervisor} = supervisor:start_link({local, pre_channel_entity}, ?MODULE, supervisor_start),
 
 	% Start worker processes.

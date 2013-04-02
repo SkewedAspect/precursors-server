@@ -78,9 +78,9 @@ get_entity_engine(EntityID) ->
 % Set up the supervisor.
 ?DYNAMIC_SUPERVISOR_INIT(?CHILD_GEN_SERVER(pre_entity_engine, [], transient));
 
-init(Options) ->
+init(Options) when is_list(Options) ->
 	% Start entity engine supervisor.
-	{ok, Supervisor} = supervisor:start_link({local, pre_channel_entity}, ?MODULE, supervisor_start),
+	{ok, Supervisor} = supervisor:start_link({local, pre_entity_engine}, ?MODULE, supervisor),
 	State = #state{
 		engine_supervisor = Supervisor
 	},

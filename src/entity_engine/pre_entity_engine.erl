@@ -207,7 +207,7 @@ handle_cast(_, State) ->
 
 handle_info(simulate, State) ->
 	% Simulate all our entities
-	{ok, State1} = simulate_entities(State),
+	State1 = simulate_entities(State),
 
 	% Start new timer
     erlang:send_after(?INTERVAL, self(), simulate),
