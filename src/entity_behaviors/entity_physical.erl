@@ -71,18 +71,10 @@ get_full_state(Entity) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_request(EntityState, Channel, RequestType, _RequestID, Request) ->
-	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
-		[EntityState#entity.id, RequestType, Channel, Request]),
-	Response = {reply, [
-		{confirm, false},
-		{reason, <<"Invalid request!">>}
-	]},
-	{Response, EntityState}.
+client_request(Entity, Channel, RequestType, RequestID, Request) ->
+	entity_base:client_request(Entity, Channel, RequestType, RequestID, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_event(EntityState, _ClientInfo, Channel, EventType, Event) ->
-	?debug("~p received invalid event ~p on channel ~p! (full event: ~p)",
-		[EntityState#entity.id, EventType, Channel, Event]),
-	{noreply, EntityState}.
+client_event(Entity, ClientInfo, Channel, EventType, Event) ->
+	entity_base:client_event(Entity, ClientInfo, Channel, EventType, Event).

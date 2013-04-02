@@ -54,19 +54,24 @@ client_request(Entity, <<"entity">>, <<"full">>, _RequestID, _Request) ->
 	{Response, Entity};
 
 client_request(Entity, Channel, RequestType, _RequestID, Request) ->
-	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
+	?debug("~p received unhandled request ~p on channel ~p! (full request: ~p)",
 		[Entity#entity.id, RequestType, Channel, Request]),
+
+	% Respond humerously.
+	BehaviorBin = atom_to_binary(Entity#entity.behavior, latin1),
 	Response = {reply, [
 		{confirm, false},
-		{reason, <<"Base entity does not acknowledge your pathetic requests.">>}
+		{reason, <<BehaviorBin/binary, " entity does not acknowledge your pathetic requests.">>}
 	]},
+
 	{Response, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_event(Entity, _ClientInfo, Channel, EventType, Event) ->
-	?debug("~p received invalid event ~p on channel ~p! (full event: ~p)",
+	?debug("~p received unhandled event ~p on channel ~p! (full event: ~p)",
 		[Entity#entity.id, EventType, Channel, Event]),
+
 	{noreply, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
