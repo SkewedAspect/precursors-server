@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -include("log.hrl").
--include("pre_client.hrl").
+-include("pre_entity.hrl").
 
 -define(AES_BLOCK_SIZE, 16).
 
@@ -466,7 +466,8 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 
 	%TODO: Look up existing entity, if possible.
 	?info("Creating entity for client ~p.", [State#state.client_info]),
-	set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
+	{ok, Entity} = pre_entity_manager:create_entity(entity_ship, [{}], State#state.client_info),
+	set_inhabited_entity(Connection, Entity#entity.id),
 
 	CharSelRep = [
 		{confirm, true}

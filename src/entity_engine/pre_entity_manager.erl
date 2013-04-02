@@ -41,9 +41,8 @@ create_entity(Behavior, Definition) ->
 		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
 	},
 
-	% Get the best entity engine to send this entity to, and then add it.
-	EnginePid = gen_server:call(pre_entity_engine_sup, {get_best_engine, Entity}),
-	pre_entity_engine:add_entity(EnginePid, Entity).
+	pre_entity_engine_sup:add_entity(Entity),
+	{ok, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -63,7 +62,8 @@ create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
 	},
 
-	pre_entity_engine_sup:add_entity(Entity).
+	pre_entity_engine_sup:add_entity(Entity),
+	{ok, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 %%
