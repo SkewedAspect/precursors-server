@@ -6,7 +6,7 @@
 
 general_test_() ->
     {setup, fun() ->
-        {ok, PID} = pre_entity_engine:start_link(),
+        {ok, PID} = meck:new(pre_entity_engine, [passthrough]),
         PID
     end,
      fun(Pid) ->
