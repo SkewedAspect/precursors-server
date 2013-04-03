@@ -68,6 +68,8 @@ bright_bg(Color) when is_atom(Color) -> <<$1, $0, (atc_color(Color))>>.
 -define(ATC_TO_LIST, atc(180)).
 
 % Creating
+op_color(create) -> ?ATC_CREATING;
+op_color(initialize) -> ?ATC_CREATING;
 op_color(new) -> ?ATC_CREATING;
 
 % Getting
@@ -148,23 +150,11 @@ baseline() ->
 	).
 
 dict(Size) ->
-	SetupFunc = fun() ->
-		Dict = dict:new(),
-		{
-			Size,
-			lists:foldl(
-				fun(Key, LastDict) ->
-					dict:store(list_to_binary(integer_to_list(Key)), <<"Value ", Key/integer>>, LastDict)
-				end,
-				Dict,
-				lists:seq(1, Size)
-			)
-		}
-	end,
+	SetupFunc = fun() -> dict_new(Size) end,
 	run_benches(
 		io_lib:format("dict (~p items)", [Size]),
 		[
-			{new, fun ?MODULE:null/0, fun ?MODULE:dict_new/1},
+			{new, fun() -> Size end, fun ?MODULE:dict_new/1},
 			{fetch, SetupFunc, fun ?MODULE:dict_fetch/1},
 			{iterate_map, SetupFunc, fun ?MODULE:dict_iterate_map/1},
 			{iterate_fold, SetupFunc, fun ?MODULE:dict_iterate_fold/1},
@@ -176,16 +166,11 @@ dict(Size) ->
 	).
 
 pdict(Size) ->
-	SetupFunc = fun() ->
-		[
-			put({ourshit, list_to_binary(integer_to_list(Key))}, <<"Value ", Key/integer>>)
-			|| Key <- lists:seq(1, Size)
-		],
-		{Size}
-	end,
+	SetupFunc = fun() -> pdict_initialize(Size) end,
 	run_benches(
 		io_lib:format("Process dictionary (~p items)", [Size]),
 		[
+			{initialize, fun() -> Size end, fun ?MODULE:pdict_initialize/1},
 			{get, SetupFunc, fun ?MODULE:pdict_get/1},
 			{iterate_list_comp, SetupFunc, fun ?MODULE:pdict_iterate_list_comp/1},
 			{iterate_map, SetupFunc, fun ?MODULE:pdict_iterate_map/1},
@@ -198,17 +183,11 @@ pdict(Size) ->
 	).
 
 ets(Size) ->
-	SetupFunc = fun() ->
-		EtsTable = ets:new(whatthefuck, [private]),
-		[
-			ets:insert(EtsTable, {list_to_binary(integer_to_list(Key)), <<"Value ", Key/integer>>})
-			|| Key <- lists:seq(1, Size)
-		],
-		{Size, EtsTable}
-	end,
+	SetupFunc = fun() -> ets_new(Size) end,
 	run_benches(
 		io_lib:format("ets (~p items)", [Size]),
 		[
+			{new, fun() -> Size end, fun ?MODULE:ets_new/1},
 			{lookup, SetupFunc, fun ?MODULE:ets_lookup/1},
 			%{iterate_foldl, SetupFunc, fun ?MODULE:ets_iterate_foldl/1}, % HORRIBLE
 			%{iterate_match, SetupFunc, fun ?MODULE:ets_iterate_match/1}, % Not as bad, but still BAD
@@ -223,16 +202,11 @@ ets(Size) ->
 	).
 
 proplist(Size) ->
-	SetupFunc = fun() ->
-		Proplist = [
-			{list_to_binary(integer_to_list(Key)), <<"Value ", Key/integer>>}
-			|| Key <- lists:seq(1, Size)
-		],
-		{Size, Proplist}
-	end,
+	SetupFunc = fun() -> proplist_create(Size) end,
 	run_benches(
 		io_lib:format("proplist (~p items)", [Size]),
 		[
+			{create, fun() -> Size end, fun ?MODULE:proplist_create/1},
 			{get_value, SetupFunc, fun ?MODULE:proplist_get_value/1},
 			{lookup, SetupFunc, fun ?MODULE:proplist_lookup/1},
 			{iterate_list_comp, SetupFunc, fun ?MODULE:proplist_iterate_list_comp/1},
@@ -255,8 +229,18 @@ null_gen_key(_) -> list_to_binary(integer_to_list(random:uniform(10))).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-dict_new(ok) ->
-	dict:new().
+dict_new(Size) ->
+	Dict = dict:new(),
+	{
+		Size,
+		lists:foldl(
+			fun(Key, LastDict) ->
+				dict:store(list_to_binary(integer_to_list(Key)), <<"Value ", Key/integer>>, LastDict)
+			end,
+			Dict,
+			lists:seq(1, Size)
+		)
+	}.
 
 dict_fetch({Size, Dict}) ->
 	dict:fetch(list_to_binary(integer_to_list(random:uniform(Size))), Dict).
@@ -277,6 +261,13 @@ dict_erase({Size, Dict}) ->
 	dict:erase(list_to_binary(integer_to_list(random:uniform(Size))), Dict).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+pdict_initialize(Size) ->
+	[
+		put({ourshit, list_to_binary(integer_to_list(Key))}, <<"Value ", Key/integer>>)
+		|| Key <- lists:seq(1, Size)
+	],
+	{Size}.
 
 pdict_get({Size}) ->
 	get({ourshit, list_to_binary(integer_to_list(random:uniform(Size)))}).
@@ -309,6 +300,14 @@ pdict_erase({Size}) ->
 	erase({ourshit, list_to_binary(integer_to_list(random:uniform(Size)))}).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+ets_new(Size) ->
+	EtsTable = ets:new(whatthefuck, [private]),
+	[
+		ets:insert(EtsTable, {list_to_binary(integer_to_list(Key)), <<"Value ", Key/integer>>})
+		|| Key <- lists:seq(1, Size)
+	],
+	{Size, EtsTable}.
 
 ets_lookup({Size, EtsTable}) ->
 	ets:lookup(EtsTable, list_to_binary(integer_to_list(random:uniform(Size)))).
@@ -345,6 +344,13 @@ ets_delete({Size, EtsTable}) ->
 	ets:delete(EtsTable, list_to_binary(integer_to_list(random:uniform(Size)))).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+proplist_create(Size) ->
+	Proplist = [
+		{list_to_binary(integer_to_list(Key)), <<"Value ", Key/integer>>}
+		|| Key <- lists:seq(1, Size)
+	],
+	{Size, Proplist}.
 
 proplist_get_value({Size, Proplist}) ->
 	proplists:get_value(list_to_binary(integer_to_list(random:uniform(Size))), Proplist).
