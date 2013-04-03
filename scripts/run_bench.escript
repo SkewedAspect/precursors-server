@@ -100,6 +100,7 @@ op_color(iterate_select) -> ?ATC_ITERATING;
 
 % Converting to list
 op_color(to_list) -> ?ATC_TO_LIST;
+op_color(to_list_fold) -> ?ATC_TO_LIST;
 op_color(to_list_list_comp) -> ?ATC_TO_LIST;
 op_color(to_list_match) -> ?ATC_TO_LIST;
 op_color(to_list_select) -> ?ATC_TO_LIST;
@@ -162,6 +163,7 @@ dict(Size) ->
 			{iterate_map, SetupFunc, fun ?MODULE:dict_iterate_map/1},
 			{iterate_fold, SetupFunc, fun ?MODULE:dict_iterate_fold/1},
 			{to_list, SetupFunc, fun ?MODULE:dict_to_list/1},
+			{to_list_fold, SetupFunc, fun ?MODULE:dict_to_list_fold/1},
 			{store, SetupFunc, fun ?MODULE:dict_store/1},
 			{erase, SetupFunc, fun ?MODULE:dict_erase/1}
 		],
@@ -264,6 +266,9 @@ dict_iterate_fold({_Size, Dict}) ->
 
 dict_to_list({_Size, Dict}) ->
 	dict:to_list(Dict).
+
+dict_to_list_fold({_Size, Dict}) ->
+	dict:fold(fun(Key, Value, Acc) -> [{Key, Value} | Acc] end, ok, Dict).
 
 dict_store({Size, Dict}) ->
 	dict:store(list_to_binary(integer_to_list(random:uniform(Size))), <<"DUMMY VALUE">>, Dict).
