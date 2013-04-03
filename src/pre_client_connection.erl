@@ -331,7 +331,7 @@ service_message(Binary, State) when is_binary(Binary) ->
 service_message(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
-service_message(Envelope, #state{channel_mgr = undefined} = _State) when is_record(Envelope, envelope) ->
+service_message(Envelope, #state{channel_mgr = undefined} = State) when is_record(Envelope, envelope) ->
 	?warning("service_message: Got message ~p while channel_mgr=undefined! Ignoring message.", [Envelope]),
 	State;
 
