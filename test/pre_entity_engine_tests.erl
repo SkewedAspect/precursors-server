@@ -65,13 +65,23 @@ general_test_() ->
 				end},
 				%% TODO: Complete this test
 				{"Simulate Entities No Update Test", fun() ->
-					meck:new(behave),
-					meck:expect(behave, simulate, fun(Entity, State) -> {undefined, Entity} end),
+					meck:new(nochange),
+					meck:expect(nochange, simulate, fun(Entity, State) -> {undefined, Entity} end),
+					meck:new(change),
+					meck:expect(change, simulate, fun(Entity, State) -> {change, Entity#entity{state = [{}]}} end),
 					TestEntities = dict:new(),
-					TestState = #state{ entities = dict:store(<<"0">>, #entity{id = <<"o">>, behavior = behave }, TestEntities) },
-					NewEntity = pre_entity_engine:simulate_entities(TestState),
-					?assert(meck:validate(behave)),
-					meck:unload(behave)
+					TestEntity = #entity{id = <<"0">>, behavior = nochange},
+					TestEntity1 = #entity{id = <<"1">>, behavior = change},
+					TestState = #state{ entities =  dict:from_list([{<<"0">>,TestEntity}])},
+					TestState1 = #state{ entities =  dict:from_list([{<<"1">>,TestEntity1}])},
+					NewState = pre_entity_engine:simulate_entities(TestState),
+					NewState1 = pre_entity_engine:simulate_entities(TestState1),
+					?assert(meck:validate(nochange)),
+					?assert(meck:validate(change)),
+					?assertEqual(NewState, TestState),
+					?assertNot(NewState1 =:= TestState1),
+					meck:unload(nochange),
+					meck:unload(change)
 				end
 					}
             ]
