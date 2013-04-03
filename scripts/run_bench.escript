@@ -25,8 +25,8 @@ main([]) ->
 	Tests = [
 		pdict,
 		dict,
-		ets
-		%proplist
+		ets,
+		proplist
 	],
 	Sizes = [
 		1,
@@ -80,6 +80,8 @@ dict(Size) ->
 			{create, fun ?MODULE:null/0, fun(ok) -> dict:new() end},
 			{fetch, SetupFunc, fun ?MODULE:dict_fetch/1},
 			{iterate_map, SetupFunc, fun ?MODULE:dict_iterate_map/1},
+			{iterate_fold, SetupFunc, fun ?MODULE:dict_iterate_fold/1},
+			{to_list, SetupFunc, fun ?MODULE:dict_to_list/1},
 			{store, SetupFunc, fun ?MODULE:dict_store/1},
 			{erase, SetupFunc, fun ?MODULE:dict_erase/1}
 		],
@@ -100,6 +102,8 @@ pdict(Size) ->
 			{get, SetupFunc, fun ?MODULE:pdict_get/1},
 			{iterate_list_comp, SetupFunc, fun ?MODULE:pdict_iterate_list_comp/1},
 			{iterate_map, SetupFunc, fun ?MODULE:pdict_iterate_map/1},
+			{iterate_foldl, SetupFunc, fun ?MODULE:pdict_iterate_foldl/1},
+			{to_list_list_comp, SetupFunc, fun ?MODULE:pdict_to_list_list_comp/1},
 			{store, SetupFunc, fun ?MODULE:pdict_store/1},
 			{erase, SetupFunc, fun ?MODULE:pdict_erase/1}
 		],
@@ -126,6 +130,8 @@ ets(Size) ->
 			%{iterate_match, SetupFunc, fun ?MODULE:ets_iterate_match/1, TeardownFunc}, % Not as bad, but still BAD
 			{iterate_select, SetupFunc, fun ?MODULE:ets_iterate_select/1, TeardownFunc},
 			{iterate_first_next, SetupFunc, fun ?MODULE:ets_iterate_first_next/1, TeardownFunc},
+			{match, SetupFunc, fun ?MODULE:ets_to_list_match/1},
+			{select, SetupFunc, fun ?MODULE:ets_to_list_select/1},
 			{insert, SetupFunc, fun ?MODULE:ets_insert/1, TeardownFunc},
 			{delete, SetupFunc, fun ?MODULE:ets_delete/1, TeardownFunc}
 		],
@@ -147,6 +153,7 @@ proplist(Size) ->
 			{lookup, SetupFunc, fun ?MODULE:proplist_lookup/1},
 			{iterate_list_comp, SetupFunc, fun ?MODULE:proplist_iterate_list_comp/1},
 			{iterate_map, SetupFunc, fun ?MODULE:proplist_iterate_map/1},
+			{iterate_foldl, SetupFunc, fun ?MODULE:proplist_iterate_foldl/1},
 			{keystore, SetupFunc, fun ?MODULE:proplist_keystore/1},
 			{delete, SetupFunc, fun ?MODULE:proplist_delete/1}
 		],
@@ -170,6 +177,12 @@ dict_fetch({Size, Dict}) ->
 dict_iterate_map({_Size, Dict}) ->
 	dict:map(fun(_Key, Value) -> null(Value) end, Dict).
 
+dict_iterate_fold({_Size, Dict}) ->
+	dict:fold(fun(_Key, Value, _) -> null(Value) end, ok, Dict).
+
+dict_to_list({Size, Dict}) ->
+	dict:to_list(Dict).
+
 dict_store({Size, Dict}) ->
 	dict:store(list_to_binary(integer_to_list(random:uniform(Size))), <<"DUMMY VALUE">>, Dict).
 
@@ -192,6 +205,15 @@ pdict_iterate_list_comp({_Size}) ->
 
 pdict_iterate_map({_Size}) ->
 	lists:map(fun({{ourshit, _Key}, Value}) -> null(Value); (_) -> nothing end, get()).
+
+pdict_iterate_foldl({_Size}) ->
+	lists:foldl(fun({{ourshit, _Key}, Value}, _) -> null(Value); (_, _) -> nothing end, ok, get()).
+
+pdict_to_list_list_comp({_Size}) ->
+	[
+		Item
+		|| Item <- get(), is_record(Item, ourshit, 1)
+	].
 
 pdict_store({Size}) ->
 	put({ourshit, list_to_binary(integer_to_list(random:uniform(Size)))}, <<"DUMMY VALUE">>).
@@ -223,6 +245,12 @@ ets_iterate_first_next_process(Key, EtsTable) ->
 	null(ets:lookup(EtsTable, Key)),
 	ets_iterate_first_next_process(ets:next(EtsTable, Key), EtsTable).
 
+ets_to_list_match({_Size, EtsTable}) ->
+	ets:match(EtsTable, '$1').
+
+ets_to_list_select({_Size, EtsTable}) ->
+	ets:select(EtsTable, [{'$1', [], ['$_']}]).
+
 ets_insert({Size, EtsTable}) ->
 	ets:insert(EtsTable, {list_to_binary(integer_to_list(random:uniform(Size))), <<"DUMMY VALUE">>}).
 
@@ -245,6 +273,9 @@ proplist_iterate_list_comp({_Size, Proplist}) ->
 
 proplist_iterate_map({_Size, Proplist}) ->
 	lists:map(fun({_Key, Value}) -> null(Value) end, Proplist).
+
+proplist_iterate_foldl({_Size, Proplist}) ->
+	lists:foldl(fun({_Key, Value}, _) -> null(Value) end, ok, Proplist).
 
 proplist_keystore({Size, Proplist}) ->
 	Key = list_to_binary(integer_to_list(random:uniform(Size))),
