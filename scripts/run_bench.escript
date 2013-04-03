@@ -190,7 +190,7 @@ pdict(Size) ->
 			{iterate_map, SetupFunc, fun ?MODULE:pdict_iterate_map/1},
 			{iterate_foldl, SetupFunc, fun ?MODULE:pdict_iterate_foldl/1},
 			{to_list_list_comp, SetupFunc, fun ?MODULE:pdict_to_list_list_comp/1},
-			{store, SetupFunc, fun ?MODULE:pdict_store/1},
+			{put, SetupFunc, fun ?MODULE:pdict_put/1},
 			{erase, SetupFunc, fun ?MODULE:pdict_erase/1}
 		],
 		?ITERS, ?REPS
@@ -298,7 +298,7 @@ pdict_to_list_list_comp({_Size}) ->
 		|| Item <- get(), is_record(Item, ourshit, 1)
 	].
 
-pdict_store({Size}) ->
+pdict_put({Size}) ->
 	put({ourshit, list_to_binary(integer_to_list(random:uniform(Size)))}, <<"DUMMY VALUE">>).
 
 pdict_erase({Size}) ->
