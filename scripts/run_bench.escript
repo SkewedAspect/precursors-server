@@ -15,16 +15,23 @@
 -define(ITERS, 1000).
 -define(REPS, 50).
 
+% Colors!
+-define(ANSI_TITLE, "\033[1;36m").
+-define(ANSI_BOLD, "\033[1m").
+-define(ANSI_ULINE, "\033[4m").
+-define(ANSI_RESET, "\033[m").
+
 %% --------------------------------------------------------------------------------------------------------------------
 
 main([]) ->
 	gen_bench:start_link(),
 
-	io:format("Running benchmarks with ~p repetitions of ~p iterations each.~n~n", [?REPS, ?ITERS]),
-	io:format("~s~s~n", [
-			"The statistics below only include data from the fastest repetition of each benchmark; all others",
-			"are discarded."
-		]),
+	io:format("Running benchmarks with ~s~p~s repetitions of ~s~p~s iterations each.~n~n",
+		[?ANSI_BOLD, ?REPS, ?ANSI_RESET, ?ANSI_BOLD, ?ITERS, ?ANSI_RESET]),
+
+	io:format("The statistics below only include data from the ~sfastest repetition~s of each benchmark;~n",
+		[?ANSI_BOLD, ?ANSI_RESET]),
+	io:format("all other repetitions are discarded.~n"),
 
 	baseline(),
 
@@ -283,8 +290,9 @@ proplist_delete({Size, Proplist}) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 run_benches(Name, BenchFuns, Iterations, Repetitions) ->
-	io:format("~n~s:~n", [Name]),
-    io:format("                      Operation  Total (us)  Average (us)~n"),
+	io:format("~n~s~s:~s~n", [?ANSI_TITLE, Name, ?ANSI_RESET]),
+	io:format("                      ~sOperation~s  ~sTotal (us)~s  ~sAverage (us)~s~n",
+		[?ANSI_ULINE, ?ANSI_RESET, ?ANSI_ULINE, ?ANSI_RESET, ?ANSI_ULINE, ?ANSI_RESET]),
 	run_benches(BenchFuns, Iterations, Repetitions).
 
 run_benches([], _Iterations, _Repetitions) ->
