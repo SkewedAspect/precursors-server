@@ -12,15 +12,21 @@
 
 -compile(export_all).
 
--define(ITERS, 10000).
--define(REPS, 10).
+-define(ITERS, 1000).
+-define(REPS, 50).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 main([]) ->
-	lists:map(fun ?MODULE:run_gen_bench/1, [
-		{fun ?MODULE:baseline/1, ignore_me}
+	gen_bench:start_link(),
+
+	io:format("Running benchmarks with ~p repetitions of ~p iterations each.~n~n", [?REPS, ?ITERS]),
+	io:format("~s~s~n", [
+			"The statistics below only include data from the fastest repetition of each benchmark; all others",
+			"are discarded."
 		]),
+
+	baseline(),
 
 	Tests = [
 		pdict,
@@ -36,21 +42,14 @@ main([]) ->
 		10000,
 		100000
 	],
-	lists:map(fun ?MODULE:run_gen_bench/1, [
-		{fun ?MODULE:Test/1, Size}
+	[
+		?MODULE:Test(Size)
 		|| Size <- Sizes, Test <- Tests
-	]).
+	].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-run_gen_bench({Fun, Arg}) ->
-	gen_bench:start_link(),
-	Fun(Arg),
-	gen_bench:stop().
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-baseline(ignore_me) ->
+baseline() ->
 	run_benches(
 		"Baseline",
 		[
