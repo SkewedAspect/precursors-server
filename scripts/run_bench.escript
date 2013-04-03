@@ -60,12 +60,14 @@ bright_bg(Color) when is_atom(Color) -> <<$1, $0, (atc_color(Color))>>.
 %% Colors for different categories of operations
 
 -define(ATC_TITLE, atc(bold, cyan)).
+-define(ATC_COLUMN, atc(underline, 251)).
 -define(ATC_CREATING, atc(yellow)).
 -define(ATC_GETTING, atc(bold, green)).
 -define(ATC_SETTING, atc(bold, 81)).
 -define(ATC_DELETING, atc(bold, red)).
 -define(ATC_ITERATING, atc(202)).
 -define(ATC_TO_LIST, atc(180)).
+-define(ATC_DEFAULT, atc(243)).
 
 % Creating
 op_color(create) -> ?ATC_CREATING;
@@ -106,7 +108,7 @@ op_color(to_list_list_comp) -> ?ATC_TO_LIST;
 op_color(to_list_match) -> ?ATC_TO_LIST;
 op_color(to_list_select) -> ?ATC_TO_LIST;
 
-op_color(_) -> <<>>.
+op_color(_) -> ?ATC_DEFAULT.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -402,8 +404,11 @@ proplist_delete({Size, Proplist}) ->
 
 run_benches(Name, BenchFuns, Iterations, Repetitions) ->
 	io:format("~n~s~s:~s~n", [?ATC_TITLE, Name, atc(reset)]),
-	io:format("                      ~sOperation~s  ~sTotal (us)~s  ~sAverage (us)~s~n",
-		[atc(underline), atc(reset), atc(underline), atc(reset), atc(underline), atc(reset)]),
+	io:format(
+		"                      ~sOperation~s  ~sTotal (us)~s  ~sMinimum (us)~s  ~sAverage (us)~s"
+			++ "  ~sMaximum (us)~s  ~sStd. Dev. (us)~s  ~sAvg. Iter./Sec.~s~n",
+		[?ATC_COLUMN, atc(reset), ?ATC_COLUMN, atc(reset), ?ATC_COLUMN, atc(reset), ?ATC_COLUMN, atc(reset),
+			?ATC_COLUMN, atc(reset), ?ATC_COLUMN, atc(reset), ?ATC_COLUMN, atc(reset)]),
 	run_benches(BenchFuns, Iterations, Repetitions).
 
 run_benches([], _Iterations, _Repetitions) ->
@@ -418,8 +423,39 @@ run_benches([{Name, Initial, TargetFun, TeardownFun} | Rest], Iterations, Repeti
 
 	RepetitionResults = gen_bench:benchmark_repeat(TargetFun, Iterations, Repetitions),
 
-	LowestTotal = lists:min(lists:map(fun lists:sum/1, RepetitionResults)),
-    io:format("  ~s~28s    ~8B    ~.6f~s~n",
-		[op_color(Name), Name, LowestTotal, LowestTotal / Iterations, atc(reset)]),
+	Lowest = lists:foldl(
+		fun(Results, {PrevLowestTotal, _} = PrevLowest) ->
+			TotalTime = lists:sum(Results),
+			if
+				TotalTime < PrevLowestTotal -> {TotalTime, Results};
+				true -> PrevLowest
+			end
+		end,
+		{infinity, []},
+		RepetitionResults
+	),
 
-	[LowestTotal | run_benches(Rest, Iterations, Repetitions)].
+	display_results(Name, Lowest, Iterations),
+
+	[Lowest | run_benches(Rest, Iterations, Repetitions)].
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+display_results(Name, {TotalTime, Results}, Iterations) ->
+	Minimum = float(lists:min(Results)),
+	Average = float(TotalTime / Iterations),
+	Maximum = float(lists:max(Results)),
+	StdDev = float(std_dev(Results, Iterations)),
+	AvgIterPerSec = 1000000 / Average, % = 1 / AvgSec, where AvgSec = Average / 1000000 (since Average is microseconds)
+
+    io:format("  ~s~28w    ~8B    ~-10.3f    ~-10.3f    ~-10.3f    ~-11.3f    ~-13.3f~s~n",
+		[op_color(Name), Name, TotalTime, Minimum, Average, Maximum, StdDev, AvgIterPerSec, atc(reset)]
+	).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+std_dev(Results, Iterations) ->
+	Average = lists:sum(Results) / Iterations,
+	F = fun(X, Sum) -> Sum + (X - Average) * (X - Average) end,
+	Variance = lists:foldl(F, 0.0, Results) / Iterations,
+	math:sqrt(Variance).
