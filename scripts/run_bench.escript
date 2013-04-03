@@ -71,6 +71,8 @@ bright_bg(Color) when is_atom(Color) -> <<$1, $0, (atc_color(Color))>>.
 op_color(create) -> ?ATC_CREATING;
 op_color(initialize) -> ?ATC_CREATING;
 op_color(new) -> ?ATC_CREATING;
+op_color(create_new_store) -> ?ATC_CREATING;
+op_color(create_from_list) -> ?ATC_CREATING;
 
 % Getting
 op_color(fetch) -> ?ATC_GETTING;
@@ -150,11 +152,12 @@ baseline() ->
 	).
 
 dict(Size) ->
-	SetupFunc = fun() -> dict_new(Size) end,
+	SetupFunc = fun() -> dict_create_from_list(Size) end,
 	run_benches(
 		io_lib:format("dict (~p items)", [Size]),
 		[
-			{new, fun() -> Size end, fun ?MODULE:dict_new/1},
+			{create_new_store, fun() -> Size end, fun ?MODULE:dict_create_new_store/1},
+			{create_from_list, fun() -> Size end, fun ?MODULE:dict_create_from_list/1},
 			{fetch, SetupFunc, fun ?MODULE:dict_fetch/1},
 			{iterate_map, SetupFunc, fun ?MODULE:dict_iterate_map/1},
 			{iterate_fold, SetupFunc, fun ?MODULE:dict_iterate_fold/1},
@@ -229,7 +232,7 @@ null_gen_key(_) -> list_to_binary(integer_to_list(random:uniform(10))).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-dict_new(Size) ->
+dict_create_new_store(Size) ->
 	Dict = dict:new(),
 	{
 		Size,
@@ -240,6 +243,14 @@ dict_new(Size) ->
 			Dict,
 			lists:seq(1, Size)
 		)
+	}.
+
+dict_create_from_list(Size) ->
+	{Size,
+		dict:from_list([
+			{list_to_binary(integer_to_list(Key)), <<"Value ", Key/integer>>}
+			|| Key <- lists:seq(1, Size)
+		])
 	}.
 
 dict_fetch({Size, Dict}) ->
