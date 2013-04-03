@@ -119,21 +119,18 @@ ets(Size) ->
 		],
 		{Size, EtsTable}
 	end,
-	TeardownFunc = fun({_Size, EtsTable}) ->
-		ets:delete(EtsTable)
-	end,
 	run_benches(
 		io_lib:format("ets (~p items)", [Size]),
 		[
-			{lookup, SetupFunc, fun ?MODULE:ets_lookup/1, TeardownFunc},
-			%{iterate_foldl, SetupFunc, fun ?MODULE:ets_iterate_foldl/1, TeardownFunc}, % HORRIBLE
-			%{iterate_match, SetupFunc, fun ?MODULE:ets_iterate_match/1, TeardownFunc}, % Not as bad, but still BAD
-			{iterate_select, SetupFunc, fun ?MODULE:ets_iterate_select/1, TeardownFunc},
-			{iterate_first_next, SetupFunc, fun ?MODULE:ets_iterate_first_next/1, TeardownFunc},
-			{match, SetupFunc, fun ?MODULE:ets_to_list_match/1},
-			{select, SetupFunc, fun ?MODULE:ets_to_list_select/1},
-			{insert, SetupFunc, fun ?MODULE:ets_insert/1, TeardownFunc},
-			{delete, SetupFunc, fun ?MODULE:ets_delete/1, TeardownFunc}
+			{lookup, SetupFunc, fun ?MODULE:ets_lookup/1},
+			%{iterate_foldl, SetupFunc, fun ?MODULE:ets_iterate_foldl/1}, % HORRIBLE
+			%{iterate_match, SetupFunc, fun ?MODULE:ets_iterate_match/1}, % Not as bad, but still BAD
+			{iterate_select, SetupFunc, fun ?MODULE:ets_iterate_select/1},
+			{iterate_first_next, SetupFunc, fun ?MODULE:ets_iterate_first_next/1},
+			{to_list_match, SetupFunc, fun ?MODULE:ets_to_list_match/1},
+			{to_list_select, SetupFunc, fun ?MODULE:ets_to_list_select/1},
+			{insert, SetupFunc, fun ?MODULE:ets_insert/1},
+			{delete, SetupFunc, fun ?MODULE:ets_delete/1}
 		],
 		?ITERS, ?REPS
 	).
@@ -180,7 +177,7 @@ dict_iterate_map({_Size, Dict}) ->
 dict_iterate_fold({_Size, Dict}) ->
 	dict:fold(fun(_Key, Value, _) -> null(Value) end, ok, Dict).
 
-dict_to_list({Size, Dict}) ->
+dict_to_list({_Size, Dict}) ->
 	dict:to_list(Dict).
 
 dict_store({Size, Dict}) ->
@@ -295,21 +292,13 @@ run_benches([], _Iterations, _Repetitions) ->
 	[];
 
 run_benches([{Name, Initial, TargetFun} | Rest], Iterations, Repetitions) ->
-	run_benches([{Name, Initial, TargetFun, none} | Rest], Iterations, Repetitions);
+	run_benches([{Name, Initial, TargetFun, undefined} | Rest], Iterations, Repetitions);
 
 run_benches([{Name, Initial, TargetFun, TeardownFun} | Rest], Iterations, Repetitions) ->
-	InitialValue = case Initial of
-		none -> none;
-		Fun when is_function(Fun) -> gen_bench:setup(Initial, []);
-		_ -> Initial
-	end,
+	gen_bench:setup(Initial),
+	gen_bench:teardown(TeardownFun),
 
-	RepetitionResults = gen_bench:benchmark_repeat(TargetFun, [InitialValue], Iterations, Repetitions),
-
-	case TeardownFun of
-		none -> none;
-		_ -> gen_bench:teardown(TeardownFun, [InitialValue])
-	end,
+	RepetitionResults = gen_bench:benchmark_repeat(TargetFun, Iterations, Repetitions),
 
 	LowestTotal = lists:min(lists:map(fun lists:sum/1, RepetitionResults)),
     io:format("  ~28s    ~8B    ~.6f~n", [Name, LowestTotal, LowestTotal / Iterations]),
