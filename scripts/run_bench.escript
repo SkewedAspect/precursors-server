@@ -94,6 +94,7 @@ op_color(erase) -> ?ATC_DELETING;
 op_color(iterate_first_next) -> ?ATC_ITERATING;
 op_color(iterate_fold) -> ?ATC_ITERATING;
 op_color(iterate_foldl) -> ?ATC_ITERATING;
+op_color(iterate_fold_map) -> ?ATC_ITERATING;
 op_color(iterate_list_comp) -> ?ATC_ITERATING;
 op_color(iterate_map) -> ?ATC_ITERATING;
 op_color(iterate_select) -> ?ATC_ITERATING;
@@ -162,6 +163,7 @@ dict(Size) ->
 			{fetch, SetupFunc, fun ?MODULE:dict_fetch/1},
 			{iterate_map, SetupFunc, fun ?MODULE:dict_iterate_map/1},
 			{iterate_fold, SetupFunc, fun ?MODULE:dict_iterate_fold/1},
+			{iterate_fold_map, SetupFunc, fun ?MODULE:dict_iterate_fold_map/1},
 			{to_list, SetupFunc, fun ?MODULE:dict_to_list/1},
 			{to_list_fold, SetupFunc, fun ?MODULE:dict_to_list_fold/1},
 			{store, SetupFunc, fun ?MODULE:dict_store/1},
@@ -263,6 +265,9 @@ dict_iterate_map({_Size, Dict}) ->
 
 dict_iterate_fold({_Size, Dict}) ->
 	dict:fold(fun(_Key, Value, _) -> null(Value) end, ok, Dict).
+
+dict_iterate_fold_map({_Size, Dict}) ->
+	dict:fold(fun(Key, Value, NewDict) -> dict:store(Key, Value, NewDict) end, dict:new(), Dict).
 
 dict_to_list({_Size, Dict}) ->
 	dict:to_list(Dict).
