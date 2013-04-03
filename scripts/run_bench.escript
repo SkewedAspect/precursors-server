@@ -79,6 +79,7 @@ op_color(lookup) -> ?ATC_GETTING;
 % Setting
 op_color(insert) -> ?ATC_SETTING;
 op_color(keystore) -> ?ATC_SETTING;
+op_color(put) -> ?ATC_SETTING;
 op_color(store) -> ?ATC_SETTING;
 
 % Deleting
