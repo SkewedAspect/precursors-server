@@ -116,7 +116,7 @@ client_request(Pid, EntityID, Channel, RequestType, RequestID, Request) ->
 	Response::json().
 
 client_event(Pid, EntityID, Channel, EventType, Event) ->
-	gen_server:cast(Pid, {event, EntityID, Channel, EventType, Event}).
+	gen_server:cast(Pid, {client_event, EntityID, Channel, EventType, Event}).
 
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -182,7 +182,7 @@ handle_call(_, _From, State) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-handle_cast({event, EntityID, Channel, EventType, Event}, State) ->
+handle_cast({client_event, EntityID, Channel, EventType, Event}, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
 	NewState = call_behavior_func(Entity, client_event, [Entity, Channel, EventType, Event], State),
