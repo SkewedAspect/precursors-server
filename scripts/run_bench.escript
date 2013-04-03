@@ -15,11 +15,91 @@
 -define(ITERS, 1000).
 -define(REPS, 50).
 
-% Colors!
--define(ANSI_TITLE, "\033[1;36m").
--define(ANSI_BOLD, "\033[1m").
--define(ANSI_ULINE, "\033[4m").
--define(ANSI_RESET, "\033[m").
+%% --------------------------------------------------------------------------------------------------------------------
+%% ANSI Terminal Colors!
+
+% Control Sequence Introducer (ESC + '[')
+-define(CSI, 27, $[).
+
+atc(A1, A2, A3) -> <<?CSI, (atc_elem(A1))/binary, $;, (atc_elem(A2))/binary, $;, (atc_elem(A3))/binary, $m>>.
+atc(A1, A2) -> <<?CSI, (atc_elem(A1))/binary, $;, (atc_elem(A2))/binary, $m>>.
+atc(A1) -> <<?CSI, (atc_elem(A1))/binary, $m>>.
+
+atc_elem(reset) -> <<$0>>;
+atc_elem(bold) -> <<$1>>;
+atc_elem(underline) -> <<$4>>;
+atc_elem(blink) -> <<$5>>;
+atc_elem(Bin) when is_binary(Bin) -> Bin;
+atc_elem(Color) when is_atom(Color) orelse is_integer(Color) -> fg(Color);
+atc_elem(ElemList) when is_list(ElemList) -> atc_elem_list(ElemList).
+
+atc_elem_list([]) -> <<>>;
+atc_elem_list([Head | Rest]) -> <<(atc_elem(Head))/binary, $;, (atc_elem(Rest))/binary>>.
+
+% ANSI terminal colors
+atc_color(black) -> $0;
+atc_color(red) -> $1;
+atc_color(green) -> $2;
+atc_color(yellow) -> $3;
+atc_color(blue) -> $4;
+atc_color(magenta) -> $5;
+atc_color(cyan) -> $6;
+atc_color(white) -> $7.
+
+% Foreground colors
+fg(Color) when is_atom(Color) -> <<$3, (atc_color(Color))>>;
+fg(Num) when is_integer(Num) -> <<"38;5;", (list_to_binary(integer_to_list(Num)))/binary>>.
+bright_fg(Color) when is_atom(Color) -> <<$9, (atc_color(Color))>>.
+
+% Background colors
+bg(Color) when is_atom(Color) -> <<$4, (atc_color(Color))>>;
+bg(Num) when is_integer(Num) -> <<"48;5;", (list_to_binary(integer_to_list(Num)))/binary>>.
+bright_bg(Color) when is_atom(Color) -> <<$1, $0, (atc_color(Color))>>.
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% Colors for different categories of operations
+
+-define(ATC_TITLE, atc(bold, cyan)).
+-define(ATC_CREATING, atc(yellow)).
+-define(ATC_GETTING, atc(bold, green)).
+-define(ATC_SETTING, atc(bold, 81)).
+-define(ATC_DELETING, atc(bold, red)).
+-define(ATC_ITERATING, atc(202)).
+-define(ATC_TO_LIST, atc(180)).
+
+% Creating
+op_color(create) -> ?ATC_CREATING;
+
+% Getting
+op_color(fetch) -> ?ATC_GETTING;
+op_color(get) -> ?ATC_GETTING;
+op_color(get_value) -> ?ATC_GETTING;
+op_color(lookup) -> ?ATC_GETTING;
+
+% Setting
+op_color(insert) -> ?ATC_SETTING;
+op_color(keystore) -> ?ATC_SETTING;
+op_color(store) -> ?ATC_SETTING;
+
+% Deleting
+op_color(delete) -> ?ATC_DELETING;
+op_color(erase) -> ?ATC_DELETING;
+
+% Iterating
+op_color(iterate_first_next) -> ?ATC_ITERATING;
+op_color(iterate_fold) -> ?ATC_ITERATING;
+op_color(iterate_foldl) -> ?ATC_ITERATING;
+op_color(iterate_list_comp) -> ?ATC_ITERATING;
+op_color(iterate_map) -> ?ATC_ITERATING;
+op_color(iterate_select) -> ?ATC_ITERATING;
+
+% Converting to list
+op_color(to_list) -> ?ATC_TO_LIST;
+op_color(to_list_list_comp) -> ?ATC_TO_LIST;
+op_color(to_list_match) -> ?ATC_TO_LIST;
+op_color(to_list_select) -> ?ATC_TO_LIST;
+
+op_color(_) -> <<>>.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -27,10 +107,10 @@ main([]) ->
 	gen_bench:start_link(),
 
 	io:format("Running benchmarks with ~s~p~s repetitions of ~s~p~s iterations each.~n~n",
-		[?ANSI_BOLD, ?REPS, ?ANSI_RESET, ?ANSI_BOLD, ?ITERS, ?ANSI_RESET]),
+		[atc(bold), ?REPS, atc(reset), atc(bold), ?ITERS, atc(reset)]),
 
 	io:format("The statistics below only include data from the ~sfastest repetition~s of each benchmark;~n",
-		[?ANSI_BOLD, ?ANSI_RESET]),
+		[atc(bold), atc(reset)]),
 	io:format("all other repetitions are discarded.~n"),
 
 	baseline(),
@@ -290,9 +370,9 @@ proplist_delete({Size, Proplist}) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 run_benches(Name, BenchFuns, Iterations, Repetitions) ->
-	io:format("~n~s~s:~s~n", [?ANSI_TITLE, Name, ?ANSI_RESET]),
+	io:format("~n~s~s:~s~n", [?ATC_TITLE, Name, atc(reset)]),
 	io:format("                      ~sOperation~s  ~sTotal (us)~s  ~sAverage (us)~s~n",
-		[?ANSI_ULINE, ?ANSI_RESET, ?ANSI_ULINE, ?ANSI_RESET, ?ANSI_ULINE, ?ANSI_RESET]),
+		[atc(underline), atc(reset), atc(underline), atc(reset), atc(underline), atc(reset)]),
 	run_benches(BenchFuns, Iterations, Repetitions).
 
 run_benches([], _Iterations, _Repetitions) ->
@@ -308,6 +388,7 @@ run_benches([{Name, Initial, TargetFun, TeardownFun} | Rest], Iterations, Repeti
 	RepetitionResults = gen_bench:benchmark_repeat(TargetFun, Iterations, Repetitions),
 
 	LowestTotal = lists:min(lists:map(fun lists:sum/1, RepetitionResults)),
-    io:format("  ~28s    ~8B    ~.6f~n", [Name, LowestTotal, LowestTotal / Iterations]),
+    io:format("  ~s~28s    ~8B    ~.6f~s~n",
+		[op_color(Name), Name, LowestTotal, LowestTotal / Iterations, atc(reset)]),
 
 	[LowestTotal | run_benches(Rest, Iterations, Repetitions)].
