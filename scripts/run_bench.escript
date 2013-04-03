@@ -68,7 +68,7 @@ bright_bg(Color) when is_atom(Color) -> <<$1, $0, (atc_color(Color))>>.
 -define(ATC_TO_LIST, atc(180)).
 
 % Creating
-op_color(create) -> ?ATC_CREATING;
+op_color(new) -> ?ATC_CREATING;
 
 % Getting
 op_color(fetch) -> ?ATC_GETTING;
@@ -164,7 +164,7 @@ dict(Size) ->
 	run_benches(
 		io_lib:format("dict (~p items)", [Size]),
 		[
-			{create, fun ?MODULE:null/0, fun(ok) -> dict:new() end},
+			{new, fun ?MODULE:null/0, fun ?MODULE:dict_new/1},
 			{fetch, SetupFunc, fun ?MODULE:dict_fetch/1},
 			{iterate_map, SetupFunc, fun ?MODULE:dict_iterate_map/1},
 			{iterate_fold, SetupFunc, fun ?MODULE:dict_iterate_fold/1},
@@ -254,6 +254,9 @@ null(_, _) -> ok.
 null_gen_key(_) -> list_to_binary(integer_to_list(random:uniform(10))).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+dict_new(ok) ->
+	dict:new().
 
 dict_fetch({Size, Dict}) ->
 	dict:fetch(list_to_binary(integer_to_list(random:uniform(Size))), Dict).
