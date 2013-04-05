@@ -8,7 +8,7 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/2, simulate/2, get_full_state/1, client_request/5, client_event/5]).
+-export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5]).
 
 % helpers
 -export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
@@ -19,7 +19,7 @@
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(Entity,) ->
+init(Entity) ->
 	Entity#entity{
 		state = dict:new()
 	}.

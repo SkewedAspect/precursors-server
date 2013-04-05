@@ -9,14 +9,14 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/2, simulate/2, get_full_state/1, client_request/5, client_event/5]).
+-export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(Entity) ->
-	InitialEntity = entity_physical:init(Entity,),
+	InitialEntity = entity_physical:init(Entity),
 
 	% -------------------------------------------------------------------------
 

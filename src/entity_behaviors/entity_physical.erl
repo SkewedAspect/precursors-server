@@ -9,7 +9,7 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/2, simulate/2, get_full_state/1, client_request/5, client_event/5]).
+-export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5]).
 
 -define(STEP_SIZE, 50).
 
@@ -27,28 +27,24 @@ init(InitialEntity) ->
 
 	% Set up default physical state
 	DefaultPhysical = dict:from_list([
-		% Updated values (assume these change every frame)
         { position, {0, 0, 0} },
         { linear_momentum, {0, 0, 0} },
         { orientation, {1, 0, 0, 0} },
         { angular_momentum, {0, 0, 0} },
 
-        { % Input-only values
         { force_absolute, {0, 0, 0} },
         { force_relative, {0, 0, 0} },
         { torque_absolute, {0, 0, 0} },
         { torque_relative, {0, 0, 0} },
 
-        { % Purely calculated values (DON'T try to change these externally)
         { linear_velocity, {0, 0, 0} },
         { angular_velocity, {0, 0, 0} },
         { spin, {1, 0, 0, 0} },
 
-        { % Intrinsic values (should NOT change during the life of an object)
         { mass, 1 },
         { inverse_mass, 1 },
         { inertia_tensor, 1 },
-        { inverse_inertia_tensor, 1 },
+        { inverse_inertia_tensor, 1 }
 	]),
 
 	% Merge our initial physical state dict with our default values, prefering our initials where there's
