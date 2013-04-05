@@ -18,12 +18,13 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(InitialEntity) ->
-	State = dict:new(),
-
-	% -------------------------------------------------------------------------
-
 	% Pull out the initial physical state from the entity we were passed.
-	InitialPhysical = dict:fetch(physical, InitialEntity#entity.state),
+	InitialPhysical = case dict:find(physical, InitialEntity#entity.state) of
+		{ok, Value} ->
+			Value;
+		error ->
+			dict:new()
+	end,
 
 	% Set up default physical state
 	DefaultPhysical = dict:from_list([
@@ -53,11 +54,9 @@ init(InitialEntity) ->
 		InitialVal
 	end, InitialPhysical, DefaultPhysical),
 
-	% -------------------------------------------------------------------------
-
 	% Set last_update to now, since the initial load counts as an update. This prevents us from trying to simulate a
 	% single step that's as long as the entity's been offline (in the case of entities loaded from the db).
-	dict:store(physical, dict:store(last_update, os:timestamp(), Physical), State),
+	State = dict:store(physical, dict:store(last_update, os:timestamp(), Physical), dict:new()),
 
 	% Return the initial entity
 	InitialEntity#entity{

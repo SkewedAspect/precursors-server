@@ -206,6 +206,10 @@ start_entity_engine(Args) ->
 %% Helpers
 %% --------------------------------------------------------------------------------------------------------------------
 
+% Special case empty object.
+json_to_dict([{}]) ->
+	dict:new();
+
 json_to_dict(JSON) ->
 	dict:from_list(JSON).
 
@@ -228,7 +232,7 @@ populate_definition(Entity, Definition) ->
 	dict:erase(model, DefDict),
 
 	% Update the entity
-	case dict:find(behavior, undefined, DefDict) of
+	case dict:find(behavior, DefDict) of
 	{ok, Behavior} ->
 		dict:erase(behavior, DefDict),
 

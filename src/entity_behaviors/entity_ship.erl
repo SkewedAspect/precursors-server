@@ -53,7 +53,12 @@ init(Entity) ->
 	% -------------------------------------------------------------------------
 
 	% Set up ship state
-	InitialShip = dict:fetch(ship, InitialEntity#entity.state),
+	InitialShip = case dict:find(ship, InitialEntity#entity.state) of
+		{ok, Value} ->
+			Value;
+		error ->
+			dict:new()
+	end,
 
 	DefaultShip = dict:from_list([
 		{ target_linear_velocity, {0, 0, 0} },
