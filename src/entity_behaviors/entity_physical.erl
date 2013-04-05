@@ -74,15 +74,19 @@ simulate(Entity, _EntityEngineState) ->
 	% Do physics simulation
 	Physical = pre_physics_rk4:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
 
+	% Save State
+	NewState = dict:store(physical, Physical, EntityState),
+
 	% Calculate the updated state
-	{Update, Entity1} = entity_base:calc_update(Physical, Entity),
+	{Update, Entity1} = entity_base:calc_update(NewState, Entity),
 
 	% Update last_updated
 	Entity2 = Entity1#entity{
 		state = dict:store(physical, dict:store(last_update, ThisUpdate, Physical), EntityState)
 	},
 
-	{Update, Entity2}.
+	%{Update, Entity2}.
+	{undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 

@@ -5,5 +5,5 @@
 	client :: #client_info{},
 	behavior :: atom(),
 	model = [{model, <<"Ships/ares">>}] :: json(),
-	state :: [{atom(), json()}]
+	state :: dict:new() | dict()
 }).
