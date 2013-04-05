@@ -5,7 +5,7 @@
 
 -module(pre_entity_manager).
 
--export([get_entity/1, create_entity/2, create_entity/3, load_entity/1]).
+-export([get_entity/1, create_entity/2, create_entity/3, create_entity/4, load_entity/1]).
 -export([start_entity_engine/1]).
 
 -include("log.hrl").
@@ -31,7 +31,7 @@ get_entity(EntityID) ->
 %%
 %% This creates a new entity, using the provided behavior and definition. This does not attempt to load the entity from
 %% the database.
--spec create_entity(Behavior::atom(), Definition::json()) ->
+-spec create_entity(Behavior::atom(), Definition::json_object()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(Behavior, Definition) ->
@@ -54,10 +54,10 @@ create_entity(Behavior, Definition) ->
 %%
 %% This creates a new entity, using the provided behavior and definition, as well as setting the entity's client_info
 %% field. This does not attempt to load the entity from the database.
--spec create_entity(Behavior::atom(), Definition::json(), ClientInfo::#client_info{}) ->
+-spec create_entity(Behavior::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()};
 
-	(EntityID::binary(), Behavior::atom(), Definition::json()) ->
+	(EntityID::binary(), Behavior::atom(), Definition::json_object()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
@@ -79,6 +79,9 @@ create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 %%
 %% This creates a new entity, attempting to load it from the database. If it is not found, it will create a new one
 %% using the provided behavior and definition.
+
+create_entity(undefined, Behavior, Definition) ->
+	create_entity(Behavior, Definition);
 
 create_entity(EntityID, Behavior, Definition) ->
 	% Do a database lookup, and attempt to load the entity.
@@ -107,6 +110,45 @@ create_entity(EntityID, Behavior, Definition) ->
 	pre_entity_engine_sup:add_entity(InitializedEntity),
 	{ok, InitializedEntity}.
 
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Creates a new entity either loading from the db, or with the given behavior and definition.
+%%
+%% This creates a new entity, attempting to load it from the database. If it is not found, it will create a new one
+%% using the provided behavior and definition.
+-spec create_entity(EntityID::binary(), Behavior::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
+	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
+
+create_entity(undefined, Behavior, Definition, ClientInfo) ->
+	create_entity(Behavior, Definition, ClientInfo);
+
+create_entity(EntityID, Behavior, Definition, ClientInfo) ->
+	% Do a database lookup, and attempt to load the entity.
+	InitialEntity = case predata:get(<<"entity">>, EntityID) of
+		{ok, Value} ->
+			json_to_entity(Value);
+		notfound ->
+			#entity{};
+		{error, Error} ->
+			?error("Error looking up entity ~p during creation. Error was: ~p",
+				[EntityID, Error]),
+			#entity{}
+	end,
+
+	% Set the entity's default behavior
+	Entity = InitialEntity#entity {
+		behavior = Behavior,
+		client = ClientInfo
+	},
+
+	% Populate the definition
+	Entity1 = populate_definition(Entity, Definition),
+
+	% Initialize the behavior
+	InitializedEntity = Behavior:init(Entity1),
+
+	pre_entity_engine_sup:add_entity(InitializedEntity),
+	{ok, InitializedEntity}.
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Creates a new entity with the given behavior and definition.
