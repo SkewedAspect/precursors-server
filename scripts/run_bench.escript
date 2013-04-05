@@ -12,8 +12,8 @@
 
 -compile(export_all).
 
--define(ITERS, 1000).
--define(REPS, 50).
+-define(ITERS, 100).
+-define(REPS, 10).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% ANSI Terminal Colors!
