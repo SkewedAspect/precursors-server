@@ -466,8 +466,10 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	send(Connection, tcp, event, level, LoadLevel),
 
 	%TODO: Look up existing entity, if possible.
+	EntityID = undefined,
+
 	?info("Creating entity for client ~p.", [State#state.client_info]),
-	{ok, Entity} = pre_entity_manager:create_entity(entity_ship, [{}], State#state.client_info),
+	{ok, Entity} = pre_entity_manager:create_entity(EntityID, entity_ship, [{}], State#state.client_info),
 	set_inhabited_entity(Connection, Entity#entity.id),
 
 	CharSelRep = [
