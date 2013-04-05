@@ -17,14 +17,54 @@
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(EntityID, Behavior) ->
-	pre_entity_engine:start_entity_timer(EntityID, ?STEP_SIZE, do_physics),
+init(InitialEntity) ->
 	State = dict:new(),
-	Physical = dict:new(),
+
+	% -------------------------------------------------------------------------
+
+	% Pull out the initial physical state from the entity we were passed.
+	InitialPhysical = dict:fetch(physical, InitialEntity#entity.state),
+
+	% Set up default physical state
+	DefaultPhysical = dict:from_list([
+		% Updated values (assume these change every frame)
+        { position, {0, 0, 0} },
+        { linear_momentum, {0, 0, 0} },
+        { orientation, {1, 0, 0, 0} },
+        { angular_momentum, {0, 0, 0} },
+
+        { % Input-only values
+        { force_absolute, {0, 0, 0} },
+        { force_relative, {0, 0, 0} },
+        { torque_absolute, {0, 0, 0} },
+        { torque_relative, {0, 0, 0} },
+
+        { % Purely calculated values (DON'T try to change these externally)
+        { linear_velocity, {0, 0, 0} },
+        { angular_velocity, {0, 0, 0} },
+        { spin, {1, 0, 0, 0} },
+
+        { % Intrinsic values (should NOT change during the life of an object)
+        { mass, 1 },
+        { inverse_mass, 1 },
+        { inertia_tensor, 1 },
+        { inverse_inertia_tensor, 1 },
+	]),
+
+	% Merge our initial physical state dict with our default values, prefering our initials where there's
+	% conflicts.
+	Physical = dict:merge(fun(_Key, InitialVal, _DefaultVal) ->
+		InitialVal
+	end, InitialPhysical, DefaultPhysical),
+
+	% -------------------------------------------------------------------------
+
+	% Set last_update to now, since the initial load counts as an update. This prevents us from trying to simulate a
+	% single step that's as long as the entity's been offline (in the case of entities loaded from the db).
 	dict:store(physical, dict:store(last_update, os:timestamp(), Physical), State),
-	#entity{
-		id = EntityID,
-		behavior = Behavior,
+
+	% Return the initial entity
+	InitialEntity#entity{
 		state = State
 	}.
 

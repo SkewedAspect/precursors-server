@@ -34,6 +34,8 @@ get_entity(EntityID) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(Behavior, Definition) ->
+	%TODO: Do a database lookup, and attempt to load the entity.
+
 	Entity = #entity {
 		behavior = Behavior,
 
@@ -41,8 +43,11 @@ create_entity(Behavior, Definition) ->
 		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
 	},
 
-	pre_entity_engine_sup:add_entity(Entity),
-	{ok, Entity}.
+	% Initialize the behavior
+	InitializedEntity, Behavior:init(Entity),
+
+	pre_entity_engine_sup:add_entity(InitializedEntity),
+	{ok, InitializedEntity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -54,6 +59,8 @@ create_entity(Behavior, Definition) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
+	%TODO: Do a database lookup, and attempt to load the entity.
+
 	Entity = #entity {
 		behavior = Behavior,
 		client = ClientInfo,
@@ -62,8 +69,11 @@ create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 		model = proplists:get_value(<<"model">>, Definition, [{model, <<"Ships/ares">>}])
 	},
 
-	pre_entity_engine_sup:add_entity(Entity),
-	{ok, Entity}.
+	% Initialize the behavior
+	InitializedEntity, Behavior:init(Entity),
+
+	pre_entity_engine_sup:add_entity(InitializedEntity),
+	{ok, InitializedEntity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 %%

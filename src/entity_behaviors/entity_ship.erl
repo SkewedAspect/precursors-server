@@ -15,8 +15,8 @@
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(EntityID, Behavior) ->
-	InitialEntity = entity_physical:init(EntityID, Behavior),
+init(Entity) ->
+	InitialEntity = entity_physical:init(Entity,),
 
 	% -------------------------------------------------------------------------
 

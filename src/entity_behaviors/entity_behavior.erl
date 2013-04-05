@@ -1,5 +1,8 @@
 %%% @doc The behavior for all of our entity behavior modules.
 %%%
+%%% `init(Entity)' is called when a new entity is created (or loaded from the database). It should setup the default
+%%% state required by the behavior. It should return an updated Entity record.
+%%%
 %%% `simulate(Entity, EntityEngineState)' is called every simulation frame by the entity engine. It is expected
 %%% to return `{Update, NewEntity}` where `Update` is either a JSON structure representing any changes or `undefined`
 %%% if no changes occurred, and `NewEntity` is the new entity record that should be used for future simulation.
@@ -28,7 +31,7 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 behaviour_info(callbacks) ->
-	[{simulate, 2}, {get_full_state, 1}, {client_request, 5}, {client_event, 5}, {entity_event, 3}];
+	[{init, 1}, {simulate, 2}, {get_full_state, 1}, {client_request, 5}, {client_event, 5}, {entity_event, 3}];
 
 behaviour_info(_) ->
     undefined.
