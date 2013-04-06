@@ -8,19 +8,14 @@
 #include <cmath>
 #include <cstdio>
 
-#include <erl_nif.h>
-
-#include "quaternion.h"
+#include "nif_helpers.h"
 #include "exceptions.h"
 
-
-static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target);
+#include "quaternion.h"
 
 
 /* ----------------------------------------------------------------------------------------------------------------- */
 /* Some useful constants */
-
-#define TRUE 1
 
 #define NORMALIZED_TOLERANCE 0.0000001
 #define IDENTITY {1, 0, 0, 0}
@@ -28,27 +23,6 @@ static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target
 
 /* ----------------------------------------------------------------------------------------------------------------- */
 /* Metaprogramming is my second best friend. */
-
-/**
- * Fail with a 'badarg' exception.
- */
-#define FAIL return enif_make_badarg(env)
-
-/**
- * Fail with a 'badarg' exception if the given expression is false.
- */
-#define FAIL_IF(EXPR) if(EXPR) { FAIL; }
-
-/**
- * If SAFER_THAN_NECESSARY is defined, CHECK_ARGC(N) ensures that the correct number of arguments are present in an
- * Erlang interface function.
- */
-#ifdef SAFER_THAN_NECESSARY
-#	define CHECK_ARGC(N) FAIL_IF(argc != N)
-#else
-#	define CHECK_ARGC(N)
-#endif
-
 
 /**
  * Define an operator overload that computes a new Quat where each coordinate equals `this.coord OP other.coord`.
@@ -692,29 +666,3 @@ static ErlNifFunc nif_funcs[] =
 };
 
 ERL_NIF_INIT(quaternion, nif_funcs, NULL, NULL, NULL, NULL)
-
-
-/* ====================================================================================================================
- * Internal Helpers
- * ================================================================================================================= */
-
-static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target)
-{
-	ulong ulongOther;
-	long longOther;
-	ErlNifUInt64 uint64Other;
-	ErlNifSInt64 int64Other;
-
-	if(enif_get_double(env, term, target))
-		{ return true; }
-	else if(enif_get_ulong(env, term, &ulongOther))
-		{ *target = ulongOther; return true; }
-	else if(enif_get_long(env, term, &longOther))
-		{ *target = longOther; return true; }
-	else if(enif_get_uint64(env, term, &uint64Other))
-		{ *target = uint64Other; return true; }
-	else if(enif_get_int64(env, term, &int64Other))
-		{ *target = int64Other; return true; }
-
-	return false;
-} // end getNIFDouble
