@@ -205,11 +205,11 @@ double Quat::operator [](const size_t idx) const
 } // end operator []
 
 // Operator overloads (<other type> <op> Quat)
-static Quat operator *(const double factor, const Quat& quat) { return quat * factor; }
-static Quat operator *(const int32_t factor, const Quat& quat) { return quat * factor; }
-static Quat operator *(const u_int32_t factor, const Quat& quat) { return quat * factor; }
-static Quat operator *(const int64_t factor, const Quat& quat) { return quat * factor; }
-static Quat operator *(const u_int64_t factor, const Quat& quat) { return quat * factor; }
+Quat operator *(const double factor, const Quat& quat) { return quat * factor; }
+Quat operator *(const int32_t factor, const Quat& quat) { return quat * factor; }
+Quat operator *(const u_int32_t factor, const Quat& quat) { return quat * factor; }
+Quat operator *(const int64_t factor, const Quat& quat) { return quat * factor; }
+Quat operator *(const u_int64_t factor, const Quat& quat) { return quat * factor; }
 
 
 /* ====================================================================================================================

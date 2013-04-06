@@ -44,11 +44,11 @@ public:
 }; // end Quat
 
 // Operator overloads (<other type> <op> Quat)
-static Quat operator *(const double factor, const Quat& quat);
-static Quat operator *(const int32_t factor, const Quat& quat);
-static Quat operator *(const u_int32_t factor, const Quat& quat);
-static Quat operator *(const int64_t factor, const Quat& quat);
-static Quat operator *(const u_int64_t factor, const Quat& quat);
+Quat operator *(const double factor, const Quat& quat);
+Quat operator *(const int32_t factor, const Quat& quat);
+Quat operator *(const u_int32_t factor, const Quat& quat);
+Quat operator *(const int64_t factor, const Quat& quat);
+Quat operator *(const u_int64_t factor, const Quat& quat);
 
 /* Erlang module exports:
  *
