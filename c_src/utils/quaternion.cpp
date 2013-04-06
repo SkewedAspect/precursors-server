@@ -5,12 +5,15 @@
  * Licensed under the MIT license; see the LICENSE file for details.
  */
 
-#include <math.h>
-#include <string.h>
+#include <cmath>
+#include <cstdio>
 
 #include <erl_nif.h>
 
 #include "quaternion.h"
+
+
+static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target);
 
 
 /* ----------------------------------------------------------------------------------------------------------------- */
@@ -47,120 +50,128 @@
 
 
 /**
- * Define a function that computes a new Quat where each coordinate is calculated with `q1.coord OP q2.coord`.
+ * Define a function that computes a new Quat where each coordinate is calculated with `this.coord OP other.coord`.
  */
 #define PAIRWISE_OP__TO_QUAT(NAME, OP) \
-	static Quat NAME(const Quat q1, const Quat q2) \
+	Quat Quat::NAME(const Quat& other) const \
 	{ \
 		Quat result; \
-		result.w = q1.w OP q2.w; \
-		result.x = q1.x OP q2.x; \
-		result.y = q1.y OP q2.y; \
-		result.z = q1.z OP q2.z; \
+		result.w = w OP other.w; \
+		result.x = x OP other.x; \
+		result.y = y OP other.y; \
+		result.z = z OP other.z; \
 		return result; \
 	}
 
 
 /**
- * Create a NIF which wraps a C function with the signature: Quat function(Quat, Quat)
+ * Create a NIF which wraps a C++ method with the signature: Quat Quat::function(Quat)
  */
-#define ERL_WRAPPER_Q_Q_TO_Q(NAME) \
-	static ERL_NIF_TERM NAME##_erl(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[]) \
+#define ERL_WRAPPER_Q_TO_Q(NAME) \
+	static ERL_NIF_TERM quat_##NAME##_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) \
 	{ \
 		Quat inputQuat1; \
 		Quat inputQuat2; \
 		Quat resultQuat; \
 		\
 		CHECK_ARGC(2); \
-		FAIL_IF(!termToQuat(env, argv[0], &inputQuat1)) \
-		FAIL_IF(!termToQuat(env, argv[1], &inputQuat2)) \
+		FAIL_IF(!inputQuat1.fromTerm(env, argv[0])) \
+		FAIL_IF(!inputQuat2.fromTerm(env, argv[1])) \
 		\
-		resultQuat = NAME(inputQuat1, inputQuat2); \
+		resultQuat = inputQuat1.NAME(inputQuat2); \
 		\
-		return quatToTerm(env, resultQuat); \
+		return resultQuat.toTerm(env); \
 	}
 
 
 /* ====================================================================================================================
- * C-only API
+ * C++-only API
  * ================================================================================================================= */
 
-static Quat* termToQuat(ErlNifEnv* env, ERL_NIF_TERM term, Quat* targetQuat)
+Quat::Quat() :
+	w(0), x(0), y(0), z(0)
+{
+} // end Quat
+
+Quat::Quat(double w, double x, double y, double z) :
+	w(w), x(x), y(y), z(z)
+{
+} // end Quat
+
+Quat::Quat(ErlNifEnv* env, const ERL_NIF_TERM term)
+{
+	fromTerm(env, term);
+} // end Quat
+
+bool Quat::fromTerm(ErlNifEnv* env, const ERL_NIF_TERM term)
 {
 	int arity;
-	const ERL_NIF_TERM** array;
-	Quat tempQuat;
+	const ERL_NIF_TERM* array = NULL;
 
-	if(!enif_get_tuple(env, term, &arity, array))
+	if(!enif_get_tuple(env, term, &arity, &array))
 	{
-		return NULL;
+		printf("Quat::fromTerm: Couldn't get tuple!\n");
+		return false;
 	} // end if
 
 	if(arity != 4)
 	{
-		return NULL;
+		printf("Quat::fromTerm: Bad arity!\n");
+		return false;
 	} // end if
 
-	if(!enif_get_double(env, *array[0], &tempQuat.w)
-			|| !enif_get_double(env, *array[1], &tempQuat.x)
-			|| !enif_get_double(env, *array[2], &tempQuat.y)
-			|| !enif_get_double(env, *array[3], &tempQuat.z))
+	if(!getNIFDouble(env, array[0], &w)
+			|| !getNIFDouble(env, array[1], &x)
+			|| !getNIFDouble(env, array[2], &y)
+			|| !getNIFDouble(env, array[3], &z))
 	{
-		return NULL;
+		printf("Quat::fromTerm: Failed to get components from the Erlang term! (current value: {%f, %f, %f, %f})\n",
+				w, x, y, z);
+		return false;
 	} // end if
 
-	if(targetQuat == NULL)
-	{
-		targetQuat = malloc(sizeof(Quat));
-	} // end if
-	memcpy(targetQuat, &tempQuat, sizeof(Quat));
+	return true;
+} // fromTerm
 
-	return targetQuat;
-} // getQuaternion
-
-static ERL_NIF_TERM quatToTerm(ErlNifEnv* env, Quat quat)
+ERL_NIF_TERM Quat::toTerm(ErlNifEnv* env)
 {
 	return enif_make_tuple4(env,
-			enif_make_double(env, quat.w),
-			enif_make_double(env, quat.x),
-			enif_make_double(env, quat.y),
-			enif_make_double(env, quat.z)
+			enif_make_double(env, w),
+			enif_make_double(env, x),
+			enif_make_double(env, y),
+			enif_make_double(env, z)
 			);
-} // end quatToTerm
+} // end toTerm
 
 
 /**
  * @doc Adds the two quaternions together.
  */
-PAIRWISE_OP__TO_QUAT(quat_add, +)
+PAIRWISE_OP__TO_QUAT(add, +)
 
 /**
  * @doc Subtracts the second quaternion from the first.
  */
-PAIRWISE_OP__TO_QUAT(quat_subtract, -)
+PAIRWISE_OP__TO_QUAT(subtract, -)
 
 
-// Because C doesn't have templates or polymorphic numeric types...
 #define QUAT_MULTIPLY_FACTOR(FACTOR_TYPE) \
-	static void quat_multiply_factor_##FACTOR_TYPE(Quat quat, FACTOR_TYPE factor, Quat* resultQuat) \
+	Quat Quat::multiply(const FACTOR_TYPE factor) const \
 	{ \
-		resultQuat->w = quat.w * factor; \
-		resultQuat->x = quat.x * factor; \
-		resultQuat->y = quat.y * factor; \
-		resultQuat->z = quat.z * factor; \
+		Quat resultQuat; \
+		resultQuat.w = w * factor; \
+		resultQuat.x = x * factor; \
+		resultQuat.y = y * factor; \
+		resultQuat.z = z * factor; \
+		return resultQuat; \
 	}
 
 /**
  * @doc Multiply a quaternion by a given factor.
  */
-QUAT_MULTIPLY_FACTOR(float)
 QUAT_MULTIPLY_FACTOR(double)
-QUAT_MULTIPLY_FACTOR(int8_t)
-QUAT_MULTIPLY_FACTOR(int16_t)
 QUAT_MULTIPLY_FACTOR(int32_t)
 QUAT_MULTIPLY_FACTOR(int64_t)
-QUAT_MULTIPLY_FACTOR(u_int8_t)
-QUAT_MULTIPLY_FACTOR(u_int16_t)
 QUAT_MULTIPLY_FACTOR(u_int32_t)
 QUAT_MULTIPLY_FACTOR(u_int64_t)
 
@@ -168,17 +179,17 @@ QUAT_MULTIPLY_FACTOR(u_int64_t)
 /**
  * @doc Multiply two quaternions.
  */
-static Quat quat_multiply(Quat q0, Quat q1)
+Quat Quat::multiply(const Quat& other) const
 {
-	Quat resultQuat = {
-		(q0.w * q1.w - q0.x * q1.x - q0.y * q1.y - q0.z * q1.z),
-		(q0.w * q1.x + q0.x * q1.w + q0.y * q1.z - q0.z * q1.y),
-		(q0.w * q1.y - q0.x * q1.z + q0.y * q1.w + q0.z * q1.x),
-		(q0.w * q1.z + q0.x * q1.y - q0.y * q1.x + q0.z * q1.w)
-	};
+	Quat resultQuat(
+		(w * other.w - x * other.x - y * other.y - z * other.z),
+		(w * other.x + x * other.w + y * other.z - z * other.y),
+		(w * other.y - x * other.z + y * other.w + z * other.x),
+		(w * other.z + x * other.y - y * other.x + z * other.w)
+	);
 
 	return resultQuat;
-} // end quat_multiply_quat
+} // end multiply
 
 
 
@@ -203,6 +214,12 @@ static double deg2rad(double degrees)
 
 
 /* ----------------------------------------------------------------------------------------------------------------- */
+
+
+static Quat operator*(const double lhs, const Quat& rhs)
+{
+	return rhs.multiply(lhs);
+} // end operator*
 
 
 /* ====================================================================================================================
@@ -243,7 +260,7 @@ static double deg2rad(double degrees)
  * @doc Convert from a quaternion to a list.
  */
 // quat_to_list({W, X, Y, Z})
-static ERL_NIF_TERM quat_to_list(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM quat_to_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	[W, X, Y, Z]
 } // end
@@ -252,7 +269,7 @@ static ERL_NIF_TERM quat_to_list(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Convert from a quaternion to a list.
  */
 // list_to_quat([W, X, Y, Z])
-static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	{W, X, Y, Z}
 } // end
@@ -263,12 +280,12 @@ static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
 /**
  * @doc Adds the two quaternions together.
  */
-ERL_WRAPPER_Q_Q_TO_Q(quat_add)
+ERL_WRAPPER_Q_TO_Q(add)
 
 /**
  * @doc Subtracts the second quaternion from the first.
  */
-ERL_WRAPPER_Q_Q_TO_Q(quat_subtract)
+ERL_WRAPPER_Q_TO_Q(subtract)
 
 
 #if 0 // This is what it looks like if we aren't doing macros like above...
@@ -283,7 +300,7 @@ static Quat add(const Quat q1, const Quat q2)
 } // end add
 
 // add({W1, X1, Y1, Z1}, {W2, X2, Y2, Z2})
-static ERL_NIF_TERM add_erl(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM add_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 #ifdef SAFER_THAN_NECESSARY
 	if(argc != 2) { return enif_make_badarg(env); }
@@ -294,17 +311,17 @@ static ERL_NIF_TERM add_erl(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
 	Quat inputQuat2;
 	Quat resultQuat;
 
-	if(!termToQuat(env, argv[0], &inputQuat1))
+	if(!Quat::fromTerm(env, argv[0], &inputQuat1))
 	{
 		return enif_make_badarg(env);
 	} // end if
 
-	if(!termToQuat(env, argv[1], &inputQuat2))
+	if(!Quat::fromTerm(env, argv[1], &inputQuat2))
 	{
 		return enif_make_badarg(env);
 	} // end if
 
-	return quatToTerm(env, resultQuat);
+	return resultQuat.toTerm(env);
 } // end add_erl
 #endif
 
@@ -313,53 +330,48 @@ static ERL_NIF_TERM add_erl(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
 /**
  * Helper for quat_multiply_erl
  */
-static ERL_NIF_TERM _quat_multiply_factor_erl(ErlNifEnv* env, Quat quat, ERL_NIF_TERM factor)
+//static ERL_NIF_TERM _quat_multiply_factor_erl(ErlNifEnv* env, Quat quat, const ERL_NIF_TERM factor)
+Quat Quat::multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const
 {
 	Quat resultQuat;
 
-	double doubleFactor;
-	ulong ulongFactor;
-	long longFactor;
-	ErlNifUInt64 uint64Factor;
-	ErlNifSInt64 int64Factor;
+	Quat quatOther;
+	double doubleOther;
+	ulong ulongOther;
+	long longOther;
+	ErlNifUInt64 uint64Other;
+	ErlNifSInt64 int64Other;
 
-	if(enif_get_double(env, factor, &doubleFactor))
-		{ quat_multiply_factor_double(quat, doubleFactor, &resultQuat); }
-	else if(enif_get_ulong(env, factor, &ulongFactor))
-		{ quat_multiply_factor_u_int32_t(quat, ulongFactor, &resultQuat); }
-	else if(enif_get_long(env, factor, &longFactor))
-		{ quat_multiply_factor_int32_t(quat, longFactor, &resultQuat); }
-	else if(enif_get_uint64(env, factor, &uint64Factor))
-		{ quat_multiply_factor_u_int64_t(quat, uint64Factor, &resultQuat); }
-	else if(enif_get_int64(env, factor, &int64Factor))
-		{ quat_multiply_factor_int64_t(quat, int64Factor, &resultQuat); }
+	if(quatOther.fromTerm(env, other))
+		{ resultQuat = *this * quatOther; }
+	else if(enif_get_double(env, other, &doubleOther))
+		{ resultQuat = *this * doubleOther; }
+	else if(enif_get_ulong(env, other, &ulongOther))
+		{ resultQuat = *this * ulongOther; }
+	else if(enif_get_long(env, other, &longOther))
+		{ resultQuat = *this * longOther; }
+	else if(enif_get_uint64(env, other, &uint64Other))
+		{ resultQuat = *this * uint64Other; }
+	else if(enif_get_int64(env, other, &int64Other))
+		{ resultQuat = *this * int64Other; }
 
-	return quatToTerm(env, resultQuat);
-} // end _quat_multiply_factor_erl
+	return resultQuat;
+} // end multiply
 
 /**
  * @doc Quaternion Multiplication
  */
 // multiply(Factor, {W, X, Y, Z}) when is_integer(Factor); is_float(Factor)
-static ERL_NIF_TERM quat_multiply_erl(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM quat_multiply_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	Quat arg0Quat;
-	int arg0IsQuat = (TRUE && termToQuat(env, argv[0], &arg0Quat));
-
-	Quat arg1Quat;
-	int arg1IsQuat = (TRUE && termToQuat(env, argv[1], &arg1Quat));
-
-	if(arg0IsQuat && arg1IsQuat)
+	Quat argQuat;
+	if(argQuat.fromTerm(env, argv[0]))
 	{
-		return quatToTerm(env, quat_multiply(arg0Quat, arg1Quat));
+		return argQuat.multiply(env, argv[1]).toTerm(env);
 	}
-	else if(!arg0IsQuat && arg1IsQuat)
+	else if(argQuat.fromTerm(env, argv[1]))
 	{
-		return _quat_multiply_factor_erl(env, arg1Quat, argv[0]);
-	}
-	else if(arg0IsQuat && !arg1IsQuat)
-	{
-		return _quat_multiply_factor_erl(env, arg0Quat, argv[1]);
+		return argQuat.multiply(env, argv[0]).toTerm(env);
 	}
 	else
 	{
@@ -373,12 +385,12 @@ static ERL_NIF_TERM quat_multiply_erl(ErlNifEnv* env, int argc, ERL_NIF_TERM arg
  * @doc Scales the quaternion by the given factor.
  */
 // divide({_, _, _, _}, 0)
-static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	{error, division_by_zero};
 
 // divide({W, X, Y, Z}, Factor) when is_number(Factor)
-static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	{W / Factor, X / Factor, Y / Factor, Z / Factor}
 } // end
@@ -389,7 +401,7 @@ static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Reorient q1's axis of rotation by rotating it by q2, but leave q1's angle of rotation intact.
  */
 // reorient({W, X, Y, Z}, {_, _, _, _}=Q2)
-static ERL_NIF_TERM reorient(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM reorient(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	OriginalRotation = 2 * math:acos(W),
 	Axis = rotate(vector:unit({X, Y, Z}), Q2),
@@ -401,7 +413,7 @@ static ERL_NIF_TERM reorient(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Scale the rotation of the quaternion by the given factor. Note: This is not the same as multiplying.
  */
 // scale_rotation(Factor, {W, X, Y, Z}) when is_integer(Factor); is_float(Factor)
-static ERL_NIF_TERM scale_rotation(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM scale_rotation(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	OriginalRotation = 2 * math:acos(W),
 	Unit = vector:unit({X, Y, Z}),
@@ -414,7 +426,7 @@ static ERL_NIF_TERM scale_rotation(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[]
  * @doc Returns the squared length of the quaternion. This is useful in some optimization cases, as it avoids a sqrt call.
  */
 // squared_norm({W, X, Y, Z})
-static ERL_NIF_TERM squared_norm(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM squared_norm(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	math:pow(W, 2) + math:pow(X, 2) + math:pow(Y, 2) + math:pow(Z, 2)
 } // end
@@ -424,7 +436,7 @@ static ERL_NIF_TERM squared_norm(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Returns the length of the quaternion.
  */
 // norm({_, _, _, _} = Quat)
-static ERL_NIF_TERM norm(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM norm(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	math:sqrt(squared_norm(Quat))
 } // end
@@ -434,7 +446,7 @@ static ERL_NIF_TERM norm(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Returns the length of the quaternion.
  */
 // length(Quat)
-static ERL_NIF_TERM length(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM length(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	norm(Quat)
 } // end
@@ -445,7 +457,7 @@ static ERL_NIF_TERM length(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Returns a unit vector in the same direction as Quat.
  */
 // unit({_, _, _, _} = Quat)
-static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	QLS = squared_norm(Quat),
 	unit(QLS, Quat)
@@ -456,7 +468,7 @@ static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc hidden
  */
 // unit(0, {_, _, _, _} = Quat)
-static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	Quat;
 
@@ -464,7 +476,7 @@ static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc hidden
  */
 // unit(QLS, {_, _, _, _} = Quat)
-static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	Norm = abs(QLS - 1.0),
 	case Norm < ?NORMALIZED_TOLERANCE of
@@ -481,7 +493,7 @@ static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc
  */
 // conjugate({W, X, Y, Z})
-static ERL_NIF_TERM conjugate(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM conjugate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	{W, -X, -Y, -Z}
 } // end
@@ -491,7 +503,7 @@ static ERL_NIF_TERM conjugate(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc
  */
 // inverse({_, _, _, _} = Quat)
-static ERL_NIF_TERM inverse(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM inverse(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	divide(conjugate(Quat), norm(Quat))
 } // end
@@ -502,7 +514,7 @@ static ERL_NIF_TERM inverse(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc
  */
 // reciprocal({_, _, _, _} = Quat)
-static ERL_NIF_TERM reciprocal(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM reciprocal(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	divide(conjugate(Quat), squared_norm(Quat))
 } // end
@@ -511,7 +523,7 @@ static ERL_NIF_TERM reciprocal(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Get the quaternion which results from composing the rotations represented by `first` and `second`.
  */
 // compose({_, _, _, _} = First, {_, _, _, _} = Second)
-static ERL_NIF_TERM compose(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM compose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	multiply(First, Second)
 } // end
@@ -522,7 +534,7 @@ static ERL_NIF_TERM compose(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Get the quaternion representing the orientation of `target` relative to `reference`.
  */
 // relative_to({_, _, _, _} = Target, {_, _, _, _} = Reference)
-static ERL_NIF_TERM relative_to(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM relative_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	multiply(multiply(Reference, Target), conjugate(Reference))
 } // end
@@ -533,7 +545,7 @@ static ERL_NIF_TERM relative_to(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Rotates the vector by Rotation.
  */
 // rotate({X, Y, Z}, {_, _, _, _} = Rotation)
-static ERL_NIF_TERM rotate(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM rotate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	{_, X1, Y1, Z1} = relative_to({0, X, Y, Z}, Rotation),
 	{X1, Y1, Z1}
@@ -545,7 +557,7 @@ static ERL_NIF_TERM rotate(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Converts from and axis and angle (radians), to a quaternion.
  */
 // from_axis_angle({_, _, _} = Axis, Angle) when is_number(Angle)
-static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	from_axis_angle(radians, Axis, Angle)
 } // end
@@ -555,7 +567,7 @@ static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[
  * @doc Converts from and axis and angle (radians), to a quaternion.
  */
 // from_axis_angle(radians, {_, _, _} = Axis, Angle) when is_number(Angle)
-static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	ComplexFactor = math:sin(Angle / 2),
 	{X, Y, Z} = vector:multiply(ComplexFactor, Axis),
@@ -565,7 +577,7 @@ static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[
  * @doc Converts from and axis and angle (degrees), to a quaternion.
  */
 // from_axis_angle(degrees, Axis, Angle) when is_number(Angle)
-static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	DegAngle = deg2rad(Angle),
 	from_axis_angle(radians, {_, _, _} = Axis, DegAngle)
@@ -577,7 +589,7 @@ static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[
  * @doc Converts from body rates (radians) to a quaternion.
  */
 // from_body_rates({_, _, _} = Vec)
-static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	from_body_rates(radians, Vec)
 } // end
@@ -587,7 +599,7 @@ static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[
  * @doc Converts from body rates (radians) to a quaternion.
  */
 // from_body_rates(radians, {X, Y, Z} = Vec)
-static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	case vector:is_zero(Vec) of
 		true ->
@@ -605,7 +617,7 @@ static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[
  * @doc Converts from body rates (degrees) to a quaternion.
  */
 // from_body_rates(degrees, {X, Y, Z})
-static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	from_body_rates(radians, {deg2rad(X), deg2rad(Y), deg2rad(Z)})
 } // end
@@ -616,7 +628,7 @@ static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[
  * @doc Converts from a vector of euler angles (radians) to a quaternion.
  */
 // from_euler({_, _, _} = Vec)
-static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	from_euler(radians, Vec)
 } // end
@@ -626,7 +638,7 @@ static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Converts from a vector of euler angles (radians) to a quaternion.
  */
 // from_euler(radians, {Yaw, Pitch, Roll})
-static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	HalfYaw = Yaw / 2,
 	HalfPitch = Pitch / 2,
@@ -650,7 +662,7 @@ static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Converts from a vector of euler angles (degrees) to a quaternion.
  */
 // from_euler(degrees, {Yaw, Pitch, Roll})
-static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	from_euler(radians, {deg2rad(Yaw), deg2rad(Pitch), deg2rad(Roll)})
 } // end
@@ -662,12 +674,12 @@ static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
  * @doc Checks to see if this is a zero quaternion
  */
 // is_zero({0, 0, 0, 0})
-static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	true;
 
 // is_zero({_, _, _, _})
-static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
+static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	false
 } // end
@@ -682,7 +694,34 @@ static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, ERL_NIF_TERM argv[])
 static ErlNifFunc nif_funcs[] =
 {
     {"add", 2, quat_add_erl},
-    {"subtract", 2, quat_subtract_erl}
+    {"subtract", 2, quat_subtract_erl},
+    {"multiply", 2, quat_multiply_erl}
 };
 
-ERL_NIF_INIT(niftest, nif_funcs, NULL, NULL, NULL, NULL)
+ERL_NIF_INIT(quaternion, nif_funcs, NULL, NULL, NULL, NULL)
+
+
+/* ====================================================================================================================
+ * Internal Helpers
+ * ================================================================================================================= */
+
+static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target)
+{
+	ulong ulongOther;
+	long longOther;
+	ErlNifUInt64 uint64Other;
+	ErlNifSInt64 int64Other;
+
+	if(enif_get_double(env, term, target))
+		{ return true; }
+	else if(enif_get_ulong(env, term, &ulongOther))
+		{ *target = ulongOther; return true; }
+	else if(enif_get_long(env, term, &longOther))
+		{ *target = longOther; return true; }
+	else if(enif_get_uint64(env, term, &uint64Other))
+		{ *target = uint64Other; return true; }
+	else if(enif_get_int64(env, term, &int64Other))
+		{ *target = int64Other; return true; }
+
+	return false;
+} // end getNIFDouble

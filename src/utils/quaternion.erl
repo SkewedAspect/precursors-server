@@ -29,7 +29,11 @@
 
 -on_load(init/0).
 init() ->
-    ok = erlang:load_nif("./quaternion", 0).
+    case erlang:load_nif("./quaternion", 0) of
+		{error, {load_failed, _}} ->
+		   	erlang:load_nif("./ebin/quaternion", 0);
+		ok -> ok
+	end.
 
 % -------------------------------------------------------------------------
 
