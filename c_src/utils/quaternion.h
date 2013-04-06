@@ -1,3 +1,6 @@
+#ifndef __QUATERNION__
+#define __QUATERNION__
+
 /**
  * A quaternion. (w + xi + yj + zk)
  */
@@ -84,3 +87,5 @@ static Quat operator *(const u_int64_t factor, const Quat& quat);
  * + ? deg2rad/1
  * ! ? is_zero/1
  */
+
+#endif // __QUATERNION__
