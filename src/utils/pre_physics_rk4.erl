@@ -1,27 +1,56 @@
-%%% @doc Physics: 4th-order Runge-Kutta integration
-%%%
-%%% @copyright 2012 David H. Bronke
-%%% Licensed under the MIT license; see the LICENSE file for details.
-%%% -------------------------------------------------------------------------------------------------------------------
-%%% This module is loosely based on concepts from the following articles:
-%%% * http://gafferongames.com/game-physics/integration-basics/
-%%% * http://gafferongames.com/game-physics/physics-in-3d/
-%%% -------------------------------------------------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
+%% @doc Physics: 4th-order Runge-Kutta integration
+%%
+%% @copyright 2012 David H. Bronke
+%% Licensed under the MIT license; see the LICENSE file for details.
+%% ------------------------------------------------------------------------
+%% This module is loosely based on concepts from the following articles:
+%% * http://gafferongames.com/game-physics/integration-basics/
+%% * http://gafferongames.com/game-physics/physics-in-3d/
+%% ------------------------------------------------------------------------
 
 -module(pre_physics_rk4).
 
-%% --------------------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------------
 
 % external api
 -export([simulate/2]).
 
-%% --------------------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------------
 
 -include("log.hrl").
 
-%% --------------------------------------------------------------------------------------------------------------------
+% -------------------------------------------------------------------------
+
+-record(physical, {
+        % Updated values (assume these change every frame)
+        position = {0, 0, 0} :: vector:vec(),
+        linear_momentum = {0, 0, 0} :: vector:vec(),
+        orientation = {1, 0, 0, 0} :: quaternion:quat(),
+        angular_momentum = {0, 0, 0} :: vector:vec(),
+
+        % Input-only values
+        force_absolute = {0, 0, 0} :: vector:vec(),
+        force_relative = {0, 0, 0} :: vector:vec(),
+        torque_absolute = {0, 0, 0} :: vector:vec(),
+        torque_relative = {0, 0, 0} :: vector:vec(),
+
+        % Purely calculated values (DON'T try to change these externally)
+        last_update :: erlang:timestamp(),
+        linear_velocity = {0, 0, 0} :: vector:vec(),
+        angular_velocity = {0, 0, 0} :: vector:vec(),
+        spin = {1, 0, 0, 0} :: quaternion:quat(),
+
+        % Intrinsic values (should NOT change during the life of an object)
+        mass = 1 :: float(),
+        inverse_mass = 1 :: float(),
+        inertia_tensor = 1 :: float(),
+        inverse_inertia_tensor = 1 :: float()
+}).
+
+%% ------------------------------------------------------------------------
 %% External API
-%% --------------------------------------------------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 
 -spec evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) -> {Velocity, Force, Spin, Torque, State} when
 	TimeDelta :: float(),
@@ -29,14 +58,15 @@
 	Force :: vector:vec(),
 	Spin :: quaternion:quat(),
 	Torque :: vector:vec(),
-	State :: dict().
+	State :: #physical{}.
 
 evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) ->
-
-	Position = dict:fetch(position, State),
-	InitialVelocity = dict:fetch(linear_velocity, State),
-	Orientation = dict:fetch(orientation, State),
-	AngularMomentum = dict:fetch(angular_momentum ,State),
+	#physical{
+		position = Position,
+		linear_velocity = InitialVelocity,
+		orientation = Orientation,
+		angular_momentum = AngularMomentum
+	} = State,
 
 	{SpinW, SpinX, SpinY, SpinZ} = Spin,
 	{OrientW, OrientX, OrientY, OrientZ} = Orientation,
@@ -52,52 +82,57 @@ evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) ->
 	},
 	NextAngularMomentum = vector:add(AngularMomentum, vector:multiply(TimeDelta, Torque)),
 
-	State1 = dict:store(position, NextPosition, State),
-	State2 = dict:store(linear_velocity, NextVelocity, State1),
-	State3 = dict:store(orientation, quaternion:unit(NextOrientation), State2),
-	State4 = dict:store(angular_momentum, NextAngularMomentum, State3),
-
+	State1 = State#physical{
+		position = NextPosition,
+		linear_velocity = NextVelocity,
+		orientation = quaternion:unit(NextOrientation),
+		angular_momentum = NextAngularMomentum
+	},
 	%TODO: Should _NextAngularVelocity even be returned?
-	{NextSpin, State5} = update_state(State4),
+	{NextSpin, State2} = update_state(State1),
 
-	{NextForce, NextTorque} = forces(TimeDelta, State5),
+	{NextForce, NextTorque} = forces(TimeDelta, State2),
 
-	{NextVelocity, NextForce, NextSpin, NextTorque, State5}.
+	{NextVelocity, NextForce, NextSpin, NextTorque, State2}.
 
-%% --------------------------------------------------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 
 -spec forces(TimeDelta, State) -> {Force, Torque} when
 	TimeDelta :: float(),
-	State :: dict(),
+	State :: #physical{},
 	Force :: vector:vec(),
 	Torque :: vector:vec().
 
 %FIXME: This should be a callback so the behavior can do stuff like target-velocity calculations.
 forces(_TimeDelta, State) ->
-	ForceAbs = dict:fetch(force_absolute, State),
-	ForceRel = dict:fetch(force_relative, State),
-	Orientation = dict:fetch(orientation, State),
-	TorqueAbs = dict:fetch(torque_absolute, State),
-	TorqueRel = dict:fetch(torque_relative, State),
+	#physical{
+		force_absolute = ForceAbs,
+		force_relative = ForceRel,
+		orientation = Orientation,
+		torque_absolute = TorqueAbs,
+		torque_relative = TorqueRel
+	} = State,
 
 	Force = vector:add(ForceAbs, quaternion:rotate(ForceRel, Orientation)),
 	Torque = vector:add(TorqueAbs, quaternion:rotate(TorqueRel, Orientation)),
 
 	{Force, Torque}.
 
-%% --------------------------------------------------------------------------------------------------------------------
+%% ------------------------------------------------------------------------
 
 -spec update_state(State) -> {Spin, AngularVelocity} when
-	State :: dict(),
+	State :: #physical{},
 	Spin :: quaternion:quat(),
 	AngularVelocity :: vector:vec().
 
 update_state(State) ->
-	LinearMomentum = dict:fetch(linear_momentum, State),
-	Orientation = dict:fetch(orientation, State),
-	AngularMomentum = dict:fetch(angular_momentum, State),
-	InverseMass = dict:fetch(inverse_mass, State),
-	InverseInertia = dict:fetch(inverse_inertia_tensor, State),
+	#physical{
+		linear_momentum = LinearMomentum,
+		orientation = Orientation,
+		angular_momentum = AngularMomentum,
+		inverse_mass = InverseMass,
+		inverse_inertia_tensor = InverseInertia
+	} = State,
 
 	LinearVelocity = vector:multiply(InverseMass, LinearMomentum),
 
@@ -111,21 +146,73 @@ update_state(State) ->
 			Orientation
 		)
 	),
+	NewState = State#physical{
+		linear_velocity = LinearVelocity,
+		angular_velocity = AngularVelocity,
+		spin = Spin
+	},
+	{Spin, NewState}.
 
-	NewState = dict:store(linear_velocity, LinearVelocity, State),
-	NewState1 = dict:store(angular_velocity, AngularVelocity, NewState),
-	NewState2 = dict:store(spin, Spin, NewState1),
+%% ------------------------------------------------------------------------
 
-	{Spin, NewState2}.
-
-%% --------------------------------------------------------------------------------------------------------------------
 %% @doc Simulate physical movement of the 'physical' object represented by `State`, over the given `TimeDelta`.
+simulate(TimeDelta, InitialPhysical) ->
 
-simulate(TimeDelta, State) ->
-	Position = dict:fetch(position, State),
-	Velocity = dict:fetch(linear_velocity, State),
-	{OrientW, OrientX, OrientY, OrientZ} = dict:fetch(orientation, State),
-	AngularMomentum = dict:fetch(angular_momentum, State),
+	Physical = #physical{
+			position = dict:fetch(position, InitialPhysical),
+			linear_momentum = dict:fetch(linear_momentum, InitialPhysical),
+			orientation = dict:fetch(orientation, InitialPhysical),
+			angular_momentum = dict:fetch(angular_momentum, InitialPhysical),
+
+			force_absolute = dict:fetch(force_absolute, InitialPhysical),
+			force_relative = dict:fetch(force_relative, InitialPhysical),
+			torque_absolute = dict:fetch(torque_absolute, InitialPhysical),
+			torque_relative = dict:fetch(torque_relative, InitialPhysical),
+
+			last_update = dict:fetch(last_update, InitialPhysical),
+			linear_velocity = dict:fetch(linear_velocity, InitialPhysical),
+			angular_velocity = dict:fetch(angular_velocity, InitialPhysical),
+			spin = dict:fetch(spin, InitialPhysical),
+
+			mass = dict:fetch(mass, InitialPhysical),
+			inverse_mass = dict:fetch(inverse_mass, InitialPhysical),
+			inertia_tensor = dict:fetch(inertia_tensor, InitialPhysical),
+			inverse_inertia_tensor = dict:fetch(inverse_inertia_tensor, InitialPhysical)
+	},
+
+	NewPhysical = simulate_internal(TimeDelta, Physical),
+
+	dict:from_list([
+			{ position, NewPhysical#physical.position },
+			{ linear_momentum, NewPhysical#physical.linear_momentum },
+			{ orientation, NewPhysical#physical.orientation },
+			{ angular_momentum, NewPhysical#physical.angular_momentum },
+
+			{ force_absolute, NewPhysical#physical.force_absolute },
+			{ force_relative, NewPhysical#physical.force_relative },
+			{ torque_absolute, NewPhysical#physical.torque_absolute },
+			{ torque_relative, NewPhysical#physical.torque_relative },
+
+			{ last_update, NewPhysical#physical.last_update },
+			{ linear_velocity, NewPhysical#physical.linear_velocity },
+			{ angular_velocity, NewPhysical#physical.angular_velocity },
+			{ spin, NewPhysical#physical.spin },
+
+			{ mass, NewPhysical#physical.mass },
+			{ inverse_mass, NewPhysical#physical.inverse_mass },
+			{ inertia_tensor, NewPhysical#physical.inertia_tensor },
+			{ inverse_inertia_tensor, NewPhysical#physical.inverse_inertia_tensor }
+	]).
+
+%% ------------------------------------------------------------------------
+
+simulate_internal(TimeDelta, State) ->
+	#physical{
+		position = Position,
+		linear_velocity = Velocity,
+		orientation = {OrientW, OrientX, OrientY, OrientZ},
+		angular_momentum = AngularMomentum
+	} = State,
 
 	{Velocity1, Force1, Spin1, Torque1, State1} = evaluate(0, {0, 0, 0}, {0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0}, State),
 	{Velocity2, Force2, Spin2, Torque2, State2} = evaluate(TimeDelta * 0.5, Velocity1, Force1, Spin1, Torque1, State1),
@@ -146,21 +233,14 @@ simulate(TimeDelta, State) ->
 
 	NewTorque = vector:multiply(1.0 / 6.0, vector:add(Torque1, vector:multiply(2.0, vector:add(Torque2, Torque3)), Torque4)),
 
-	NewState = dict:from_list([
-		{ position, vector:add(Position, vector:multiply(TimeDelta, NewVelocity)) },
-		{ linear_velocity, vector:add(Velocity, vector:multiply(TimeDelta, NewAcceleration)) },
-		{
-			orientation, quaternion:unit({
-				OrientW + TimeDelta * NewSpinW,
-				OrientX + TimeDelta * NewSpinX,
-				OrientY + TimeDelta * NewSpinY,
-				OrientZ + TimeDelta * NewSpinZ
-			})
-		},
-		{ angular_momentum, vector:add(AngularMomentum, vector:multiply(TimeDelta, NewTorque)) }
-	]),
-
-	% Merge in State 4 and the calculated state. Note: This might not be required, but it protects us from ever loosing state unexpectedly.
-	dict:merge(fun(_Key, _InitialVal, NewVal) ->
-		NewVal
-	end, State4, NewState).
+	State4#physical{
+		position = vector:add(Position, vector:multiply(TimeDelta, NewVelocity)),
+		linear_velocity = vector:add(Velocity, vector:multiply(TimeDelta, NewAcceleration)),
+		orientation = quaternion:unit({
+			OrientW + TimeDelta * NewSpinW,
+			OrientX + TimeDelta * NewSpinX,
+			OrientY + TimeDelta * NewSpinY,
+			OrientZ + TimeDelta * NewSpinZ
+		}),
+		angular_momentum = vector:add(AngularMomentum, vector:multiply(TimeDelta, NewTorque))
+	}.
