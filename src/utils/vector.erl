@@ -141,7 +141,7 @@ unit(VLS, {_, _, _} = Vec) ->
 hpr_to({X, Y, Z}) ->
 	{X1, Y1, Z1} = unit({X, Y, Z}),
 	Yaw = -math:atan2(X1, Y1),
-	Pitch = math:atan2(Z1, math:sqrt(math:pow(X1, 2), math:pow(Y1, 2))),
+	Pitch = math:atan2(Z1, math:sqrt(math:pow(X1, 2) + math:pow(Y1, 2))),
 
 	{rad2deg(Yaw), rad2deg(Pitch), 0}.
 
