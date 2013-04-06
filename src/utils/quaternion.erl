@@ -9,7 +9,7 @@
 
 % -------------------------------------------------------------------------
 
-% external api 
+% external api
 -export([quat_to_list/1, list_to_quat/1, add/2, subtract/2, multiply/2, divide/2, reorient/2]).
 -export([scale_rotation/2, norm/1, length/1, unit/1, conjugate/1, inverse/1, reciprocal/1]).
 -export([compose/2, relative_to/2, rotate/2, from_axis_angle/2, from_axis_angle/3]).
@@ -22,8 +22,14 @@
 	W :: float(),
 	X :: float(),
 	Y :: float(),
-	X :: float()
+	Z :: float()
 }.
+
+% -------------------------------------------------------------------------
+
+-on_load(init/0).
+init() ->
+    ok = erlang:load_nif("./quaternion", 0).
 
 % -------------------------------------------------------------------------
 
@@ -216,7 +222,7 @@ from_body_rates(radians, {X, Y, Z} = Vec) ->
 
 %% @doc Converts from body rates (degrees) to a quaternion.
 from_body_rates(degrees, {X, Y, Z}) ->
-	from_body_rates(radians, {deg2rad(X), deg2rad(Y), deg2rad(Z)}). 
+	from_body_rates(radians, {deg2rad(X), deg2rad(Y), deg2rad(Z)}).
 
 % -------------------------------------------------------------------------
 
@@ -233,16 +239,16 @@ from_euler(radians, {Yaw, Pitch, Roll}) ->
 
 	{
 		math:cos(HalfPitch) * math:cos(HalfRoll) * math:cos(HalfYaw) +
-				math:sin(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw), 
+				math:sin(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw),
 
 		math:sin(HalfPitch) * math:cos(HalfRoll) * math:cos(HalfYaw) -
-				math:cos(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw), 
-		
+				math:cos(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw),
+
 		math:cos(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw) +
-				math:sin(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw), 
-		
+				math:sin(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw),
+
 		math:cos(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw) +
-				math:sin(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw) 
+				math:sin(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw)
 	};
 
 %% @doc Converts from a vector of euler angles (degrees) to a quaternion.
@@ -251,7 +257,7 @@ from_euler(degrees, {Yaw, Pitch, Roll}) ->
 
 % -------------------------------------------------------------------------
 
-%% @doc Checks to see if this is a zero quaternion 
+%% @doc Checks to see if this is a zero quaternion
 is_zero({0, 0, 0, 0}) ->
 	true;
 
