@@ -9,7 +9,7 @@
 
 % -------------------------------------------------------------------------
 
-% external api 
+% external api
 -export([vec_to_list/1, list_to_vec/1, dot/2, cross/2, multiply/2, divide/2, squared_norm/1, norm/1, length/1]).
 -export([unit/1, hpr_to/1, add/2, add/3, subtract/2, is_zero/1]).
 
@@ -29,6 +29,36 @@
 % -------------------------------------------------------------------------
 
 -include("log.hrl").
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% NIF module
+%% --------------------------------------------------------------------------------------------------------------------
+
+% Don't enable this unless testing, or until _all_ functions are implemented in C++ too.
+% (loading the NIF module actually replaces this module, so we lose the Erlang implementations if we load the C++ ones)
+%-on_load(init/0).
+init() ->
+    NifPaths = [
+		"./vector",
+		"./ebin/vector",
+		"../ebin/vector"
+	],
+
+	TryLoad = fun(NifPath) ->
+		case erlang:load_nif(NifPath, 0) of
+			{error, {load_failed, _}} -> false;
+			ok -> true
+		end
+	end,
+
+	case lists:any(TryLoad, NifPaths) of
+		true ->
+			ok;
+		false ->
+			?warning("Couldn't load NIF from any of the defined locations! Falling back to Erlang implementation.")
+	end.
+
+
 
 %% ------------------------------------------------------------------------
 %% External API
@@ -112,7 +142,7 @@ hpr_to({X, Y, Z}) ->
 	{X1, Y1, Z1} = unit({X, Y, Z}),
 	Yaw = -math:atan2(X1, Y1),
 	Pitch = math:atan2(Z1, math:sqrt(math:pow(X1, 2), math:pow(Y1, 2))),
-	
+
 	{rad2deg(Yaw), rad2deg(Pitch), 0}.
 
 % -------------------------------------------------------------------------
@@ -148,4 +178,3 @@ is_zero({_, _, _}) ->
 %%% @doc Convert radians to degrees.
 rad2deg(Radians) ->
 	Radians * (180/math:pi()).
-
