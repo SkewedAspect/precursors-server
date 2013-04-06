@@ -38,10 +38,8 @@
 #include "Vec.h"
 
 
-// Conversion
-static bool termToVec(ErlNifEnv* env, const ERL_NIF_TERM term, Vec& targetVec);
-
-static ERL_NIF_TERM vecToTerm(ErlNifEnv* env, Vec vec);
+// --------------------------------------------------------------------------------------------------------------------
+// NIFs
 
 // dot/2
 static ERL_NIF_TERM dot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -81,6 +79,19 @@ static ERL_NIF_TERM subtract(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
 // is_zero/1
 static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+
+
+// --------------------------------------------------------------------------------------------------------------------
+// Helpers
+
+// Conversion
+static bool termToVec(ErlNifEnv* env, const ERL_NIF_TERM term, Vec& targetVec);
+
+static ERL_NIF_TERM vecToTerm(ErlNifEnv* env, Vec vec);
+
+
+// Operations with Erlang terms
+static Vec multiply(const Vec& vec, ErlNifEnv* env, const ERL_NIF_TERM other);
 
 
 // --------------------------------------------------------------------------------------------------------------------
