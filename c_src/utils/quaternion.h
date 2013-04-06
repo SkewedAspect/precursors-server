@@ -15,28 +15,23 @@ public:
 
 	ERL_NIF_TERM toTerm(ErlNifEnv* env);
 
-	// Operations with other `Quat`s
-	Quat add(const Quat& other) const;
-	Quat subtract(const Quat& other) const;
-	Quat multiply(const Quat& other) const;
-
 	// Operations with Erlang terms
 	Quat multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const;
 
-	// Operations with other types
-	Quat multiply(const double other) const;
-	Quat multiply(const int32_t other) const;
-	Quat multiply(const u_int32_t other) const;
-	Quat multiply(const int64_t other) const;
-	Quat multiply(const u_int64_t other) const;
-
 	// Operator overloads (Quat <op> Quat)
-	Quat operator+(const Quat& rhs) const { return add(rhs); }
-	Quat operator-(const Quat& rhs) const { return subtract(rhs); }
-	Quat operator*(const Quat& rhs) const { return multiply(rhs); }
+	Quat operator +(const Quat& rhs) const;
+	Quat operator -(const Quat& rhs) const;
+	Quat operator *(const Quat& rhs) const;
 
-	// Operator overloads (Quat <op> <other>)
-	Quat operator*(const double rhs) const { return multiply(rhs); }
+	// Operator overloads (Quat <op> <other type>)
+	Quat operator *(const double rhs) const;
+	Quat operator *(const int32_t factor) const;
+	Quat operator *(const u_int32_t factor) const;
+	Quat operator *(const int64_t factor) const;
+	Quat operator *(const u_int64_t factor) const;
+
+	// Access components using Quat[idx]
+	double operator [](const size_t idx) const;
 
 	// Components
 	double w;
@@ -45,7 +40,12 @@ public:
 	double z;
 }; // end Quat
 
-static Quat operator*(const double lhs, const Quat& rhs);
+// Operator overloads (<other type> <op> Quat)
+static Quat operator *(const double factor, const Quat& quat);
+static Quat operator *(const int32_t factor, const Quat& quat);
+static Quat operator *(const u_int32_t factor, const Quat& quat);
+static Quat operator *(const int64_t factor, const Quat& quat);
+static Quat operator *(const u_int64_t factor, const Quat& quat);
 
 /* Erlang module exports:
  *

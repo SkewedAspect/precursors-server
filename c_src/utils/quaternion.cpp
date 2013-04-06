@@ -11,6 +11,7 @@
 #include <erl_nif.h>
 
 #include "quaternion.h"
+#include "exceptions.h"
 
 
 static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target);
@@ -50,10 +51,10 @@ static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target
 
 
 /**
- * Define a function that computes a new Quat where each coordinate is calculated with `this.coord OP other.coord`.
+ * Define an operator overload that computes a new Quat where each coordinate equals `this.coord OP other.coord`.
  */
-#define PAIRWISE_OP__TO_QUAT(NAME, OP) \
-	Quat Quat::NAME(const Quat& other) const \
+#define PAIRWISE_OP__TO_QUAT(OP) \
+	Quat Quat::operator OP(const Quat& other) const \
 	{ \
 		Quat result; \
 		result.w = w OP other.w; \
@@ -61,26 +62,6 @@ static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target
 		result.y = y OP other.y; \
 		result.z = z OP other.z; \
 		return result; \
-	}
-
-
-/**
- * Create a NIF which wraps a C++ method with the signature: Quat Quat::function(Quat)
- */
-#define ERL_WRAPPER_Q_TO_Q(NAME) \
-	static ERL_NIF_TERM quat_##NAME##_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) \
-	{ \
-		Quat inputQuat1; \
-		Quat inputQuat2; \
-		Quat resultQuat; \
-		\
-		CHECK_ARGC(2); \
-		FAIL_IF(!inputQuat1.readFromTerm(env, argv[0])) \
-		FAIL_IF(!inputQuat2.readFromTerm(env, argv[1])) \
-		\
-		resultQuat = inputQuat1.NAME(inputQuat2); \
-		\
-		return resultQuat.toTerm(env); \
 	}
 
 
@@ -143,54 +124,36 @@ ERL_NIF_TERM Quat::toTerm(ErlNifEnv* env)
 			);
 } // end toTerm
 
-
 /**
- * @doc Adds the two quaternions together.
+ * Multiply this Quat by whatever's stored in the given Erlang term, if possible.
  */
-PAIRWISE_OP__TO_QUAT(add, +)
-
-/**
- * @doc Subtracts the second quaternion from the first.
- */
-PAIRWISE_OP__TO_QUAT(subtract, -)
-
-
-#define QUAT_MULTIPLY_FACTOR(FACTOR_TYPE) \
-	Quat Quat::multiply(const FACTOR_TYPE factor) const \
-	{ \
-		Quat resultQuat; \
-		resultQuat.w = w * factor; \
-		resultQuat.x = x * factor; \
-		resultQuat.y = y * factor; \
-		resultQuat.z = z * factor; \
-		return resultQuat; \
-	}
-
-/**
- * @doc Multiply a quaternion by a given factor.
- */
-QUAT_MULTIPLY_FACTOR(double)
-QUAT_MULTIPLY_FACTOR(int32_t)
-QUAT_MULTIPLY_FACTOR(int64_t)
-QUAT_MULTIPLY_FACTOR(u_int32_t)
-QUAT_MULTIPLY_FACTOR(u_int64_t)
-
-
-/**
- * @doc Multiply two quaternions.
- */
-Quat Quat::multiply(const Quat& other) const
+//static ERL_NIF_TERM _quat_multiply_factor_erl(ErlNifEnv* env, Quat quat, const ERL_NIF_TERM factor)
+Quat Quat::multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const
 {
-	Quat resultQuat(
-		(w * other.w - x * other.x - y * other.y - z * other.z),
-		(w * other.x + x * other.w + y * other.z - z * other.y),
-		(w * other.y - x * other.z + y * other.w + z * other.x),
-		(w * other.z + x * other.y - y * other.x + z * other.w)
-	);
+	Quat resultQuat;
+
+	Quat quatOther;
+	double doubleOther;
+	ulong ulongOther;
+	long longOther;
+	ErlNifUInt64 uint64Other;
+	ErlNifSInt64 int64Other;
+
+	if(quatOther.readFromTerm(env, other))
+		{ resultQuat = *this * quatOther; }
+	else if(enif_get_double(env, other, &doubleOther))
+		{ resultQuat = *this * doubleOther; }
+	else if(enif_get_ulong(env, other, &ulongOther))
+		{ resultQuat = *this * ulongOther; }
+	else if(enif_get_long(env, other, &longOther))
+		{ resultQuat = *this * longOther; }
+	else if(enif_get_uint64(env, other, &uint64Other))
+		{ resultQuat = *this * uint64Other; }
+	else if(enif_get_int64(env, other, &int64Other))
+		{ resultQuat = *this * int64Other; }
 
 	return resultQuat;
 } // end multiply
-
 
 
 // ...
@@ -215,16 +178,106 @@ static double deg2rad(double degrees)
 
 /* ----------------------------------------------------------------------------------------------------------------- */
 
+// Operator overloads (Quat <op> Quat)
+//
+/// Adds the two quaternions together.
+PAIRWISE_OP__TO_QUAT(+)
 
-static Quat operator*(const double lhs, const Quat& rhs)
+/// Subtracts the second quaternion from the first.
+PAIRWISE_OP__TO_QUAT(-)
+
+/// Multiply two quaternions.
+Quat Quat::operator *(const Quat& other) const
 {
-	return rhs.multiply(lhs);
-} // end operator*
+	Quat resultQuat(
+		(w * other.w - x * other.x - y * other.y - z * other.z),
+		(w * other.x + x * other.w + y * other.z - z * other.y),
+		(w * other.y - x * other.z + y * other.w + z * other.x),
+		(w * other.z + x * other.y - y * other.x + z * other.w)
+	);
+
+	return resultQuat;
+} // end operator *
+
+// Operator overloads (Quat <op> <other type>)
+#define QUAT_MULTIPLY_FACTOR(FACTOR_TYPE) \
+	Quat Quat::operator *(const FACTOR_TYPE factor) const \
+	{ \
+		return Quat(w * factor, x * factor, y * factor, z * factor); \
+	}
+QUAT_MULTIPLY_FACTOR(double)
+QUAT_MULTIPLY_FACTOR(int32_t)
+QUAT_MULTIPLY_FACTOR(int64_t)
+QUAT_MULTIPLY_FACTOR(u_int32_t)
+QUAT_MULTIPLY_FACTOR(u_int64_t)
+
+
+// Access components using Quat[idx]
+double Quat::operator [](const size_t idx) const
+{
+	switch(idx)
+	{
+		case 0:
+			return w;
+		case 1:
+			return x;
+		case 2:
+			return y;
+		case 3:
+			return z;
+		default:
+			throw BadIndex<size_t>(idx);
+	} // end switch
+} // end operator []
+
+// Operator overloads (<other type> <op> Quat)
+static Quat operator *(const double factor, const Quat& quat) { return quat * factor; }
+static Quat operator *(const int32_t factor, const Quat& quat) { return quat * factor; }
+static Quat operator *(const u_int32_t factor, const Quat& quat) { return quat * factor; }
+static Quat operator *(const int64_t factor, const Quat& quat) { return quat * factor; }
+static Quat operator *(const u_int64_t factor, const Quat& quat) { return quat * factor; }
 
 
 /* ====================================================================================================================
  * Erlang API
  * ================================================================================================================= */
+
+/**
+ * Create a NIF which wraps a C++ method with the signature: Quat Quat::function(Quat)
+ */
+#define ERL_WRAPPER_Q_TO_Q(NAME) \
+	static ERL_NIF_TERM quat_##NAME##_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) \
+	{ \
+		Quat inputQuat1; \
+		Quat inputQuat2; \
+		Quat resultQuat; \
+		\
+		CHECK_ARGC(2); \
+		FAIL_IF(!inputQuat1.readFromTerm(env, argv[0])) \
+		FAIL_IF(!inputQuat2.readFromTerm(env, argv[1])) \
+		\
+		resultQuat = inputQuat1.NAME(inputQuat2); \
+		\
+		return resultQuat.toTerm(env); \
+	}
+
+
+/**
+ * Create a NIF which wraps a C++ operator with the signature: Quat Quat::operator OP(Quat)
+ */
+#define ERL_WRAPPER_OP_Q_TO_Q(NAME, OP) \
+	static ERL_NIF_TERM quat_##NAME##_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) \
+	{ \
+		Quat inputQuat1; \
+		Quat inputQuat2; \
+		\
+		CHECK_ARGC(2); \
+		FAIL_IF(!inputQuat1.readFromTerm(env, argv[0])) \
+		FAIL_IF(!inputQuat2.readFromTerm(env, argv[1])) \
+		\
+		return (inputQuat1 OP inputQuat2).toTerm(env); \
+	}
+
 
 #if 0 // For now, leave these implemented in Erlang; they're probably just as fast there, and not needed in C.
 /**
@@ -251,12 +304,12 @@ static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 /**
  * @doc Adds the two quaternions together.
  */
-ERL_WRAPPER_Q_TO_Q(add)
+ERL_WRAPPER_OP_Q_TO_Q(add, +)
 
 /**
  * @doc Subtracts the second quaternion from the first.
  */
-ERL_WRAPPER_Q_TO_Q(subtract)
+ERL_WRAPPER_OP_Q_TO_Q(subtract, -)
 
 
 #if 0 // This is what it looks like if we aren't doing macros like above...
@@ -297,37 +350,6 @@ static ERL_NIF_TERM add_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #endif
 
 /* ----------------------------------------------------------------------------------------------------------------- */
-
-/**
- * Helper for quat_multiply_erl
- */
-//static ERL_NIF_TERM _quat_multiply_factor_erl(ErlNifEnv* env, Quat quat, const ERL_NIF_TERM factor)
-Quat Quat::multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const
-{
-	Quat resultQuat;
-
-	Quat quatOther;
-	double doubleOther;
-	ulong ulongOther;
-	long longOther;
-	ErlNifUInt64 uint64Other;
-	ErlNifSInt64 int64Other;
-
-	if(quatOther.readFromTerm(env, other))
-		{ resultQuat = *this * quatOther; }
-	else if(enif_get_double(env, other, &doubleOther))
-		{ resultQuat = *this * doubleOther; }
-	else if(enif_get_ulong(env, other, &ulongOther))
-		{ resultQuat = *this * ulongOther; }
-	else if(enif_get_long(env, other, &longOther))
-		{ resultQuat = *this * longOther; }
-	else if(enif_get_uint64(env, other, &uint64Other))
-		{ resultQuat = *this * uint64Other; }
-	else if(enif_get_int64(env, other, &int64Other))
-		{ resultQuat = *this * int64Other; }
-
-	return resultQuat;
-} // end multiply
 
 /**
  * @doc Quaternion Multiplication
