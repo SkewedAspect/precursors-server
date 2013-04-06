@@ -23,8 +23,10 @@
  */
 #ifdef SAFER_THAN_NECESSARY
 #	define CHECK_ARGC(N) FAIL_IF(argc != N)
+#	define CHECK_ARGC_RANGE(N, M) FAIL_IF(argc < N || argc > M)
 #else
 #	define CHECK_ARGC(N)
+#	define CHECK_ARGC_RANGE(N, M)
 #endif
 
 
