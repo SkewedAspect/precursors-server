@@ -75,8 +75,8 @@ static bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target
 		Quat resultQuat; \
 		\
 		CHECK_ARGC(2); \
-		FAIL_IF(!inputQuat1.fromTerm(env, argv[0])) \
-		FAIL_IF(!inputQuat2.fromTerm(env, argv[1])) \
+		FAIL_IF(!inputQuat1.readFromTerm(env, argv[0])) \
+		FAIL_IF(!inputQuat2.readFromTerm(env, argv[1])) \
 		\
 		resultQuat = inputQuat1.NAME(inputQuat2); \
 		\
@@ -100,23 +100,23 @@ Quat::Quat(double w, double x, double y, double z) :
 
 Quat::Quat(ErlNifEnv* env, const ERL_NIF_TERM term)
 {
-	fromTerm(env, term);
+	readFromTerm(env, term);
 } // end Quat
 
-bool Quat::fromTerm(ErlNifEnv* env, const ERL_NIF_TERM term)
+bool Quat::readFromTerm(ErlNifEnv* env, const ERL_NIF_TERM term)
 {
 	int arity;
 	const ERL_NIF_TERM* array = NULL;
 
 	if(!enif_get_tuple(env, term, &arity, &array))
 	{
-		printf("Quat::fromTerm: Couldn't get tuple!\n");
+		printf("Quat::readFromTerm: Couldn't get tuple!\n");
 		return false;
 	} // end if
 
 	if(arity != 4)
 	{
-		printf("Quat::fromTerm: Bad arity!\n");
+		printf("Quat::readFromTerm: Bad arity!\n");
 		return false;
 	} // end if
 
@@ -125,13 +125,13 @@ bool Quat::fromTerm(ErlNifEnv* env, const ERL_NIF_TERM term)
 			|| !getNIFDouble(env, array[2], &y)
 			|| !getNIFDouble(env, array[3], &z))
 	{
-		printf("Quat::fromTerm: Failed to get components from the Erlang term! (current value: {%f, %f, %f, %f})\n",
+		printf("Quat::readFromTerm: Failed to get components from the Erlang term! (current value: {%f, %f, %f, %f})\n",
 				w, x, y, z);
 		return false;
 	} // end if
 
 	return true;
-} // fromTerm
+} // readFromTerm
 
 ERL_NIF_TERM Quat::toTerm(ErlNifEnv* env)
 {
@@ -282,12 +282,12 @@ static ERL_NIF_TERM add_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 	Quat inputQuat2;
 	Quat resultQuat;
 
-	if(!Quat::fromTerm(env, argv[0], &inputQuat1))
+	if(!Quat::readFromTerm(env, argv[0], &inputQuat1))
 	{
 		return enif_make_badarg(env);
 	} // end if
 
-	if(!Quat::fromTerm(env, argv[1], &inputQuat2))
+	if(!Quat::readFromTerm(env, argv[1], &inputQuat2))
 	{
 		return enif_make_badarg(env);
 	} // end if
@@ -313,7 +313,7 @@ Quat Quat::multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const
 	ErlNifUInt64 uint64Other;
 	ErlNifSInt64 int64Other;
 
-	if(quatOther.fromTerm(env, other))
+	if(quatOther.readFromTerm(env, other))
 		{ resultQuat = *this * quatOther; }
 	else if(enif_get_double(env, other, &doubleOther))
 		{ resultQuat = *this * doubleOther; }
@@ -336,11 +336,11 @@ Quat Quat::multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const
 static ERL_NIF_TERM quat_multiply_erl(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	Quat argQuat;
-	if(argQuat.fromTerm(env, argv[0]))
+	if(argQuat.readFromTerm(env, argv[0]))
 	{
 		return argQuat.multiply(env, argv[1]).toTerm(env);
 	}
-	else if(argQuat.fromTerm(env, argv[1]))
+	else if(argQuat.readFromTerm(env, argv[1]))
 	{
 		return argQuat.multiply(env, argv[0]).toTerm(env);
 	}

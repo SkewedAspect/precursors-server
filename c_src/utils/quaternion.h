@@ -11,7 +11,7 @@ public:
 	Quat(ErlNifEnv* env, const ERL_NIF_TERM);
 
 	// Conversion
-	bool fromTerm(ErlNifEnv* env, const ERL_NIF_TERM term);
+	bool readFromTerm(ErlNifEnv* env, const ERL_NIF_TERM term);
 
 	ERL_NIF_TERM toTerm(ErlNifEnv* env);
 
