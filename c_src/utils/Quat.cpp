@@ -131,11 +131,13 @@ Quat Quat::operator /(const u_int64_t& divisor) const
 /// Returns the squared length of the quaternion. This is useful in some optimization cases, as it avoids a sqrt call.
 double Quat::squaredNorm() const
 {
+	return w * w + x * x + y * y + z * z;
 } // end squaredNorm
 
 /// Returns the length of the quaternion.
 double Quat::norm() const
 {
+	return sqrt(squaredNorm());
 } // end norm
 
 /// Rotate the given vector by this Quat's rotation.
@@ -188,6 +190,21 @@ Quat& Quat::scaleRotation(double factor)
 
 Quat& Quat::normalize()
 {
+	double sqrNorm = squaredNorm();
+
+	// Don't renormalize if we're already less than our tolerance away from being a unit vector.
+	if(fabs(sqrNorm - 1) < NORMALIZED_TOLERANCE)
+	{
+		return *this;
+	} // end if
+
+	// Also don't renormalize if we're already less than our tolerance away from being a zero vector.
+	if(sqrNorm < NORMALIZED_TOLERANCE)
+	{
+		return *this;
+	} // end if
+
+	return *this /= sqrt(sqrNorm);
 } // end normalize
 
 Quat& Quat::invert()
