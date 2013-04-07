@@ -5,7 +5,7 @@
  * Licensed under the MIT license; see the LICENSE file for details.
  */
 
-#include <string.h>
+#include <string>
 
 #include "nif_helpers.h"
 
@@ -122,14 +122,14 @@ static bool termToVec(ErlNifEnv* env, const ERL_NIF_TERM term, Vec& targetVec)
 		return false;
 	} // end if
 
-	if(arity != 4)
+	if(arity != 3)
 	{
 		return false;
 	} // end if
 
-	if(!enif_get_double(env, array[0], &targetVec.x)
-			|| !enif_get_double(env, array[1], &targetVec.y)
-			|| !enif_get_double(env, array[2], &targetVec.z))
+	if(!getNIFDouble(env, array[0], &targetVec.x)
+			|| !getNIFDouble(env, array[1], &targetVec.y)
+			|| !getNIFDouble(env, array[2], &targetVec.z))
 	{
 		return false;
 	} // end if
