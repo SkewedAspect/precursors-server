@@ -18,63 +18,72 @@
 // dot/2
 static ERL_NIF_TERM dot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(2)
+	CHECK_ARGC(2);
 	FAIL;
 } // end dot
 
 // cross/2
 static ERL_NIF_TERM cross(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(2)
-	FAIL;
+	CHECK_ARGC(2);
+	Vec vec0, vec1;
+
+	if(termToVec(env, argv[0], vec0) && termToVec(env, argv[1], vec1))
+	{
+		return vecToTerm(env, vec0.cross(vec1));
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end cross
 
 // multiply/2
 static ERL_NIF_TERM multiply(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(2)
+	CHECK_ARGC(2);
 	FAIL;
 } // end multiply
 
 // divide/2
 static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(2)
+	CHECK_ARGC(2);
 	FAIL;
 } // end divide
 
 // squared_norm/1
 static ERL_NIF_TERM squared_norm(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(1)
+	CHECK_ARGC(1);
 	FAIL;
 } // end squared_norm
 
 // norm/1
 static ERL_NIF_TERM norm(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(1)
+	CHECK_ARGC(1);
 	FAIL;
 } // end norm
 
 // length/1
 static ERL_NIF_TERM length(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(1)
+	CHECK_ARGC(1);
 	FAIL;
 } // end length
 
 // unit/1
 static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(1)
+	CHECK_ARGC(1);
 	FAIL;
 } // end unit
 
 // hpr_to/1
 static ERL_NIF_TERM hpr_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(1)
+	CHECK_ARGC(1);
 	FAIL;
 } // end hpr_to
 
@@ -88,14 +97,14 @@ static ERL_NIF_TERM add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 // subtract/2
 static ERL_NIF_TERM subtract(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(2)
+	CHECK_ARGC(2);
 	FAIL;
 } // end subtract
 
 // is_zero/1
 static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-	CHECK_ARGC(1)
+	CHECK_ARGC(1);
 	FAIL;
 } // end is_zero
 
@@ -103,7 +112,7 @@ static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 // --------------------------------------------------------------------------------------------------------------------
 // Helpers
 
-static bool termToVec(ErlNifEnv* env, ERL_NIF_TERM term, Vec& targetVec)
+static bool termToVec(ErlNifEnv* env, const ERL_NIF_TERM term, Vec& targetVec)
 {
 	int arity;
 	const ERL_NIF_TERM* array;
@@ -129,7 +138,7 @@ static bool termToVec(ErlNifEnv* env, ERL_NIF_TERM term, Vec& targetVec)
 } // termToVec
 
 
-static ERL_NIF_TERM vecToTerm(ErlNifEnv* env, Vec vec)
+static inline ERL_NIF_TERM vecToTerm(ErlNifEnv* env, const Vec& vec)
 {
 	return enif_make_tuple3(env,
 			enif_make_double(env, vec.x),
@@ -143,4 +152,5 @@ static ERL_NIF_TERM vecToTerm(ErlNifEnv* env, Vec vec)
 static Vec multiply(const Vec& vec, ErlNifEnv* env, const ERL_NIF_TERM other)
 {
 	//FIXME Implement this!
+	return vec;
 } // end multiply
