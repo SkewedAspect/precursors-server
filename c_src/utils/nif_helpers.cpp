@@ -10,7 +10,7 @@
 
 bool getNIFDouble(ErlNifEnv* env, const ERL_NIF_TERM term, double* target)
 {
-	ulong ulongOther;
+	unsigned long ulongOther;
 	long longOther;
 	ErlNifUInt64 uint64Other;
 	ErlNifSInt64 int64Other;
