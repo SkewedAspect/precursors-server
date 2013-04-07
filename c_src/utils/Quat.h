@@ -98,7 +98,7 @@ public:
 	/// Scale the rotation of the quaternion by the given factor.
 	///
 	/// NOTE: This is not the same as multiplying.
-	Quat& scaleRotation(const Quat& other);
+	Quat& scaleRotation(double factor);
 
 	/// Reorient this Quat's axis of rotation by rotating it by the given Quat, but leave this Quat's angle of rotation
 	/// intact.
