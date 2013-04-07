@@ -36,11 +36,6 @@ Quat::Quat(double w, double x, double y, double z) :
 // ----------------------------------------------------------------------------------------------------------------
 // Operations that produce new `Quat` instances
 
-/// Perform a cross product with the given Quat.
-Quat Quat::cross(const Quat& other) const
-{
-} // end cross
-
 /// Returns a unit quaternion in the same direction as this Quat.
 Quat Quat::unit() const
 {
@@ -161,6 +156,19 @@ double Quat::operator [](const size_t& idx) const throw(BadIndex<size_t>)
 
 // ----------------------------------------------------------------------------------------------------------------
 // In-place modifications
+
+/// Scale the rotation of the quaternion by the given factor.
+///
+/// NOTE: This is not the same as multiplying.
+Quat& Quat::scaleRotation(const Quat& other)
+{
+} // end scaleRotation
+
+/// Reorient this Quat's axis of rotation by rotating it by the given Quat, but leave this Quat's angle of rotation
+/// intact.
+Quat& Quat::reorient(const Quat& other)
+{
+} // end reorient
 
 Quat& Quat::normalize()
 {

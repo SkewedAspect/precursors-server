@@ -34,9 +34,6 @@ public:
 	// ----------------------------------------------------------------------------------------------------------------
 	// Operations that produce new `Quat` instances
 
-	/// Perform a cross product with the given Quat.
-	Quat cross(const Quat& other) const;
-
 	/// Returns a unit quaternion in the same direction as this Quat.
 	Quat unit() const;
 
@@ -97,6 +94,15 @@ public:
 
 	// ----------------------------------------------------------------------------------------------------------------
 	// In-place modifications
+
+	/// Scale the rotation of the quaternion by the given factor.
+	///
+	/// NOTE: This is not the same as multiplying.
+	Quat& scaleRotation(const Quat& other);
+
+	/// Reorient this Quat's axis of rotation by rotating it by the given Quat, but leave this Quat's angle of rotation
+	/// intact.
+	Quat& reorient(const Quat& other);
 
 	Quat& normalize();
 	Quat& invert();
