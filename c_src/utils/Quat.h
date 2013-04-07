@@ -95,14 +95,14 @@ public:
 	// ----------------------------------------------------------------------------------------------------------------
 	// In-place modifications
 
+	/// Reorient this Quat's axis of rotation by rotating it by the given Quat, but leave this Quat's angle of rotation
+	/// intact.
+	Quat& reorient(const Quat& other);
+
 	/// Scale the rotation of the quaternion by the given factor.
 	///
 	/// NOTE: This is not the same as multiplying.
 	Quat& scaleRotation(double factor);
-
-	/// Reorient this Quat's axis of rotation by rotating it by the given Quat, but leave this Quat's angle of rotation
-	/// intact.
-	Quat& reorient(const Quat& other);
 
 	Quat& normalize();
 	Quat& invert();

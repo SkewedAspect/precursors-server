@@ -157,6 +157,20 @@ double Quat::operator [](const size_t& idx) const throw(BadIndex<size_t>)
 // ----------------------------------------------------------------------------------------------------------------
 // In-place modifications
 
+/// Reorient this Quat's axis of rotation by rotating it by the given Quat, but leave this Quat's angle of rotation
+/// intact.
+Quat& Quat::reorient(const Quat& other)
+{
+	double originalRotation = 2 * acos(w);
+
+	Vec axis(x, y, z);
+	axis.normalize();
+
+	fromAxisAngleRad(other.rotate(axis), originalRotation);
+
+	return *this;
+} // end reorient
+
 /// Scale the rotation of the quaternion by the given factor.
 ///
 /// NOTE: This is not the same as multiplying.
@@ -171,12 +185,6 @@ Quat& Quat::scaleRotation(double factor)
 
 	return *this;
 } // end scaleRotation
-
-/// Reorient this Quat's axis of rotation by rotating it by the given Quat, but leave this Quat's angle of rotation
-/// intact.
-Quat& Quat::reorient(const Quat& other)
-{
-} // end reorient
 
 Quat& Quat::normalize()
 {
