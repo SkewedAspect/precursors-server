@@ -87,7 +87,7 @@ static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 // Conversion
 static bool termToVec(ErlNifEnv* env, const ERL_NIF_TERM term, Vec& targetVec);
 
-static ERL_NIF_TERM vecToTerm(ErlNifEnv* env, Vec vec);
+static inline ERL_NIF_TERM vecToTerm(ErlNifEnv* env, const Vec& vec);
 
 
 // Operations with Erlang terms
@@ -114,7 +114,7 @@ static ErlNifFunc nif_funcs[] =
 	{"is_zero", 1, is_zero}
 };
 
-ERL_NIF_INIT(quaternion, nif_funcs, NULL, NULL, NULL, NULL)
+ERL_NIF_INIT(vector, nif_funcs, NULL, NULL, NULL, NULL)
 
 
 #endif // __VECTOR_NIF__
