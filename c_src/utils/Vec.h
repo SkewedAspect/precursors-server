@@ -75,7 +75,7 @@ public:
 	inline double FLATTEN length() const { return norm(); }
 
 	/// Checks to see if this is a zero vector.
-	bool is_zero() const;
+	bool isZero() const;
 
 	/// Access components using Vec[idx]
 	double operator [](const size_t& idx) const throw(BadIndex<size_t>);

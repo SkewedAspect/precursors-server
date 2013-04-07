@@ -110,10 +110,10 @@ double Vec::norm() const
 } // end norm
 
 /// Checks to see if this is a zero vector.
-bool Vec::is_zero() const
+bool Vec::isZero() const
 {
 	return fabs(x) < NORMALIZED_TOLERANCE && fabs(y) < NORMALIZED_TOLERANCE && fabs(z) < NORMALIZED_TOLERANCE;
-} // end is_zero
+} // end isZero
 
 /// Access components using Vec[idx]
 double Vec::operator [](const size_t& idx) const throw(BadIndex<size_t>)
