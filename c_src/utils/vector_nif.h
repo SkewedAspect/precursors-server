@@ -17,19 +17,19 @@
  * / /
  * % % vec_to_list/1
  * % % list_to_vec/1
- * ! ! dot/2
- * ! ! cross/2
- * ! ! multiply/2
- * ! ! divide/2
- * ! ! squared_norm/1
- * ! ! norm/1
- * ! ! length/1
- * ! ! unit/1
- * ! ! hpr_to/1
- * ! ! add/2
- * ! ! add/3
- * ! ! subtract/2
- * ! ! is_zero/1
+ * + + dot/2
+ * + + cross/2
+ * + + multiply/2
+ * + + divide/2
+ * + + squared_norm/1
+ * + + norm/1
+ * + + length/1
+ * + + unit/1
+ * + + hpr_to/1
+ * + + add/2
+ * + + add/3
+ * + + subtract/2
+ * + + is_zero/1
  */
 
 #ifndef __VECTOR_NIF__
