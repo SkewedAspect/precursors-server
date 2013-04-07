@@ -27,8 +27,8 @@ static int nif_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 {
 	true_atom = enif_make_atom_len(env, "true", 4);
 	false_atom = enif_make_atom_len(env, "false", 5);
-	radians_atom = enif_make_atom_len(env, "radians", 4);
-	degrees_atom = enif_make_atom_len(env, "degrees", 5);
+	radians_atom = enif_make_atom_len(env, "radians", 7);
+	degrees_atom = enif_make_atom_len(env, "degrees", 7);
 
 	return 0;
 } // end nif_load
@@ -293,7 +293,16 @@ static ERL_NIF_TERM reciprocal(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 static ERL_NIF_TERM compose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat0, quat1;
+
+	if(termToQuat(env, argv[0], quat0) && termToQuat(env, argv[1], quat1))
+	{
+		return quatToTerm(env, quat0.compose(quat1));
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end compose
 
 // relative_to/2
@@ -333,19 +342,35 @@ static ERL_NIF_TERM rotate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC_RANGE(2, 3);
+	bool isRadians;
 	Vec axis;
 	double angle;
 	Quat quat;
 
 	if(argc == 2)
 	{
+		isRadians = true;
+
 		if(!termToVec(env, argv[0], axis) || !getNIFDouble(env, argv[1], &angle))
 		{
 			FAIL;
 		} // end if
 	}
-	else if(argc == 2)
+	else if(argc == 3)
 	{
+		if(enif_is_identical(argv[0], radians_atom))
+		{
+			isRadians = true;
+		}
+		else if(enif_is_identical(argv[0], degrees_atom))
+		{
+			isRadians = false;
+		}
+		else
+		{
+			FAIL;
+		} // end if
+
 		if(!termToVec(env, argv[1], axis) || !getNIFDouble(env, argv[2], &angle))
 		{
 			FAIL;
@@ -356,17 +381,13 @@ static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 		FAIL;
 	} // end if
 
-	if(argc == 2 || enif_is_identical(argv[0], radians_atom))
-	{
-		return quatToTerm(env, quat.fromAxisAngleDeg(axis, angle));
-	}
-	else if(enif_is_identical(argv[0], degrees_atom))
+	if(isRadians)
 	{
 		return quatToTerm(env, quat.fromAxisAngleRad(axis, angle));
 	}
 	else
 	{
-		FAIL;
+		return quatToTerm(env, quat.fromAxisAngleDeg(axis, angle));
 	} // end if
 } // end from_axis_angle
 
@@ -374,11 +395,14 @@ static ERL_NIF_TERM from_axis_angle(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC_RANGE(1, 2);
+	bool isRadians;
 	Vec bodyRates;
 	Quat quat;
 
-	if(argc == 2)
+	if(argc == 1)
 	{
+		isRadians = true;
+
 		if(!termToVec(env, argv[0], bodyRates))
 		{
 			FAIL;
@@ -386,6 +410,19 @@ static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 	}
 	else if(argc == 2)
 	{
+		if(enif_is_identical(argv[0], radians_atom))
+		{
+			isRadians = true;
+		}
+		else if(enif_is_identical(argv[0], degrees_atom))
+		{
+			isRadians = false;
+		}
+		else
+		{
+			FAIL;
+		} // end if
+
 		if(!termToVec(env, argv[1], bodyRates))
 		{
 			FAIL;
@@ -396,17 +433,13 @@ static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 		FAIL;
 	} // end if
 
-	if(argc == 2 || enif_is_identical(argv[0], radians_atom))
-	{
-		return quatToTerm(env, quat.fromBodyRatesDeg(bodyRates));
-	}
-	else if(enif_is_identical(argv[0], degrees_atom))
+	if(isRadians)
 	{
 		return quatToTerm(env, quat.fromBodyRatesRad(bodyRates));
 	}
 	else
 	{
-		FAIL;
+		return quatToTerm(env, quat.fromBodyRatesDeg(bodyRates));
 	} // end if
 } // end from_body_rates
 
@@ -414,11 +447,14 @@ static ERL_NIF_TERM from_body_rates(ErlNifEnv* env, int argc, const ERL_NIF_TERM
 static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC_RANGE(1, 2);
+	bool isRadians;
 	Vec eulerAngles;
 	Quat quat;
 
-	if(argc == 2)
+	if(argc == 1)
 	{
+		isRadians = true;
+
 		if(!termToVec(env, argv[0], eulerAngles))
 		{
 			FAIL;
@@ -426,6 +462,19 @@ static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	}
 	else if(argc == 2)
 	{
+		if(enif_is_identical(argv[0], radians_atom))
+		{
+			isRadians = true;
+		}
+		else if(enif_is_identical(argv[0], degrees_atom))
+		{
+			isRadians = false;
+		}
+		else
+		{
+			FAIL;
+		} // end if
+
 		if(!termToVec(env, argv[1], eulerAngles))
 		{
 			FAIL;
@@ -436,17 +485,13 @@ static ERL_NIF_TERM from_euler(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 		FAIL;
 	} // end if
 
-	if(argc == 2 || enif_is_identical(argv[0], radians_atom))
-	{
-		return quatToTerm(env, quat.fromEulerDeg(eulerAngles));
-	}
-	else if(enif_is_identical(argv[0], degrees_atom))
+	if(isRadians)
 	{
 		return quatToTerm(env, quat.fromEulerRad(eulerAngles));
 	}
 	else
 	{
-		FAIL;
+		return quatToTerm(env, quat.fromEulerDeg(eulerAngles));
 	} // end if
 } // end from_euler
 
@@ -515,7 +560,7 @@ static bool termToQuat(ErlNifEnv* env, const ERL_NIF_TERM term, Quat& targetQuat
 		return false;
 	} // end if
 
-	if(arity != 3)
+	if(arity != 4)
 	{
 		return false;
 	} // end if
