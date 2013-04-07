@@ -140,7 +140,12 @@ diff_state(OldState, NewState) ->
 		NewVal = dict:fetch(Key, NewState),
 		case Value == NewVal of
 			false ->
-				[{Key, NewVal} | AccIn];
+				case Key of
+					physical ->
+						[{Key, pre_physics_rk4:to_proplist(NewVal)} | AccIn];
+					_ ->
+						[{Key, NewVal} | AccIn]
+				end;
 			_ ->
 				AccIn
 		end
