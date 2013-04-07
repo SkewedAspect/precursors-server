@@ -73,6 +73,9 @@ public:
 	// ----------------------------------------------------------------------------------------------------------------
 	// Operations that produce other values
 
+	/// Returns the axis of rotation of the quaternion.
+	Vec axis() const;
+
 	/// Returns the squared length of the quaternion. This is useful in some optimization cases, as it avoids a sqrt call.
 	double squaredNorm() const;
 
@@ -105,7 +108,10 @@ public:
 	Quat& scaleRotation(double factor);
 
 	Quat& normalize();
+	Quat& conjugateInPlace();
 	Quat& invert();
+	Quat& reciprocalInPlace();
+	Quat& relativeToInPlace(const Quat& other);
 
 	/// Converts from an axis and angle (degrees) to a quaternion.
 	Quat& fromAxisAngleDeg(const Vec& axis, double angleDeg);

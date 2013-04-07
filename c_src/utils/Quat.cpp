@@ -39,94 +39,72 @@ Quat::Quat(double w, double x, double y, double z) :
 /// Returns a unit quaternion in the same direction as this Quat.
 Quat Quat::unit() const
 {
+	return Quat(*this).normalize();
 } // end unit
 
 /// Returns a new Quat that is the conjugate of this one.
 Quat Quat::conjugate() const
 {
+	return Quat(*this).conjugateInPlace();
 } // end conjugate
 
 /// Returns a new Quat that is the inverse of this one.
 Quat Quat::inverse() const
 {
+	return Quat(*this).invert();
 } // end inverse
 
 /// Returns a new Quat that is the reciprocal of this one.
 Quat Quat::reciprocal() const
 {
+	return Quat(*this).reciprocalInPlace();
 } // end reciprocal
 
 /// Returns a new Quat which results from composing this Quat's rotation with the given Quat.
 Quat Quat::compose(const Quat& other) const
 {
+	return *this * other;
 } // end compose
 
 /// Get the Quat representing the orientation of this Quat relative to the given one.
 Quat Quat::relativeTo(const Quat& other) const
 {
+	return Quat(*this).relativeToInPlace(other);
 } // end relativeTo
 
 
+// As stated at http://courses.cms.caltech.edu/cs11/material/cpp/donnie/cpp-ops.html,
+//     "Define your binary arithmetic operators using your compound assignment operators."
+#define BINARY_OP(OP, OTHER_TYPE) \
+		Quat Quat::operator OP(const OTHER_TYPE& other) const \
+			{ return Quat(*this) OP##= other; }
+
 // Operator overloads (Quat <op> Quat)
-
-Quat Quat::operator +(const Quat& other) const
-{
-} // end operator +
-
-Quat Quat::operator -(const Quat& other) const
-{
-} // end operator -
-
-Quat Quat::operator *(const Quat& other) const
-{
-} // end operator *
-
+BINARY_OP(+, Quat)
+BINARY_OP(-, Quat)
+BINARY_OP(*, Quat)
 
 // Operator overloads (Quat <op> <other type>)
-
-Quat Quat::operator *(const double& factor) const
-{
-} // end operator *
-
-Quat Quat::operator *(const int32_t& factor) const
-{
-} // end operator *
-
-Quat Quat::operator *(const u_int32_t& factor) const
-{
-} // end operator *
-
-Quat Quat::operator *(const int64_t& factor) const
-{
-} // end operator *
-
-Quat Quat::operator *(const u_int64_t& factor) const
-{
-} // end operator *
-
-Quat Quat::operator /(const double& divisor) const
-{
-} // end operator /
-
-Quat Quat::operator /(const int32_t& divisor) const
-{
-} // end operator /
-
-Quat Quat::operator /(const u_int32_t& divisor) const
-{
-} // end operator /
-
-Quat Quat::operator /(const int64_t& divisor) const
-{
-} // end operator /
-
-Quat Quat::operator /(const u_int64_t& divisor) const
-{
-} // end operator /
+BINARY_OP(*, double)
+BINARY_OP(*, int32_t)
+BINARY_OP(*, u_int32_t)
+BINARY_OP(*, int64_t)
+BINARY_OP(*, u_int64_t)
+BINARY_OP(/, double)
+BINARY_OP(/, int32_t)
+BINARY_OP(/, u_int32_t)
+BINARY_OP(/, int64_t)
+BINARY_OP(/, u_int64_t)
 
 
 // ----------------------------------------------------------------------------------------------------------------
 // Operations that produce other values
+
+/// Returns the axis of rotation of the quaternion.
+Vec Quat::axis() const
+{
+	return Vec(x, y, z);
+} // end axis
 
 /// Returns the squared length of the quaternion. This is useful in some optimization cases, as it avoids a sqrt call.
 double Quat::squaredNorm() const
@@ -143,16 +121,42 @@ double Quat::norm() const
 /// Rotate the given vector by this Quat's rotation.
 Vec Quat::rotate(const Vec& other) const
 {
+	Quat temp(0, other.x, other.y, other.z);
+	return temp.relativeToInPlace(*this).axis();
 } // end rotate
 
 /// Checks to see if this is a zero quaternion.
 bool Quat::isZero() const
 {
+	return fabs(w) < NORMALIZED_TOLERANCE && fabs(x) < NORMALIZED_TOLERANCE
+			&& fabs(y) < NORMALIZED_TOLERANCE && fabs(z) < NORMALIZED_TOLERANCE;
 } // end isZero
 
 /// Access components using Quat[idx]
 double Quat::operator [](const size_t& idx) const throw(BadIndex<size_t>)
 {
+	if(idx > 3 || idx < 0)
+	{
+		throw BadIndex<size_t>(idx);
+	} // end if
+
+	return *(&w + idx);
+
+	/* NOTE: This is equivalent to:
+	switch(idx)
+	{
+		case 0:
+			return w;
+		case 1:
+			return x;
+		case 2:
+			return y;
+		case 3:
+			return z;
+		default:
+			throw BadIndex<size_t>(idx);
+	} // end switch
+	*/
 } // end operator []
 
 
@@ -207,9 +211,36 @@ Quat& Quat::normalize()
 	return *this /= sqrt(sqrNorm);
 } // end normalize
 
+/// Updates this Quat to be the conjugate of its current value.
+Quat& Quat::conjugateInPlace()
+{
+	x *= -1;
+	y *= -1;
+	z *= -1;
+
+	return *this;
+} // end conjugateInPlace
+
+/// Updates this Quat to be the inverse of its current value.
 Quat& Quat::invert()
 {
+	double length = norm();
+	return conjugateInPlace() /= length;
 } // end invert
+
+/// Updates this Quat to be the reciprocal of its current value.
+Quat& Quat::reciprocalInPlace()
+{
+	//FIXME: wait... what?
+	double sqrNorm = squaredNorm();
+	return conjugateInPlace() /= sqrNorm;
+} // end reciprocalInPlace
+
+/// Get the Quat representing the orientation of this Quat relative to the given one.
+Quat& Quat::relativeToInPlace(const Quat& other)
+{
+	return (other * *this) *= other.conjugate();
+} // end relativeToInPlace
 
 
 /// Converts from an axis and angle (degrees) to a quaternion.
