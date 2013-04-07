@@ -143,12 +143,10 @@ static ERL_NIF_TERM deg2rad(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 // --------------------------------------------------------------------------------------------------------------------
 // Helpers
 
-/*
 // Conversion
 static bool termToQuat(ErlNifEnv* env, const ERL_NIF_TERM term, Quat& targetQuat);
 
 static inline ERL_NIF_TERM quatToTerm(ErlNifEnv* env, const Quat& quat);
-*/
 
 
 // --------------------------------------------------------------------------------------------------------------------
