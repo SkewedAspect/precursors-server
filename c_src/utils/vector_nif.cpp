@@ -194,7 +194,7 @@ static ERL_NIF_TERM length(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 
 	if(termToVec(env, argv[0], vec))
 	{
-		return enif_make_double(env, vec.norm()); // length just forwards to norm, so we'll use norm.
+		return enif_make_double(env, vec.norm()); // length just forwards to norm, so we'll use norm directly.
 	}
 	else
 	{
