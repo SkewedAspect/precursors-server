@@ -39,6 +39,50 @@ static int nif_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, E
 // --------------------------------------------------------------------------------------------------------------------
 // NIFs
 
+// vec_to_list/1
+static ERL_NIF_TERM vec_to_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+	CHECK_ARGC(1);
+	int arity;
+	const ERL_NIF_TERM* array;
+
+	if(enif_get_tuple(env, argv[0], &arity, &array) && arity == 3)
+	{
+		return enif_make_list_from_array(env, array, 3);
+	}
+	else
+	{
+		FAIL;
+	} // end if
+} // end vec_to_list
+
+// list_to_vec/1
+static ERL_NIF_TERM list_to_vec(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+	CHECK_ARGC(1);
+	ERL_NIF_TERM vecTuple[3];
+	ERL_NIF_TERM current = argv[0], tail;
+
+	for(size_t idx = 0; idx < 3; idx++)
+	{
+		if(!enif_get_list_cell(env, current, &vecTuple[idx], &tail))
+		{
+			FAIL;
+		} // end if
+
+		current = tail;
+	} // end for
+
+	if(enif_is_empty_list(env, tail))
+	{
+		return enif_make_tuple_from_array(env, vecTuple, 3);
+	}
+	else
+	{
+		FAIL;
+	} // end if
+} // end list_to_vec
+
 // dot/2
 static ERL_NIF_TERM dot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
