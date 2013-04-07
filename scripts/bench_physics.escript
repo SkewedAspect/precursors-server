@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -noshell -noinput -smp enable -pa ../ebin
+%%! -noshell -noinput -smp enable -pa ebin
 
 %% Benchmarking key/value data types
 %%
