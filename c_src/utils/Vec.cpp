@@ -201,3 +201,18 @@ COMP_ASSIGN_OP_MAP(/, int32_t)
 COMP_ASSIGN_OP_MAP(/, u_int32_t)
 COMP_ASSIGN_OP_MAP(/, int64_t)
 COMP_ASSIGN_OP_MAP(/, u_int64_t)
+
+
+// Create an external operator overload that sets each component of a new Vec to `this.coord OP other`.
+#define COMP_EXT_OP_MAP(OP, OTHER_TYPE) \
+		Vec operator OP(const OTHER_TYPE& other, const Vec& vec) \
+		{ \
+			return vec * other; \
+		}
+
+// Operator overloads (<other type> <op> Vec)
+COMP_EXT_OP_MAP(*, double)
+COMP_EXT_OP_MAP(*, int32_t)
+COMP_EXT_OP_MAP(*, u_int32_t)
+COMP_EXT_OP_MAP(*, int64_t)
+COMP_EXT_OP_MAP(*, u_int64_t)

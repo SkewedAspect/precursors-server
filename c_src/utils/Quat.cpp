@@ -355,3 +355,18 @@ COMP_ASSIGN_OP_MAP(/, int32_t)
 COMP_ASSIGN_OP_MAP(/, u_int32_t)
 COMP_ASSIGN_OP_MAP(/, int64_t)
 COMP_ASSIGN_OP_MAP(/, u_int64_t)
+
+
+// Create an external operator overload that sets each component of a new Quat to `this.coord OP other`.
+#define COMP_EXT_OP_MAP(OP, OTHER_TYPE) \
+		Quat operator OP(const OTHER_TYPE& other, const Quat& quat) \
+		{ \
+			return quat * other; \
+		}
+
+// Operator overloads (<other type> <op> Quat)
+COMP_EXT_OP_MAP(*, double)
+COMP_EXT_OP_MAP(*, int32_t)
+COMP_EXT_OP_MAP(*, u_int32_t)
+COMP_EXT_OP_MAP(*, int64_t)
+COMP_EXT_OP_MAP(*, u_int64_t)
