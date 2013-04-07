@@ -164,56 +164,129 @@ static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM reorient(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat0, quat1;
+
+	if(termToQuat(env, argv[0], quat0) && termToQuat(env, argv[1], quat1))
+	{
+		return quatToTerm(env, quat0.reorient(quat1));
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end reorient
 
 // scale_rotation/2
 static ERL_NIF_TERM scale_rotation(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat;
+	double scale;
+
+	if(termToQuat(env, argv[0], quat) && getNIFDouble(env, argv[1], &scale))
+	{
+		return quatToTerm(env, quat.scaleRotation(scale));
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end scale_rotation
 
 // norm/1
 static ERL_NIF_TERM norm(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
-	FAIL;
+	Quat quat;
+
+	if(termToQuat(env, argv[0], quat))
+	{
+		return enif_make_double(env, quat.norm());
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end norm
 
 // length/1
 static ERL_NIF_TERM length(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
-	FAIL;
+	Quat quat;
+
+	if(termToQuat(env, argv[0], quat))
+	{
+		return enif_make_double(env, quat.norm()); // length just forwards to norm, so we'll use norm directly.
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end length
 
 // unit/1
 static ERL_NIF_TERM unit(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
-	FAIL;
+	Quat quat;
+
+	if(termToQuat(env, argv[0], quat))
+	{
+		return quatToTerm(env, quat.normalize()); // using normalize instead of unit avoids constructing another Quat
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end unit
 
 // conjugate/1
 static ERL_NIF_TERM conjugate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
-	FAIL;
+	Quat quat;
+
+	if(termToQuat(env, argv[0], quat))
+	{
+		return quatToTerm(env, quat.conjugateInPlace()); // avoid constructing another Quat
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end conjugate
 
 // inverse/1
 static ERL_NIF_TERM inverse(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
-	FAIL;
+	Quat quat;
+
+	if(termToQuat(env, argv[0], quat))
+	{
+		return quatToTerm(env, quat.invert()); // avoid constructing another Quat
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end inverse
 
 // reciprocal/1
 static ERL_NIF_TERM reciprocal(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
-	FAIL;
+	Quat quat;
+
+	if(termToQuat(env, argv[0], quat))
+	{
+		return quatToTerm(env, quat.reciprocalInPlace()); // avoid constructing another Quat
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end reciprocal
 
 // compose/2
@@ -227,14 +300,33 @@ static ERL_NIF_TERM compose(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ERL_NIF_TERM relative_to(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat0, quat1;
+
+	if(termToQuat(env, argv[0], quat0) && termToQuat(env, argv[1], quat1))
+	{
+		return quatToTerm(env, quat0.relativeToInPlace(quat1)); // avoid constructing another Quat
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end relative_to
 
 // rotate/2
 static ERL_NIF_TERM rotate(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Vec vec;
+	Quat quat;
+
+	if(termToVec(env, argv[0], vec) && termToQuat(env, argv[1], quat))
+	{
+		return vecToTerm(env, quat.rotate(vec));
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end rotate
 
 // from_axis_angle/2, from_axis_angle/3
