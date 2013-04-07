@@ -88,28 +88,74 @@ static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 static ERL_NIF_TERM add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat0, quat1;
+
+	if(termToQuat(env, argv[0], quat0) && termToQuat(env, argv[1], quat1))
+	{
+		return quatToTerm(env, quat0 += quat1);
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end add
 
 // subtract/2
 static ERL_NIF_TERM subtract(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat0, quat1;
+
+	if(termToQuat(env, argv[0], quat0) && termToQuat(env, argv[1], quat1))
+	{
+		return quatToTerm(env, quat0 -= quat1);
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end subtract
 
 // multiply/2
 static ERL_NIF_TERM multiply(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat0, quat1;
+	double factor;
+
+	if(termToQuat(env, argv[0], quat0) && termToQuat(env, argv[1], quat1))
+	{
+		return quatToTerm(env, quat0 *= quat1);
+	}
+	else if(getNIFDouble(env, argv[0], &factor) && termToQuat(env, argv[1], quat1))
+	{
+		return quatToTerm(env, quat1 *= factor);
+	}
+	else if(termToQuat(env, argv[0], quat0) && getNIFDouble(env, argv[1], &factor))
+	{
+		return quatToTerm(env, quat0 *= factor);
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end multiply
 
 // divide/2
 static ERL_NIF_TERM divide(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(2);
-	FAIL;
+	Quat quat;
+	double divisor;
+
+	if(termToQuat(env, argv[0], quat) && getNIFDouble(env, argv[1], &divisor))
+	{
+		return quatToTerm(env, quat /= divisor);
+	}
+	else
+	{
+		FAIL;
+	} // end if
 } // end divide
 
 // reorient/2
