@@ -19,6 +19,7 @@ key
 key.pub
 precursors.crt
 precursors.csr
+c_src/**.o
 
 # test/eunit artifacts
 .eunit
