@@ -108,7 +108,7 @@ Quat Quat::multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const
 
 	Quat quatOther;
 	double doubleOther;
-	ulong ulongOther;
+	unsigned long ulongOther;
 	long longOther;
 	ErlNifUInt64 uint64Other;
 	ErlNifSInt64 int64Other;
