@@ -62,6 +62,7 @@ Vec Vec::hprAlong() const
 	return Vec(rad2deg(yaw), rad2deg(pitch), 0);
 } // end hpr_to
 
+
 // As stated at http://courses.cms.caltech.edu/cs11/material/cpp/donnie/cpp-ops.html,
 //     "Define your binary arithmetic operators using your compound assignment operators."
 #define BINARY_OP(OP, OTHER_TYPE) \
@@ -71,7 +72,6 @@ Vec Vec::hprAlong() const
 // Operator overloads (Vec <op> Vec)
 BINARY_OP(+, Vec)
 BINARY_OP(-, Vec)
-
 
 // Operator overloads (Vec <op> <other type>)
 BINARY_OP(*, double)
