@@ -39,6 +39,7 @@
 %-on_load(init/0).
 init() ->
     NifPaths = [
+		"vector",
 		"./vector",
 		"./ebin/vector",
 		"../ebin/vector"
@@ -46,7 +47,10 @@ init() ->
 
 	TryLoad = fun(NifPath) ->
 		case erlang:load_nif(NifPath, 0) of
-			{error, {load_failed, _}} -> false;
+			{error, {load_failed, _}} = Error ->
+				%?warning("Error loading NIF module from ~p: ~p", [NifPath, Error]),
+				io:format("Error loading NIF module from ~p:~n        ~p~n", [NifPath, Error]),
+				false;
 			ok -> true
 		end
 	end,
@@ -55,7 +59,9 @@ init() ->
 		true ->
 			ok;
 		false ->
-			?warning("Couldn't load NIF from any of the defined locations! Falling back to Erlang implementation.")
+			%?warning("Couldn't load NIF from any of the defined locations! Falling back to Erlang implementation."),
+			io:format("Couldn't load NIF from any of the defined locations! Falling back to Erlang implementation.~n"),
+			{error, {load_failed, "Couldn't load NIF from any of the defined locations!"}}
 	end.
 
 
