@@ -135,7 +135,7 @@ length(Quat) ->
 
 % ---------------------------------------------------------------------------------------------------------------------
 
-% @doc Returns a unit vector in the same direction as Quat.
+% @doc Returns a unit quaternion in the same direction as Quat.
 unit({_, _, _, _} = Quat) ->
 	QLS = squared_norm(Quat),
 	unit(QLS, Quat).
@@ -191,18 +191,18 @@ rotate({X, Y, Z}, {_, _, _, _} = Rotation) ->
 
 % ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Converts from and axis and angle (radians), to a quaternion.
+%% @doc Converts from an axis and angle (radians) to a quaternion.
 from_axis_angle({_, _, _} = Axis, Angle) when is_number(Angle) ->
 	from_axis_angle(radians, Axis, Angle).
 
 
-%% @doc Converts from and axis and angle (radians), to a quaternion.
+%% @doc Converts from an axis and angle (radians) to a quaternion.
 from_axis_angle(radians, {_, _, _} = Axis, Angle) when is_number(Angle) ->
 	ComplexFactor = math:sin(Angle / 2),
 	{X, Y, Z} = vector:multiply(ComplexFactor, Axis),
 	{math:cos(Angle / 2), X, Y, Z};
 
-%% @doc Converts from and axis and angle (degrees), to a quaternion.
+%% @doc Converts from an axis and angle (degrees), to a quaternion.
 from_axis_angle(degrees, Axis, Angle) when is_number(Angle) ->
 	DegAngle = deg2rad(Angle),
 	from_axis_angle(radians, {_, _, _} = Axis, DegAngle).
