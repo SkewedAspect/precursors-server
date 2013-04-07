@@ -39,6 +39,13 @@
 
 
 // --------------------------------------------------------------------------------------------------------------------
+// NIF Inititialization
+
+static int nif_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
+
+static int nif_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
+
+// --------------------------------------------------------------------------------------------------------------------
 // NIFs
 
 // dot/2
@@ -90,10 +97,6 @@ static bool termToVec(ErlNifEnv* env, const ERL_NIF_TERM term, Vec& targetVec);
 static inline ERL_NIF_TERM vecToTerm(ErlNifEnv* env, const Vec& vec);
 
 
-// Operations with Erlang terms
-static Vec multiply(const Vec& vec, ErlNifEnv* env, const ERL_NIF_TERM other);
-
-
 // --------------------------------------------------------------------------------------------------------------------
 // Declare Erlang exports
 
@@ -114,7 +117,7 @@ static ErlNifFunc nif_funcs[] =
 	{"is_zero", 1, is_zero}
 };
 
-ERL_NIF_INIT(vector, nif_funcs, NULL, NULL, NULL, NULL)
+ERL_NIF_INIT(vector, nif_funcs, nif_load, NULL, nif_upgrade, NULL)
 
 
 #endif // __VECTOR_NIF__
