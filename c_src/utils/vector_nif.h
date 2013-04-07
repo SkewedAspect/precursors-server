@@ -36,6 +36,7 @@ static int nif_load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info);
 
 static int nif_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info);
 
+
 // --------------------------------------------------------------------------------------------------------------------
 // NIFs
 
@@ -83,15 +84,6 @@ static ERL_NIF_TERM subtract(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 
 // is_zero/1
 static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
-
-
-// --------------------------------------------------------------------------------------------------------------------
-// Helpers
-
-// Conversion
-static bool termToVec(ErlNifEnv* env, const ERL_NIF_TERM term, Vec& targetVec);
-
-static inline ERL_NIF_TERM vecToTerm(ErlNifEnv* env, const Vec& vec);
 
 
 // --------------------------------------------------------------------------------------------------------------------
