@@ -15,45 +15,49 @@
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(Entity) ->
-	InitialEntity = entity_physical:init(Entity),
+init(InitialEntity) ->
+	Entity = case dict:find(physical, InitialEntity#entity.state) of
+		{ok, _} ->
+			entity_physical:init(InitialEntity);
+		error ->
+			% The initial entity had no 'physical' key; set up a default with randomized values.
+			EntWithNoInitialPhysical = entity_physical:init(InitialEntity),
+			InitialState = EntWithNoInitialPhysical#entity.state,
+			InitialPhysical = dict:fetch(physical, InitialState),
 
-	% -------------------------------------------------------------------------
+			% Set up default physical state with random position/orientation
+			DefaultPhysical = pre_physics_rk4:update_from_proplist(
+				InitialPhysical,
+				[
+					{position,
+						{
+							random:uniform() * 200 - 100,
+							random:uniform() * 200 + 600,
+							random:uniform() * 20
+						}
+					},
+					{orientation,
+						quaternion:from_axis_angle(
+							vector:unit({
+								random:uniform(),
+								random:uniform(),
+								random:uniform()
+							}),
+							random:uniform() * math:pi()
+						)
+					}
+				]
+			),
 
-	% Set up initial physical state
-	InitialPhysical = dict:fetch(physical, InitialEntity#entity.state),
-
-	% Set up default physical state with random position/orientation
-	DefaultPhysical = dict:from_list([
-		{
-			position, {
-				random:uniform() * 200 - 100,
-				random:uniform() * 200 + 600,
-				random:uniform() * 20
+			EntWithNoInitialPhysical#entity{
+				state = dict:store(physical, DefaultPhysical, InitialState)
 			}
-		},
-		{
-			orientation, quaternion:from_axis_angle(
-				vector:unit({
-					random:uniform(),
-					random:uniform(),
-					random:uniform()
-				}),
-				random:uniform() * math:pi()
-			)
-		}
-	]),
-
-	% Merge our initial physical state dict with our default values, prefering our initials where there's
-	% conflicts.
-	Physical = dict:merge(fun(_Key, InitialVal, _DefaultVal) ->
-		InitialVal
-	end, InitialPhysical, DefaultPhysical),
+	end,
 
 	% -------------------------------------------------------------------------
 
 	% Set up ship state
-	InitialShip = case dict:find(ship, InitialEntity#entity.state) of
+	InitialShip = case dict:find(ship, Entity#entity.state) of
 		{ok, Value} ->
 			Value;
 		error ->
@@ -82,11 +86,10 @@ init(Entity) ->
 	% -------------------------------------------------------------------------
 
 	% Set up our initial state
-	InitialState = InitialEntity#entity.state,
-	State1 = dict:store(physical, Physical, InitialState),
+	State1 = Entity#entity.state,
 	State2 = dict:store(ship, Ship, State1),
 
-	InitialEntity#entity{
+	Entity#entity{
 		state = State2
 	}.
 
@@ -201,9 +204,9 @@ set_target_linear_velocity(Entity, NewLinVel) ->
 
 do_flight_control(Entity) ->
 	Physical = dict:fetch(physical, Entity#entity.state),
-	Orientation = dict:fetch(orientation, Physical),
-	PositionVelAbs = dict:fetch(linear_velocity, Physical),
-	AngularVelAbs = dict:fetch(angular_velocity, Physical),
+	Orientation = pre_physics_rk4:get_prop(orientation, Physical),
+	PositionVelAbs = pre_physics_rk4:get_prop(linear_velocity, Physical),
+	AngularVelAbs = pre_physics_rk4:get_prop(angular_velocity, Physical),
 
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	{TX, TY, TZ} = dict:fetch(target_linear_velocity, ShipState),
@@ -236,12 +239,14 @@ do_flight_control(Entity) ->
 	},
 
 	% Update physical state
-	NewPhysical1 = dict:store(force_relative, Force, Physical),
-	NewPhysical2 = dict:store(torque_relatice, Torque, NewPhysical1),
+	NewPhysical = pre_physics_rk4:update_from_proplist(Physical, [
+		{force_relative, Force},
+		{torque_relative, Torque}
+	]),
 
 	% Update entity state
 	Entity#entity{
-		state = dict:store(physical, NewPhysical2, Entity#entity.state)
+		state = dict:store(physical, NewPhysical, Entity#entity.state)
 	}.
 
 
