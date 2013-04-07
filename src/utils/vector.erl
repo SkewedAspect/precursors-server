@@ -48,8 +48,8 @@ init() ->
 	TryLoad = fun(NifPath) ->
 		case erlang:load_nif(NifPath, 0) of
 			{error, {load_failed, _}} = Error ->
-				%?warning("Error loading NIF module from ~p: ~p", [NifPath, Error]),
-				io:format("Error loading NIF module from ~p:~n        ~p~n", [NifPath, Error]),
+				%?debug("Error loading NIF module from ~p: ~p", [NifPath, Error]),
+				%io:format("Error loading NIF module from ~p:~n        ~p~n", [NifPath, Error]),
 				false;
 			ok -> true
 		end
