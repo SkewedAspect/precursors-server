@@ -133,23 +133,6 @@ Quat Quat::multiply(ErlNifEnv* env, const ERL_NIF_TERM other) const
 // ...
 
 
-/**
- * @doc Convert radians to degrees.
- */
-static double rad2deg(double radians)
-{
-	return radians * (180 / M_PI);
-} // end rad2deg
-
-/**
- * @doc Convert radians to degrees.
- */
-static double deg2rad(double degrees)
-{
-	return degrees * (M_PI / 180);
-} // end deg2rad
-
-
 /* ----------------------------------------------------------------------------------------------------------------- */
 
 // Operator overloads (Quat <op> Quat)
