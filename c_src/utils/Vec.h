@@ -8,6 +8,9 @@
 #ifndef __VEC__
 #define __VEC__
 
+#include "exceptions.h"
+
+
 #ifdef __GNUC__
 #	define FLATTEN __attribute__((flatten))
 #else
@@ -75,7 +78,7 @@ public:
 	bool is_zero() const;
 
 	/// Access components using Vec[idx]
-	double operator [](const size_t& idx) const;
+	double operator [](const size_t& idx) const throw(BadIndex<size_t>);
 
 
 	// ----------------------------------------------------------------------------------------------------------------

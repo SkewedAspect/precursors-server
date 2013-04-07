@@ -9,7 +9,6 @@
 
 #include <erl_nif.h>
 
-#include "exceptions.h"
 #include "angles.h"
 
 #include "Vec.h"
@@ -117,7 +116,7 @@ bool Vec::is_zero() const
 } // end is_zero
 
 /// Access components using Vec[idx]
-double Vec::operator [](const size_t& idx) const
+double Vec::operator [](const size_t& idx) const throw(BadIndex<size_t>)
 {
 	if(idx > 2 || idx < 0)
 	{
