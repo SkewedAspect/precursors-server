@@ -5,6 +5,4 @@ authentication, chat, physics simulation, and high levels of concurrency.
 
 # Sponsors
 
-![IntelliJIDEA](http://www.jetbrains.com/img/logos/logo_intellij_idea.gif "IntelliJIDEA") IDE generously donated by ![JetBrains](http://www.jetbrains.com/img/logos/logo_jetbrains.gif "Jetbrains").
-
-<img src="http://www.jetbrains.com/img/logos/logo_intellij_idea.gif " alt="IntelliJIDEA" width="141px" height="51px">
+![IntelliJIDEA](http://skewedaspect.com/logos/logo_intellij_idea_140.png "IntelliJIDEA") IDE generously donated by ![JetBrains](http://skewedaspect.com/logos/logo_jetbrains_140.png "Jetbrains"), through their [open source program](http://www.jetbrains.com/idea/buy/buy.jsp#openSource). If you haven't seen their IDE yet, it's amazing. [Check it out](http://www.jetbrains.com/idea/index.html).
