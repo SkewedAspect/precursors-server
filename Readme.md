@@ -7,5 +7,4 @@ authentication, chat, physics simulation, and high levels of concurrency.
 
 [IntelliJIDEA](http://www.jetbrains.com/idea/index.html) IDE generously donated by [JetBrains](http://jetbrains.com/), through their [open source program](http://www.jetbrains.com/idea/buy/buy.jsp#openSource). If you haven't seen their IDE yet, it's amazing.
 
-![IntelliJIDEA](http://skewedaspect.com/logos/logo_intellij_idea_140.png "IntelliJIDEA")
 ![JetBrains](http://skewedaspect.com/logos/logo_jetbrains_140.png "Jetbrains")
