@@ -8,7 +8,7 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5]).
+-export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5, entity_event/3]).
 
 % helpers
 -export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
@@ -67,6 +67,14 @@ client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 client_event(Entity, _ClientInfo, Channel, EventType, Event) ->
 	?debug("~p received unhandled event ~p on channel ~p! (full event: ~p)",
 		[Entity#entity.id, EventType, Channel, Event]),
+
+	{noreply, Entity}.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+entity_event(Event, From, Entity) ->
+	?debug("~p received unhandled entity event from ~p! (full event: ~p)",
+		[Entity#entity.id, From, Event]),
 
 	{noreply, Entity}.
 

@@ -9,7 +9,7 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5]).
+-export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5, entity_event/3]).
 
 -define(STEP_SIZE, 50).
 
@@ -67,3 +67,8 @@ client_request(Entity, Channel, RequestType, RequestID, Request) ->
 
 client_event(Entity, ClientInfo, Channel, EventType, Event) ->
 	entity_base:client_event(Entity, ClientInfo, Channel, EventType, Event).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+entity_event(Event, From, Entity) ->
+	entity_physical:client_event(Event, From, Entity).
