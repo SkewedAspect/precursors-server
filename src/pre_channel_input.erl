@@ -6,17 +6,17 @@
 -include("log.hrl").
 -include("pre_client.hrl").
 
-% api
+% API
 -export([register_hooks/0]).
 
-% hooks
+% Hooks
 -export([client_login_hook/2]).
 
 % pre_client_channels
 -export([client_request/4, client_response/4, client_event/3]).
 
 %% -------------------------------------------------------------------
-%% api
+%% API
 %% -------------------------------------------------------------------
 
 register_hooks() ->
@@ -24,12 +24,22 @@ register_hooks() ->
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]).
 
 %% -------------------------------------------------------------------
+%% Hooks
+%% -------------------------------------------------------------------
+
+client_login_hook(undefined, ClientInfo) ->
+	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, <<"input">>]),
+	ChannelManager = ClientInfo#client_info.channel_manager,
+	pre_client_channels:set_channel(ChannelManager, <<"input">>, ?MODULE, []),
+	{ok, undefined}.
+
+%% -------------------------------------------------------------------
 %% pre_client_channels
 %% -------------------------------------------------------------------
 
 client_request(#client_info{entity = undefined} = _ClientInfo, _RequestID, _Request, _Info) ->
 	% INCREDIBLY NOISY:
-	%?warning("Can't process input request ~p for client ~p; no entity inhabited!", [Request, ClientInfo]),
+	%?warning("Can't process 'input' request ~p for client ~p; no entity inhabited!", [Request, ClientInfo]),
 	Response = [
 		{confirm, false},
 		{reason, <<"No entity inhabited">>}
@@ -46,11 +56,3 @@ client_response(_Client, _Id, _Response, _Info) ->
 client_event(ClientInfo, Event, _Info) ->
 	EventType = proplists:get_value(type, Event),
 	pre_entity_comm:client_event(ClientInfo, input, EventType, Event).
-
-%% -------------------------------------------------------------------
-
-client_login_hook(undefined, ClientInfo) ->
-	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, <<"input">>]),
-	ChannelManager = ClientInfo#client_info.channel_manager,
-	pre_client_channels:set_channel(ChannelManager, <<"input">>, ?MODULE, []),
-	{ok, undefined}.

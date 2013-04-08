@@ -9,8 +9,8 @@
 -include("pre_entity.hrl").
 
 % API
--export([client_request/5, client_event/4]).
--export([broadcast_event/3, broadcast_update/2, broadcast_full_update/1]).
+-export([client_request/5, client_request/6, client_event/4, client_event/5]).
+-export([send_update/3]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% External API
@@ -31,9 +31,30 @@
 	Response :: json().
 
 client_request(ClientInfo, Channel, RequestType, RequestID, Request) ->
-	EntityEngine = ClientInfo#client_info.entity_engine,
-	EntityID = ClientInfo#client_info.entity,				%TODO: Make this entity_id
+	#client_info {
+		entity_engine = EntityEngine,
+		entity = EntityID				%TODO: Make this 'entity_id' instead of 'entity'
+	} = ClientInfo,
 
+	% Call the entity engine
+	client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request).
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% @doc Passes the client request to the appropriate behavior to be handled.
+%%
+%% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
+%% is always expected.
+
+-spec client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request) -> Response when
+	EntityEngine :: pid(),
+	EntityID :: binary(),
+	Channel :: atom(),
+	RequestType :: binary(),
+	RequestID :: integer(),
+	Request :: json(),
+	Response :: json().
+
+client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request) ->
 	% Call the entity engine
 	pre_entity_engine:client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request).
 
@@ -51,32 +72,39 @@ client_request(ClientInfo, Channel, RequestType, RequestID, Request) ->
 	Response :: json().
 
 client_event(ClientInfo, Channel, EventType, Event) ->
-	EntityEngine = ClientInfo#client_info.entity_engine,
-	EntityID = ClientInfo#client_info.entity,				%TODO: Make this entity_id
+	#client_info {
+		entity_engine = EntityEngine,
+		entity = EntityID				%TODO: Make this 'entity_id' instead of 'entity'
+	} = ClientInfo,
 
+	% Call the entity engine
+	client_event(EntityEngine, EntityID, Channel, EventType, Event).
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% @doc Passes the client event to the appropriate behavior to be handled.
+%%
+%% This passes an eventvfrom the client to the behavior of the entity the client is currently controlling. No response
+%% is expected.
+
+-spec client_event(EntityEngine, EntityID, Channel, EventType, Event) -> Response when
+	EntityEngine :: pid(),
+	EntityID :: binary(),
+	Channel :: atom(),
+	EventType :: binary(),
+	Event :: json(),
+	Response :: json().
+
+client_event(EntityEngine, EntityID, Channel, EventType, Event) ->
 	% Call the entity engine
 	pre_entity_engine:client_event(EntityEngine, EntityID, Channel, EventType, Event).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Broadcasts an event for a given entity.
+%% @doc Sends a delta update to the given client.
 
--spec broadcast_event(EventType::binary(), EntityID::binary(), EventContents::json()) -> ok.
+-spec send_update(ClientInfo :: #client_info{}, EntityID :: binary(), Update :: json()) -> ok.
 
-broadcast_event(EventType, EntityID, EventContents) ->
-	pre_channel_entity_sup:broadcast_event(EventType, EntityID, EventContents).
+send_update(ClientInfo, EntityID, Update) ->
+	ConnectionPid = ClientInfo#client_info.connection,
 
-%% --------------------------------------------------------------------------------------------------------------------
-%% @doc Broadcasts a delta update for a given entity.
-
--spec broadcast_update(EntityID::binary(), PartialState::json()) -> ok.
-
-broadcast_update(EntityID, PartialState) ->
-	pre_channel_entity_sup:broadcast_update(EntityID, PartialState).
-
-%% --------------------------------------------------------------------------------------------------------------------
-%% @doc Broadcasts a full update for a given entity.
-
--spec broadcast_full_update(Entity::#entity{}) -> ok.
-
-broadcast_full_update(Entity) ->
-	pre_channel_entity_sup:broadcast_event(Entity).
+	Update1 = pre_channel_entity:build_state_event(update, Update, EntityID),
+	pre_client_connection:send(ConnectionPid, udp, event, <<"entity">>, Update1).

@@ -77,20 +77,20 @@ default_physical() ->
 
 to_proplist(Physical) ->
 	[
-		{position, Physical#physical.position},
-		{linear_momentum, Physical#physical.linear_momentum},
-		{orientation, Physical#physical.orientation},
-		{angular_momentum, Physical#physical.angular_momentum},
+		{position, vector:vec_to_list(Physical#physical.position)},
+		{linear_momentum, vector:vec_to_list(Physical#physical.linear_momentum)},
+		{orientation, quaternion:quat_to_list(Physical#physical.orientation)},
+		{angular_momentum, vector:vec_to_list(Physical#physical.angular_momentum)},
 
-		{force_absolute, Physical#physical.force_absolute},
-		{force_relative, Physical#physical.force_relative},
-		{torque_absolute, Physical#physical.torque_absolute},
-		{torque_relative, Physical#physical.torque_relative},
+		{force_absolute, vector:vec_to_list(Physical#physical.force_absolute)},
+		{force_relative, vector:vec_to_list(Physical#physical.force_relative)},
+		{torque_absolute, vector:vec_to_list(Physical#physical.torque_absolute)},
+		{torque_relative, vector:vec_to_list(Physical#physical.torque_relative)},
 
 		{last_update, Physical#physical.last_update},
-		{linear_velocity, Physical#physical.linear_velocity},
-		{angular_velocity, Physical#physical.angular_velocity},
-		{spin, Physical#physical.spin},
+		{linear_velocity, vector:vec_to_list(Physical#physical.linear_velocity)},
+		{angular_velocity, vector:vec_to_list(Physical#physical.angular_velocity)},
+		{spin, quaternion:quat_to_list(Physical#physical.spin)},
 
 		{mass, Physical#physical.mass},
 		{inverse_mass, Physical#physical.inverse_mass},

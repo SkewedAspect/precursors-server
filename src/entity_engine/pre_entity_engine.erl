@@ -193,6 +193,18 @@ handle_cast({send_entity, EntityID, TargetNode}, State) ->
 	spawn(?MODULE, send_entity_to, [self(), Entity, TargetNode]),
     {noreply, State};
 
+handle_cast({update, EntityID, Update}, State) ->
+	dict:fold(fun(TargetEntityID, TargetEntity, _Acc) ->
+		case {TargetEntityID, TargetEntity#entity.client} of
+			{EntityID, _} -> ok;
+			{_, undefined} -> ok;
+			{_, ClientInfo} ->
+				%TODO: Filter according to distance from TargetEntity or something.
+				pre_entity_comm:send_update(ClientInfo, EntityID, Update)
+		end
+	end, ok, State#state.entities),
+	{noreply, State};
+
 
 handle_cast(_, State) ->
     {noreply, State}.
@@ -270,7 +282,8 @@ call_behavior_func(EntityID, Func, Args, State) ->
 call_behavior_func(Entity, Func, Args) ->
 	#entity{
 		id = EntityID,
-		behavior = Behavior
+		behavior = Behavior,
+		client = ClientInfo
 	} = Entity,
 
 	% Call the behavior
@@ -279,15 +292,14 @@ call_behavior_func(Entity, Func, Args) ->
 			NewEntity1;
 
 		{Update1, NewEntity2} ->
-			% Send the entity update
-			pre_entity_engine_sup:broadcast_update(EntityID, Update1),
+			send_update(ClientInfo, EntityID, Update1),
 			NewEntity2;
 
 		{Reply1, undefined, NewEntity3} ->
 			{Reply1, NewEntity3};
 
 		{Reply2, Update2, NewEntity4} ->
-			pre_entity_engine_sup:broadcast_update(EntityID, Update2),
+			send_update(ClientInfo, EntityID, Update2),
 			{Reply2, NewEntity4}
 
 	catch
@@ -296,3 +308,13 @@ call_behavior_func(Entity, Func, Args) ->
 				[Behavior, Func, Args, EntityID, Exception]),
 			Entity
 	end.
+
+
+send_update(undefined, EntityID, Update) ->
+	% Send the entity update to all other entity engines
+	pre_entity_engine_sup:broadcast_update(EntityID, Update);
+
+send_update(ClientInfo, EntityID, Update) ->
+	% Send the entity update to this entity's client
+	pre_entity_comm:send_update(ClientInfo, EntityID, Update),
+	send_update(undefined, EntityID, Update).

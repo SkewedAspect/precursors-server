@@ -27,6 +27,7 @@ start_link() ->
 	pre_client_hooks:register_hooks(),
 	pre_channel_ping:register_hooks(),
 	pre_channel_input:register_hooks(),
+	pre_channel_entity:register_hooks(),
 	Result.
 
 add_hook(Hook, Mod, Func) ->

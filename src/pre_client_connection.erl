@@ -115,12 +115,12 @@ respond(Pid, Socket, MessageID, Channel, Json) ->
 
 %% @doc Set the given client's inhabited entity.
 
--spec set_inhabited_entity(Pid, EntityID) -> 'ok' when
+-spec set_inhabited_entity(Pid, Entity) -> 'ok' when
 	Pid :: pid() | #client_info{},
-	EntityID :: binary().
+	Entity :: #entity{}.
 
-set_inhabited_entity(Pid, EntityID) ->
-	gen_server:cast(Pid, {inhabit_entity, EntityID}).
+set_inhabited_entity(Pid, Entity) ->
+	gen_server:cast(Pid, {inhabit_entity, Entity}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -206,8 +206,14 @@ handle_cast(start_accept_tcp, State) ->
 	?info("TCP socket set:  ~p", [Socket]),
 	{noreply, State};
 
-handle_cast({inhabit_entity, EntityID}, State) ->
+handle_cast({inhabit_entity, Entity}, State) ->
 	ClientInfo = State#state.client_info,
+	EntityID = Entity#entity.id,
+
+	FullUpdate = pre_entity_manager:get_full_update(Entity),
+	FullMessage = pre_channel_entity:build_state_event(inhabit, FullUpdate, EntityID),
+	send(ClientInfo#client_info.connection, udp, event, entity, FullMessage),
+
 	pre_hooks:async_trigger_hooks(client_inhabited_entity, [self(), EntityID], all),
 	NewState = State#state{
 		client_info = ClientInfo#client_info{entity = EntityID}
@@ -470,7 +476,7 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 
 	?info("Creating entity for client ~p.", [State#state.client_info]),
 	{ok, Entity} = pre_entity_manager:create_entity(EntityID, entity_ship, [{}], State#state.client_info),
-	set_inhabited_entity(Connection, Entity#entity.id),
+	set_inhabited_entity(Connection, Entity),
 
 	CharSelRep = [
 		{confirm, true}

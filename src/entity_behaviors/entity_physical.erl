@@ -52,19 +52,9 @@ simulate(Entity, _EntityEngineState) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 get_full_state(Entity) ->
-	EntityState = dict:fetch(physical, Entity#entity.state),
+	Physical = dict:fetch(physical, Entity#entity.state),
 
-	% Note, we start the accumulator with the behavior key for simplicity's sake.
-	FullState = entity_base:gen_full_update(fun (Value) ->
-		case Value of
-			{_, _, _} ->
-				vector:vec_to_list(Value);
-			{_, _, _, _} ->
-				quaternion:quat_to_list(Value);
-			_ ->
-				Value
-			end
-	end, [{behavior, <<"Physical">>}], EntityState),
+	FullState = [{behavior, <<"Physical">>} | pre_physics_rk4:to_proplist(Physical)],
 
 	{FullState, Entity}.
 

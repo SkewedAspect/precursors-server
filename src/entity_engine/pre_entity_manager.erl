@@ -6,7 +6,7 @@
 -module(pre_entity_manager).
 
 -export([get_entity/1, create_entity/2, create_entity/3, create_entity/4, load_entity/1]).
--export([start_entity_engine/1]).
+-export([start_entity_engine/1, get_full_update/1]).
 
 -include("log.hrl").
 -include("pre_entity.hrl").
@@ -85,7 +85,7 @@ create_entity(undefined, Behavior, Definition) ->
 
 create_entity(EntityID, Behavior, Definition) ->
 	% Do a database lookup, and attempt to load the entity.
-	InitialEntity = case predata:get(<<"entity">>, EntityID) of
+	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
 			json_to_entity(Value);
 		notfound ->
@@ -124,7 +124,7 @@ create_entity(undefined, Behavior, Definition, ClientInfo) ->
 
 create_entity(EntityID, Behavior, Definition, ClientInfo) ->
 	% Do a database lookup, and attempt to load the entity.
-	InitialEntity = case predata:get(<<"entity">>, EntityID) of
+	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
 			json_to_entity(Value);
 		notfound ->
@@ -160,7 +160,7 @@ create_entity(EntityID, Behavior, Definition, ClientInfo) ->
 
 load_entity(EntityID) ->
 	% Do a database lookup, and attempt to load the entity.
-	InitialEntity = case predata:get(<<"entity">>, EntityID) of
+	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
 			json_to_entity(Value);
 
@@ -201,6 +201,22 @@ load_entity(EntityID) ->
 
 start_entity_engine(Args) ->
 	gen_server:cast(pre_entity_engine_sup, {start_entity_engine, Args}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Starts a new entity engine.
+%%
+%% This starts a new (supervised) entity engine, and adds it to our list of tracked entity engines.
+-spec get_full_update(Entity :: #entity{}) ->
+	FullUpdate :: json().
+
+get_full_update(Entity) ->
+	#entity{
+		id = EntityID,
+		behavior = Behavior
+	} = Entity,
+
+	[{state, Behavior:get_full_state(Entity)}].
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Helpers
