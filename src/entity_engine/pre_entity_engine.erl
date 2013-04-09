@@ -251,6 +251,7 @@ simulate_entities(State) ->
 		entities = NewEntities
 	}.
 
+%% --------------------------------------------------------------------------------------------------------------------
 
 add_entity_internal(Entity, State) ->
 	Entities = State#state.entities,
@@ -260,6 +261,7 @@ add_entity_internal(Entity, State) ->
 		entities = dict:store(EntityID, Entity, Entities)
 	}.
 
+%% --------------------------------------------------------------------------------------------------------------------
 
 send_entity_to(FromEnginePid, Entity, TargetNode) ->
 	{ok, NewEnginePid} = gen_server:call({TargetNode, pre_entity_engine_sup}, {move_to_local_engine, Entity, FromEnginePid}),
@@ -270,6 +272,7 @@ send_entity_to(FromEnginePid, Entity, TargetNode) ->
 
 	ok = gen_server:call(FromEnginePid, {forget, Entity}).
 
+%% --------------------------------------------------------------------------------------------------------------------
 
 call_behavior_func(#entity{} = Entity, Func, Args, State) ->
 	case call_behavior_func(Entity, Func, Args) of
@@ -288,39 +291,96 @@ call_behavior_func(EntityID, Func, Args, State) ->
 call_behavior_func(Entity, Func, Args) ->
 	#entity{
 		id = EntityID,
-		behavior = Behavior,
-		client = ClientInfo
+		behavior = Behavior
 	} = Entity,
 
 	% Call the behavior
-	try apply(Behavior, Func, Args) of
-		{undefined, NewEntity1} ->
-			{noreply, NewEntity1};
-
-		{Update1, NewEntity2} ->
-			send_update(ClientInfo, EntityID, Update1),
-			{noreply, NewEntity2};
-
-		{Reply1, undefined, NewEntity3} ->
-			{reply, Reply1, NewEntity3};
-
-		{Reply2, Update2, NewEntity4} ->
-			send_update(ClientInfo, EntityID, Update2),
-			{reply, Reply2, NewEntity4}
-
-	catch
+	try handle_behavior_result(apply(Behavior, Func, Args), {Entity, Func, Args}) catch
 		Exception ->
 			?error("Exception while calling behavior function ~p:~p(~p) for entity ~p: ~p",
 				[Behavior, Func, Args, EntityID, Exception]),
 			Entity
 	end.
 
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec handle_behavior_result(BehaviorFuncResult, Context) -> GenServerResponse when
+	BehaviorFuncResult :: term(),
+	Context :: {OriginalEntity, Func, Args},
+		OriginalEntity :: #entity{},
+		Func :: atom(),
+		Args :: list(),
+	GenServerResponse :: {reply, Reply, NewEntity} | {noreply, NewEntity},
+		Reply :: json(),
+		NewEntity :: #entity{}.
+
+% 3-tuples
+handle_behavior_result({Reply, Update, #entity{} = NewEntity}, Ctx) ->
+	handle_behavior_update(Update, Ctx),
+	handle_behavior_reply(Reply, NewEntity, Ctx);
+
+handle_behavior_result({_, _, UnrecognizedEntity}, {OriginalEntity, Func, Args}) ->
+	Behavior = OriginalEntity#entity.behavior,
+	?error("Unrecognized entity record in 3-tuple result from ~p:~p(~p): ~p",
+		[Behavior, Func, Args, UnrecognizedEntity]),
+	{noreply, OriginalEntity};
+
+% 2-tuples
+handle_behavior_result({Update, #entity{} = NewEntity}, Ctx) ->
+	handle_behavior_update(Update, Ctx),
+	{noreply, NewEntity};
+
+handle_behavior_result({_, UnrecognizedEntity}, {OriginalEntity, Func, Args}) ->
+	Behavior = OriginalEntity#entity.behavior,
+	?error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p",
+		[Behavior, Func, Args, UnrecognizedEntity]),
+	{noreply, OriginalEntity};
+
+% Other
+handle_behavior_result(Unrecognized, {OriginalEntity, Func, Args}) ->
+	Behavior = OriginalEntity#entity.behavior,
+	?error("Unrecognized result from ~p:~p(~p): ~p",
+		[Behavior, Func, Args, Unrecognized]),
+	{noreply, OriginalEntity}.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+handle_behavior_update(undefined, _Ctx) -> ok;
+
+handle_behavior_update([{_K, _V} | _] = Update, {OriginalEntity, _Func, _Args}) ->
+	#entity{
+		id = EntityID,
+		client = ClientInfo
+	} = OriginalEntity,
+	send_update(ClientInfo, EntityID, Update);
+
+handle_behavior_update(UnrecognizedUpdate, {OriginalEntity, Func, Args}) ->
+	Behavior = OriginalEntity#entity.behavior,
+	?error("Unrecognized update in result from ~p:~p(~p): ~p",
+		[Behavior, Func, Args, UnrecognizedUpdate]).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+handle_behavior_reply(undefined, NewEntity, _Ctx) ->
+	{noreply, NewEntity};
+
+handle_behavior_reply([{_K, _V} | _] = Reply, NewEntity, _Ctx) ->
+	{reply, Reply, NewEntity};
+
+handle_behavior_reply(UnrecognizedReply, NewEntity, {OriginalEntity, Func, Args}) ->
+	Behavior = OriginalEntity#entity.behavior,
+	?error("Unrecognized reply in result from ~p:~p(~p): ~p",
+		[Behavior, Func, Args, UnrecognizedReply]),
+	{noreply, NewEntity}.
+
+%% --------------------------------------------------------------------------------------------------------------------
 
 update_entity_state(NewEntity, State) ->
 	State#state{
 		entities = dict:store(NewEntity#entity.id, NewEntity, State#state.entities)
 	}.
 
+%% --------------------------------------------------------------------------------------------------------------------
 
 send_update(undefined, EntityID, Update) ->
 	% Send the entity update to all other entity engines
