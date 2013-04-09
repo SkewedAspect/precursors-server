@@ -99,20 +99,23 @@ get_full_state(Entity) ->
 	ShipFullState = dict:fetch(ship, Entity#entity.state),
 	PhysicalFullState = entity_physical:get_full_state(Entity),
 
-	% Note, we start the accumulator with the behavior key for simplicity's sake.
-	FullState = entity_base:gen_full_state(fun (Value) ->
-			case Value of
-					{_, _, _} ->
-							vector:vec_to_list(Value);
-					{_, _, _, _} ->
-							quaternion:quat_to_list(Value);
-					_ ->
-							Value
-					end
-	end, PhysicalFullState, ShipFullState),
-
 	%TODO: Overwrite the 'behavior' key with <<"Ship">>, however the client needs support for that first.
-	{FullState, Entity}.
+
+	% Note, we start the accumulator with the behavior key for simplicity's sake.
+	entity_base:gen_full_state(
+		fun (Value) ->
+			case Value of
+				{_, _, _} ->
+					vector:vec_to_list(Value);
+				{_, _, _, _} ->
+					quaternion:quat_to_list(Value);
+				_ ->
+					Value
+			end
+		end,
+		PhysicalFullState,
+		ShipFullState
+	).
 
 %% --------------------------------------------------------------------------------------------------------------------
 

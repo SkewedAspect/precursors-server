@@ -54,9 +54,7 @@ simulate(Entity, _EntityEngineState) ->
 get_full_state(Entity) ->
 	Physical = dict:fetch(physical, Entity#entity.state),
 
-	FullState = [{behavior, <<"Physical">>} | pre_physics_rk4:to_proplist(Physical)],
-
-	{FullState, Entity}.
+	[{behavior, <<"Physical">>} | pre_physics_rk4:to_proplist(Physical)].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
