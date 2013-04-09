@@ -59,7 +59,7 @@ init(InitialEntity) ->
 
 	% Defaults for modelDef
 	State1 = case dict:find(modelDef, Entity#entity.state) of
-		{ok, Value} ->
+		{ok, _} ->
 			Entity#entity.state;
 		error ->
 			dict:store(modelDef, [{model, <<"Ships/ares">>}], Entity#entity.state)
