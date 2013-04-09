@@ -100,7 +100,7 @@ get_full_state(Entity) ->
 	PhysicalFullState = entity_physical:get_full_state(Entity),
 
 	% Note, we start the accumulator with the behavior key for simplicity's sake.
-	FullState = entity_base:gen_full_update(fun (Value) ->
+	FullState = entity_base:gen_full_state(fun (Value) ->
 			case Value of
 					{_, _, _} ->
 							vector:vec_to_list(Value);
