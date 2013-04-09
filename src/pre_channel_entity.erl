@@ -7,7 +7,7 @@
 -include("pre_entity.hrl").
 
 % API
--export([register_hooks/0, build_state_event/3]).
+-export([register_hooks/0, build_state_event/3, generate_timestamp/0, generate_timestamp/1]).
 
 % Hooks
 -export([client_logged_in_hook/2]).
@@ -31,14 +31,28 @@ register_hooks() ->
 	StateUpdate :: json(),
 	EntityID :: binary().
 
-build_state_event(EventType, StateUpdate, EntityID) ->
+build_state_event(undefined, StateUpdate, EntityID) ->
 	[
-		{type, EventType},
 		{id, EntityID},
-		{timestamp, entity_base:generate_timestamp()}
+		{timestamp, generate_timestamp()}
 		| StateUpdate
-	].
+	];
 
+build_state_event(EventType, StateUpdate, EntityID) ->
+	build_state_event(undefined, [{type, EventType} | StateUpdate], EntityID).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Generates a timestamp for a network message.
+%%
+%% This just generates a (floating-point) number representing a number of seconds.
+
+generate_timestamp() ->
+	generate_timestamp(os:timestamp()).
+
+
+generate_timestamp({MegaSecs, Secs, MicroSecs}) ->
+	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Hooks

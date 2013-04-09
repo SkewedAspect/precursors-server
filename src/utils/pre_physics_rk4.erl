@@ -87,7 +87,7 @@ to_proplist(Physical) ->
 		{torque_absolute, vector:vec_to_list(Physical#physical.torque_absolute)},
 		{torque_relative, vector:vec_to_list(Physical#physical.torque_relative)},
 
-		{last_update, entity_base:generate_timestamp(Physical#physical.last_update)},
+		{last_update, pre_channel_entity:generate_timestamp(Physical#physical.last_update)},
 		{linear_velocity, vector:vec_to_list(Physical#physical.linear_velocity)},
 		{angular_velocity, vector:vec_to_list(Physical#physical.angular_velocity)},
 		{spin, quaternion:quat_to_list(Physical#physical.spin)},

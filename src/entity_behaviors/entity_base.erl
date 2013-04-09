@@ -12,7 +12,6 @@
 
 % helpers
 -export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
--export([generate_timestamp/0, generate_timestamp/1]).
 
 -define(STEP_SIZE, 50).
 
@@ -38,21 +37,20 @@ get_full_state(_Entity) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
-	EntState = Entity#entity.state,
-
-	Response = [
+	Behavior = Entity#entity.behavior,
+	StateUpdate = [
 		{confirm, true},
-		{id, Entity#entity.id},
-		{timestamp, generate_timestamp()},
-		{state, EntState}
+		{state, Behavior:get_full_state(Entity)}
 	],
+
+	Response = pre_channel_entity:build_state_event(undefined, StateUpdate, Entity#entity.id),
 	{Response, undefined, Entity};
 
 client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 	?debug("~p received unhandled request ~p on channel ~p! (full request: ~p)",
 		[Entity#entity.id, RequestType, Channel, Request]),
 
-	% Respond humerously.
+	% Respond humorously.
 	BehaviorBin = atom_to_binary(Entity#entity.behavior, latin1),
 	Response = [
 		{confirm, false},
@@ -176,16 +174,3 @@ calc_update(NewState, Entity) ->
 			},
 			{Update, NewEntity}
 	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Generates a timestamp for a network message.
-%%
-%% This just generates a (floating-point) number representing a number of seconds.
-
-generate_timestamp() ->
-	generate_timestamp(os:timestamp()).
-
-
-generate_timestamp({MegaSecs, Secs, MicroSecs}) ->
-	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
