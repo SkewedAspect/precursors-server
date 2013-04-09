@@ -36,7 +36,9 @@ make devrel DEVNODES=4
 
 info "Changing storage backend to ELevelDB..."
 
-sed -i '/{storage_backend,/s/riak_kv_.*_backend/riak_kv_eleveldb_backend/' dev/dev1/etc/app.config
+for node in dev/dev*; do
+	sed -i '/{storage_backend,/s/riak_kv_.*_backend/riak_kv_eleveldb_backend/' $node/etc/app.config
+done
 
 
 info "Generating cluster run script..."
@@ -58,7 +60,7 @@ case "\$1" in
 	search) CMD=search-cmd; shift; ;;
 	*) CMD=riak; ;;
 esac
-info "Running \\\`\$CMD \$*\\\` on all nodes..."
+info "Running \\\`\$CMD \$*\\\` on \$NODES_DESC..."
 for node in "\${NODES[@]}"; do
 	info "  on \${node}..."
 	"\$node/bin/\$CMD" "\$@"
@@ -93,3 +95,4 @@ $PYTHON $(dirname $0)/load_initial_db.py $RIAK_PB_PORT
 
 
 info "Done."
+info "Node dev1 listening for protobuf connections on port $RIAK_PB_PORT."
