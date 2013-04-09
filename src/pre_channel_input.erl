@@ -48,11 +48,13 @@ client_request(#client_info{entity = undefined} = _ClientInfo, _RequestID, _Requ
 
 client_request(ClientInfo, RequestID, Request, _Info) ->
 	RequestType = proplists:get_value(type, Request),
-	pre_entity_comm:client_request(ClientInfo, input, RequestType, RequestID, Request).
+	Response = pre_entity_comm:client_request(ClientInfo, input, RequestType, RequestID, Request),
+	{reply, Response}.
 
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.
 
 client_event(ClientInfo, Event, _Info) ->
 	EventType = proplists:get_value(type, Event),
-	pre_entity_comm:client_event(ClientInfo, input, EventType, Event).
+	ok = pre_entity_comm:client_event(ClientInfo, input, EventType, Event),
+	{ok, []}.
