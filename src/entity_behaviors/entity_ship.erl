@@ -9,7 +9,8 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5, entity_event/3]).
+-export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/5,
+	entity_event/3]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
@@ -105,11 +106,15 @@ init(InitialEntity) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+get_client_behavior() ->
+	%TODO: change this to <<"Ship">>, once the client supports that.
+	<<"Physical">>.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
 get_full_state(Entity) ->
 	ShipFullState = dict:fetch(ship, Entity#entity.state),
 	PhysicalFullState = entity_physical:get_full_state(Entity),
-
-	%TODO: Overwrite the 'behavior' key with <<"Ship">>, however the client needs support for that first.
 
 	% Note, we start the accumulator with the behavior key for simplicity's sake.
 	entity_base:gen_full_state(

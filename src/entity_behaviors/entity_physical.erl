@@ -9,7 +9,8 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5, entity_event/3]).
+-export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/5,
+	entity_event/3]).
 
 -define(STEP_SIZE, 50).
 
@@ -51,10 +52,15 @@ simulate(Entity, _EntityEngineState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+get_client_behavior() ->
+	<<"Physical">>.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
 get_full_state(Entity) ->
 	Physical = dict:fetch(physical, Entity#entity.state),
 
-	[{behavior, <<"Physical">>} | pre_physics_rk4:to_proplist(Physical)].
+	entity_base:get_full_state(Entity) ++ pre_physics_rk4:to_proplist(Physical).
 
 %% --------------------------------------------------------------------------------------------------------------------
 

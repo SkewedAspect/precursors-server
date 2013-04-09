@@ -8,7 +8,8 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5, entity_event/3]).
+-export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/5,
+	entity_event/3]).
 
 % helpers
 -export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
@@ -31,8 +32,15 @@ simulate(Entity, _EntityEngineState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-get_full_state(_Entity) ->
-	[{behavior, <<"Base">>}].
+get_client_behavior() ->
+	<<"Base">>.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+get_full_state(Entity) ->
+	ModelDef = dict:fetch(modelDef, Entity#entity.state),
+
+	[{modelDef, ModelDef}].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
