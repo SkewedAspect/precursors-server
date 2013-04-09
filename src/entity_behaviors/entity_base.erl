@@ -38,14 +38,12 @@ get_full_state(_Entity) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
-	ModelDef = Entity#entity.model,
 	EntState = Entity#entity.state,
 
 	Response = [
 		{confirm, true},
 		{id, Entity#entity.id},
 		{timestamp, generate_timestamp()},
-		{modelDef, ModelDef},
 		{state, EntState}
 	],
 	{Response, undefined, Entity};

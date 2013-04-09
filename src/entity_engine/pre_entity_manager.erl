@@ -238,34 +238,27 @@ json_to_entity(EntityJSON) ->
 	#entity {
 		id = proplists:get_value(id, EntityJSON),
 		behavior = proplists:get_value(behavior, EntityJSON),
-		model = proplists:get_value(model, EntityJSON),
 		state = proplists:get_value(state, EntityJSON)
 }.
 
-% Populates the state dict with the definition from the database; however since model/behavior are not part of state,
+% Populates the state dict with the definition from the database; however since behavior is not part of state,
 % we need to pull it out and handle it seperately.
 populate_definition(Entity, Definition) ->
 	DefDict = json_to_dict(Definition),
 
-	% Pull out the model from the definition
-	Model = dict:find(model, DefDict),
-	dict:erase(model, DefDict),
-
 	% Update the entity
 	case dict:find(behavior, DefDict) of
-	{ok, Behavior} ->
-		dict:erase(behavior, DefDict),
+		{ok, Behavior} ->
+			dict:erase(behavior, DefDict),
 
-		Entity#entity{
-			behavior = Behavior,
-			model = Model,
-			state = DefDict
-		};
-	error ->
-		Entity#entity{
-			model = Model,
-			state = DefDict
-		}
+			Entity#entity{
+				behavior = Behavior,
+				state = DefDict
+			};
+		error ->
+			Entity#entity{
+				state = DefDict
+			}
 	end.
 
 
