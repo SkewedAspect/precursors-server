@@ -14,7 +14,8 @@
 % -------------------------------------------------------------------------
 
 % external api
--export([simulate/1, simulate/2, default_physical/0, to_proplist/1, from_proplist/1, update_from_proplist/2, get_prop/2]).
+-export([simulate/1, simulate/2, default_physical/0, to_proplist/1, diff_to_proplist/2, from_proplist/1,
+	update_from_proplist/2, get_prop/2]).
 
 % -------------------------------------------------------------------------
 
@@ -97,6 +98,47 @@ to_proplist(Physical) ->
 		{inertia_tensor, Physical#physical.inertia_tensor},
 		{inverse_inertia_tensor, Physical#physical.inverse_inertia_tensor}
 	].
+
+%% ------------------------------------------------------------------------
+
+diff_to_proplist(OldPhysical, NewPhysical) ->
+	filter_diff_list([
+		{position, NewPhysical#physical.position, OldPhysical#physical.position},
+		{linear_momentum, NewPhysical#physical.linear_momentum, OldPhysical#physical.linear_momentum},
+		{orientation, NewPhysical#physical.orientation, OldPhysical#physical.orientation},
+		{angular_momentum, NewPhysical#physical.angular_momentum, OldPhysical#physical.angular_momentum},
+
+		{force_absolute, NewPhysical#physical.force_absolute, OldPhysical#physical.force_absolute},
+		{force_relative, NewPhysical#physical.force_relative, OldPhysical#physical.force_relative},
+		{torque_absolute, NewPhysical#physical.torque_absolute, OldPhysical#physical.torque_absolute},
+		{torque_relative, NewPhysical#physical.torque_relative, OldPhysical#physical.torque_relative},
+
+		{last_update, NewPhysical#physical.last_update, OldPhysical#physical.last_update},
+		{linear_velocity, NewPhysical#physical.linear_velocity, OldPhysical#physical.linear_velocity},
+		{angular_velocity, NewPhysical#physical.angular_velocity, OldPhysical#physical.angular_velocity},
+		{spin, NewPhysical#physical.spin, OldPhysical#physical.spin},
+
+		{mass, NewPhysical#physical.mass, OldPhysical#physical.mass},
+		{inverse_mass, NewPhysical#physical.inverse_mass, OldPhysical#physical.inverse_mass},
+		{inertia_tensor, NewPhysical#physical.inertia_tensor, OldPhysical#physical.inertia_tensor},
+		{inverse_inertia_tensor,
+			NewPhysical#physical.inverse_inertia_tensor, OldPhysical#physical.inverse_inertia_tensor}
+	]).
+
+filter_diff_list([{_Key, OldAndNewValue, OldAndNewValue} | Rest]) ->
+	filter_diff_list(Rest);
+
+filter_diff_list([{last_update, NewValue, _OldValue} | Rest]) ->
+	[{last_update, pre_channel_entity:generate_timestamp(NewValue)} | filter_diff_list(Rest)];
+
+filter_diff_list([{Key, {_, _, _, _} = NewValue, _OldValue} | Rest]) ->
+	[{Key, quaternion:quat_to_list(NewValue)} | filter_diff_list(Rest)];
+
+filter_diff_list([{Key, {_, _, _} = NewValue, _OldValue} | Rest]) ->
+	[{Key, vector:vec_to_list(NewValue)} | filter_diff_list(Rest)];
+
+filter_diff_list([{Key, NewValue, _OldValue} | Rest]) ->
+	[{Key, NewValue} | filter_diff_list(Rest)].
 
 %% ------------------------------------------------------------------------
 
