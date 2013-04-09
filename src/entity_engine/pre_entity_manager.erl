@@ -36,6 +36,7 @@ get_entity(EntityID) ->
 
 create_entity(Behavior, Definition) ->
 	Entity = #entity {
+		id = make_entity_id(),
 		behavior = Behavior
 	},
 
@@ -62,6 +63,7 @@ create_entity(Behavior, Definition) ->
 
 create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 	Entity = #entity {
+		id = make_entity_id(),
 		behavior = Behavior,
 		client = ClientInfo
 	},
@@ -98,6 +100,7 @@ create_entity(EntityID, Behavior, Definition) ->
 
 	% Set the entity's default behavior
 	Entity = InitialEntity#entity {
+		id = make_entity_id(),
 		behavior = Behavior
 	},
 
@@ -137,6 +140,7 @@ create_entity(EntityID, Behavior, Definition, ClientInfo) ->
 
 	% Set the entity's default behavior
 	Entity = InitialEntity#entity {
+		id = make_entity_id(),
 		behavior = Behavior,
 		client = ClientInfo
 	},
@@ -264,3 +268,7 @@ populate_definition(Entity, Definition) ->
 		}
 	end.
 
+
+make_entity_id() ->
+	%list_to_binary(ref_to_list(make_ref())).
+	base64:encode(crypto:sha(term_to_binary({make_ref(), os:timestamp()}))).
