@@ -40,3 +40,6 @@ doc
 # python bytecode artifacts
 **.pyc
 **.pyo
+
+# local Riak install
+riak/**
