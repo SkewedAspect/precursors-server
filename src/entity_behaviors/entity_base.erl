@@ -32,22 +32,22 @@ simulate(Entity, _EntityEngineState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-get_full_state(Entity) ->
+get_full_state(_Entity) ->
 	[{behavior, <<"Base">>}].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_request(Entity, <<"entity">>, <<"full">>, _RequestID, _Request) ->
+client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
 	ModelDef = Entity#entity.model,
 	EntState = Entity#entity.state,
 
-	Response = {reply, [
+	Response = [
 		{confirm, true},
 		{id, Entity#entity.id},
 		{timestamp, generate_timestamp()},
 		{modelDef, ModelDef},
 		{state, EntState}
-	]},
+	],
 	{Response, Entity};
 
 client_request(Entity, Channel, RequestType, _RequestID, Request) ->
@@ -56,10 +56,10 @@ client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 
 	% Respond humerously.
 	BehaviorBin = atom_to_binary(Entity#entity.behavior, latin1),
-	Response = {reply, [
+	Response = [
 		{confirm, false},
 		{reason, <<BehaviorBin/binary, " entity does not acknowledge your pathetic requests.">>}
-	]},
+	],
 
 	{Response, Entity}.
 
