@@ -149,15 +149,16 @@ gen_full_state(State) ->
 	[{Key :: binary(), Value::term()}].
 
 diff_state(OldState, NewState) ->
-	dict:fold(fun(Key, Value, AccIn) ->
-		NewVal = dict:fetch(Key, NewState),
-		case Value == NewVal of
+	dict:fold(fun(Key, OldValue, AccIn) ->
+		NewValue = dict:fetch(Key, NewState),
+		case OldValue == NewValue of
 			false ->
 				case Key of
 					physical ->
-						[{Key, pre_physics_rk4:to_proplist(NewVal)} | AccIn];
+						%[{Key, pre_physics_rk4:diff_to_proplist(OldValue, NewValue)} | AccIn];
+						[{Key, pre_physics_rk4:to_proplist(NewValue)} | AccIn];
 					_ ->
-						[{Key, NewVal} | AccIn]
+						[{Key, NewValue} | AccIn]
 				end;
 			_ ->
 				AccIn
