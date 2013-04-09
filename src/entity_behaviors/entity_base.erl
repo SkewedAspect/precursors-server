@@ -48,7 +48,7 @@ client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
 		{modelDef, ModelDef},
 		{state, EntState}
 	],
-	{Response, Entity};
+	{Response, undefined, Entity};
 
 client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 	?debug("~p received unhandled request ~p on channel ~p! (full request: ~p)",
@@ -61,7 +61,7 @@ client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 		{reason, <<BehaviorBin/binary, " entity does not acknowledge your pathetic requests.">>}
 	],
 
-	{Response, Entity}.
+	{Response, undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -69,7 +69,7 @@ client_event(Entity, _ClientInfo, Channel, EventType, Event) ->
 	?debug("~p received unhandled event ~p on channel ~p! (full event: ~p)",
 		[Entity#entity.id, EventType, Channel, Event]),
 
-	{noreply, Entity}.
+	{undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ entity_event(Event, From, Entity) ->
 	?debug("~p received unhandled entity event from ~p! (full event: ~p)",
 		[Entity#entity.id, From, Event]),
 
-	{noreply, Entity}.
+	{undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Helpers
