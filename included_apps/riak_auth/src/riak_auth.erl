@@ -172,17 +172,20 @@ handle_auth(Username, Password, State) ->
 					{deny, "Database Error: " ++ Reason}
 			end;
 
-		Credentials when is_list(Credentials) ->
-			?info("Got credentials for account '~s': ~p", [Username, Credentials]),
-			case lists:any(
-					fun (CredentialProps) -> check_cred(Username, Password, CredentialProps) end,
-					Credentials) of
-				true ->
-					allow;
+		{ok, Credentials1} when is_list(Credentials1) -> handle_auth_credentials(Username, Password, Credentials1);
+		Credentials2 when is_list(Credentials2) -> handle_auth_credentials(Username, Password, Credentials2)
+	end.
 
-				false ->
-					{deny, "Incorrect Password"}
-			end
+handle_auth_credentials(Username, Password, Credentials) ->
+	?info("Got credentials for account '~s': ~p", [Username, Credentials]),
+	case lists:any(
+			fun (CredentialProps) -> check_cred(Username, Password, CredentialProps) end,
+			Credentials) of
+		true ->
+			allow;
+
+		false ->
+			{deny, "Incorrect Password"}
 	end.
 
 
