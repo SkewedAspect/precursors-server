@@ -12,6 +12,7 @@
 
 % helpers
 -export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
+-export([generate_timestamp/0, generate_timestamp/1]).
 
 -define(STEP_SIZE, 50).
 
@@ -185,5 +186,8 @@ calc_update(NewState, Entity) ->
 %% This just generates a (floating-point) number representing a number of seconds.
 
 generate_timestamp() ->
-	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
+	generate_timestamp(os:timestamp()).
+
+
+generate_timestamp({MegaSecs, Secs, MicroSecs}) ->
 	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
