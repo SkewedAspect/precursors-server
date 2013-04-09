@@ -193,10 +193,10 @@ handle_input_command(Entity, <<"yaw">>, [TargetVel], _KWArgs) ->
 % Catch-all
 handle_input_command(Entity, Command, Args, KWArgs) ->
 	?info("Got unrecognized input command: ~p, ~p, ~p", [Command, Args, KWArgs]),
-	Response = {reply, [
+	Response = [
 		{confirm, false},
 		{reason, <<"Unrecognized input command \"", Command/binary, "\"!">>}
-	]},
+	],
 	{Response, undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -208,7 +208,7 @@ set_target_angular_velocity(Entity, RequestedAngVel) ->
 
 set_target_angular_velocity(Entity, _ShipState, CurAndNewAngVel, CurAndNewAngVel) ->
 	% No change; confirm, but don't produce an update.
-	Response = {reply, [{confirm, true}]},
+	Response = [{confirm, true}],
 	{Response, undefined, Entity};
 
 set_target_angular_velocity(Entity, ShipState, _CurrentAngVel, NewAngVel) ->
@@ -222,8 +222,8 @@ set_target_angular_velocity(Entity, ShipState, _CurrentAngVel, NewAngVel) ->
 	},
 
 	% Build response and update
-	Response = {reply, [{confirm, true}]},
-	Update = [{target_angular_velocity, NewAngVel}],
+	Response = [{confirm, true}],
+	Update = [{target_angular_velocity, vector:vec_to_list(NewAngVel)}],
 
 	{Response, Update, Entity1}.
 
@@ -236,7 +236,7 @@ set_target_linear_velocity(Entity, RequestedLinVel) ->
 
 set_target_linear_velocity(Entity, _ShipState, CurAndNewLinVel, CurAndNewLinVel) ->
 	% No change; confirm, but don't produce an update.
-	Response = {reply, [{confirm, true}]},
+	Response = [{confirm, true}],
 	{Response, undefined, Entity};
 
 set_target_linear_velocity(Entity, ShipState, _CurrentLinVel, NewLinVel) ->
@@ -250,8 +250,8 @@ set_target_linear_velocity(Entity, ShipState, _CurrentLinVel, NewLinVel) ->
 	},
 
 	% Build response and update
-	Response = {reply, [{confirm, true}]},
-	Update = [{target_linear_velocity, NewLinVel}],
+	Response = [{confirm, true}],
+	Update = [{target_linear_velocity, vector:vec_to_list(NewLinVel)}],
 
 	{Response, Update, Entity1}.
 
