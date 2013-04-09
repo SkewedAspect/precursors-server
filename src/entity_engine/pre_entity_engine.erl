@@ -171,9 +171,7 @@ handle_call({receive_entity, Entity}, _From, State) ->
 handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
-	{Response, NewState} = call_behavior_func(Entity, client_request,
-		[Entity, Channel, RequestType, RequestID, Request], State),
-    {reply, Response, NewState};
+	call_behavior_func(Entity, client_request, [Entity, Channel, RequestType, RequestID, Request], State);
 
 
 handle_call(_, _From, State) ->
@@ -184,8 +182,7 @@ handle_call(_, _From, State) ->
 handle_cast({client_event, EntityID, Channel, EventType, Event}, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
-	NewState = call_behavior_func(Entity, client_event, [Entity, Channel, EventType, Event], State),
-    {noreply, NewState};
+	call_behavior_func(Entity, client_event, [Entity, Channel, EventType, Event], State);
 
 handle_cast({send_entity, EntityID, TargetNode}, State) ->
 	Entities = State#state.entities,
@@ -240,7 +237,8 @@ code_change(_OldVersion, State, _Extra) ->
 simulate_entities(State) ->
 	Entities = State#state.entities,
 	NewEntities = dict:map(fun(_EntityID, Entity) ->
-		call_behavior_func(Entity, simulate, [Entity, State])
+		{noreply, NewEntity} = call_behavior_func(Entity, simulate, [Entity, State]),
+		NewEntity
 	end, Entities),
 	State#state{
 		entities = NewEntities
@@ -268,10 +266,10 @@ send_entity_to(FromEnginePid, Entity, TargetNode) ->
 
 call_behavior_func(#entity{} = Entity, Func, Args, State) ->
 	case call_behavior_func(Entity, Func, Args) of
-		{Reply, NewEntity1} ->
-			{Reply, update_entity_state(NewEntity1, State)};
-		NewEntity2 ->
-			update_entity_state(NewEntity2, State)
+		{reply, Reply, NewEntity1} ->
+			{reply, Reply, update_entity_state(NewEntity1, State)};
+		{noreply, NewEntity2} ->
+			{noreply, update_entity_state(NewEntity2, State)}
 	end;
 
 call_behavior_func(EntityID, Func, Args, State) ->
@@ -290,18 +288,18 @@ call_behavior_func(Entity, Func, Args) ->
 	% Call the behavior
 	try apply(Behavior, Func, Args) of
 		{undefined, NewEntity1} ->
-			NewEntity1;
+			{noreply, NewEntity1};
 
 		{Update1, NewEntity2} ->
 			send_update(ClientInfo, EntityID, Update1),
-			NewEntity2;
+			{noreply, NewEntity2};
 
 		{Reply1, undefined, NewEntity3} ->
-			{Reply1, NewEntity3};
+			{reply, Reply1, NewEntity3};
 
 		{Reply2, Update2, NewEntity4} ->
 			send_update(ClientInfo, EntityID, Update2),
-			{Reply2, NewEntity4}
+			{reply, Reply2, NewEntity4}
 
 	catch
 		Exception ->
