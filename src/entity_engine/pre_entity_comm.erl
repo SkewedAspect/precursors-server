@@ -107,4 +107,4 @@ send_update(ClientInfo, EntityID, Update) ->
 	ConnectionPid = ClientInfo#client_info.connection,
 
 	Update1 = pre_channel_entity:build_state_event(update, Update, EntityID),
-	pre_client_connection:send(ConnectionPid, udp, event, <<"entity">>, Update1).
+	pre_client_connection:send(ConnectionPid, udp, event, entity, Update1).
