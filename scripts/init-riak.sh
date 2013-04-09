@@ -34,6 +34,11 @@ info "Generating a 4-node dev cluster..."
 make devrel DEVNODES=4
 
 
+info "Changing storage backend to ELevelDB..."
+
+sed -i '/{storage_backend,/s/riak_kv_.*_backend/riak_kv_eleveldb_backend/' dev/dev1/etc/app.config
+
+
 info "Generating cluster run script..."
 
 cat > riak-dev-cluster <<EOF
