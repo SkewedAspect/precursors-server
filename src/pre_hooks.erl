@@ -47,7 +47,7 @@ trigger_hooks(Hook, Args) ->
 	trigger_hooks(Hook, Args, first).
 
 trigger_hooks(Hook, Args, Mode) ->
-	?debug("trigger_hooks/3 ~s ~s ~s", [Hook, Args, Mode]),
+	?debug("trigger_hooks/3 ~p ~p ~p", [Hook, Args, Mode]),
 	Node = node(),
 	QH = qlc:q([HookRec ||
 		#hook{key = #hook_key{hook = AHook}, nodes = ANodes} = HookRec <- ets:table(?MODULE),
@@ -63,16 +63,13 @@ async_trigger_hooks(Hook, Args) ->
 	async_trigger_hooks(Hook, Args, first).
 
 async_trigger_hooks(Hook, Args, Mode) ->
-	?debug("async_trigger_hooks/3 ~s ~s ~s", [Hook, Args, Mode]),
+	?debug("async_trigger_hooks/3 ~p ~p ~p", [Hook, Args, Mode]),
 	spawn(fun() -> trigger_hooks(Hook, Args, Mode) end).
 
 create_ets() ->
-	% I'm making the ets public so the table can be created by some other
-	% pid, but the hooks server can edit it.
-	% basically, have the application start function call this,
-	% then start the hooks server later.  This means the ets table won't
-	% go away if the hooks server randomly dies, requireing re-setting up
-	% every hook.
+	% I'm making the ets public so the table can be created by some other pid, but the hooks server can edit it.
+	% Basically, have the application start function call this, then start the hooks server later. This means the ets
+	% table won't go away if the hooks server randomly dies, requiring setting up every hook again.
 	ets:new(?MODULE, [named_table, public, {keypos, 2}]).
 
 %% ===================================================================
