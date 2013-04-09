@@ -32,13 +32,10 @@ register_hooks() ->
 	EntityID :: binary().
 
 build_state_event(EventType, StateUpdate, EntityID) ->
-	{MegaSecs, Secs, MicroSecs} = os:timestamp(),
-	Timestamp = MegaSecs * 1000000 + Secs + MicroSecs / 1000000,
-
 	[
 		{type, EventType},
 		{id, EntityID},
-		{timestamp, Timestamp}
+		{timestamp, entity_base:generate_timestamp()}
 		| StateUpdate
 	].
 
