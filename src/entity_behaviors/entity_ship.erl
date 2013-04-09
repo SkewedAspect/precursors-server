@@ -128,8 +128,8 @@ client_request(Entity, Channel, RequestType, RequestID, Request) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_event(Entity, _ClientInfo, input, <<"command">>, Event) ->
-	{_Response, Entity1} = handle_input_command(Entity, Event),
-	{noreply, Entity1};
+	{_Response, Update, Entity1} = handle_input_command(Entity, Event),
+	{Update, Entity1};
 
 client_event(Entity, ClientInfo, Channel, EventType, Event) ->
 	entity_physical:client_event(Entity, ClientInfo, Channel, EventType, Event).
@@ -182,47 +182,63 @@ handle_input_command(Entity, Command, Args, KWArgs) ->
 		{confirm, false},
 		{reason, <<"Unrecognized input command \"", Command/binary, "\"!">>}
 	]},
-	{Response, Entity}.
+	{Response, undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-set_target_angular_velocity(Entity, NewAngVel) ->
-	%?debug("Setting orientation velocity to ~p.", [NewAngVel]),
+set_target_angular_velocity(Entity, RequestedAngVel) ->
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	CurrentAngVel = dict:fetch(target_angular_velocity, ShipState),
+	set_target_angular_velocity(Entity, ShipState, CurrentAngVel, update_vector(RequestedAngVel, CurrentAngVel)).
 
+set_target_angular_velocity(Entity, _ShipState, CurAndNewAngVel, CurAndNewAngVel) ->
+	% No change; confirm, but don't produce an update.
+	Response = {reply, [{confirm, true}]},
+	{Response, undefined, Entity};
+
+set_target_angular_velocity(Entity, ShipState, _CurrentAngVel, NewAngVel) ->
+	%?debug("Setting orientation velocity to ~p.", [NewAngVel]),
 	% Update the target angular velocity
-	NewShipState = dict:store(target_angular_velocity, update_vector(NewAngVel, CurrentAngVel), ShipState),
+	NewShipState = dict:store(target_angular_velocity, NewAngVel, ShipState),
 
 	% Update State
 	Entity1 = Entity#entity{
 		state = dict:store(ship, NewShipState, Entity#entity.state)
 	},
 
-	% Build response
+	% Build response and update
 	Response = {reply, [{confirm, true}]},
+	Update = [{target_angular_velocity, NewAngVel}],
 
-	{Response, Entity1}.
+	{Response, Update, Entity1}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-set_target_linear_velocity(Entity, NewLinVel) ->
-	%?debug("Setting position velocity to ~p.", [NewLinVel]),
+set_target_linear_velocity(Entity, RequestedLinVel) ->
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	CurrentLinVel = dict:fetch(target_linear_velocity, ShipState),
+	set_target_linear_velocity(Entity, ShipState, CurrentLinVel, update_vector(RequestedLinVel, CurrentLinVel)).
 
+set_target_linear_velocity(Entity, _ShipState, CurAndNewLinVel, CurAndNewLinVel) ->
+	% No change; confirm, but don't produce an update.
+	Response = {reply, [{confirm, true}]},
+	{Response, undefined, Entity};
+
+set_target_linear_velocity(Entity, ShipState, _CurrentLinVel, NewLinVel) ->
+	%?debug("Setting position velocity to ~p.", [NewLinVel]),
 	% Update the target linear velocity
-	NewShipState = dict:store(target_linear_velocity, update_vector(NewLinVel, CurrentLinVel), ShipState),
+	NewShipState = dict:store(target_linear_velocity, NewLinVel, ShipState),
 
 	% Update State
 	Entity1 = Entity#entity{
 		state = dict:store(ship, NewShipState, Entity#entity.state)
 	},
 
-	% Build response
+	% Build response and update
 	Response = {reply, [{confirm, true}]},
+	Update = [{target_linear_velocity, NewLinVel}],
 
-	{Response, Entity1}.
+	{Response, Update, Entity1}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
