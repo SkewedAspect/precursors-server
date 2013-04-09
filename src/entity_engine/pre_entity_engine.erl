@@ -200,10 +200,12 @@ handle_cast({send_entity, EntityID, TargetNode}, State) ->
 handle_cast({update, EntityID, Update}, State) ->
 	dict:fold(fun(TargetEntityID, TargetEntity, _Acc) ->
 		case {TargetEntityID, TargetEntity#entity.client} of
-			{EntityID, _} -> ok;
-			{_, undefined} -> ok;
+			{EntityID, _} -> ok; % Don't send updates to the client of the originating entity (it already did that)
+			{_, undefined} -> ok; % Skip entities that don't have clients.
 			{_, ClientInfo} ->
 				%TODO: Filter according to distance from TargetEntity or something.
+				%?debug("Sending entity update for entity ~p to client ~p (entity ~p):~n~p",
+					%[EntityID, ClientInfo, TargetEntityID, Update]),
 				pre_entity_comm:send_update(ClientInfo, EntityID, Update)
 		end
 	end, ok, State#state.entities),
@@ -388,5 +390,6 @@ send_update(undefined, EntityID, Update) ->
 
 send_update(ClientInfo, EntityID, Update) ->
 	% Send the entity update to this entity's client
+	%?debug("Sending entity update for entity ~p to client ~p (self):~n~p", [EntityID, ClientInfo, Update]),
 	pre_entity_comm:send_update(ClientInfo, EntityID, Update),
 	send_update(undefined, EntityID, Update).
