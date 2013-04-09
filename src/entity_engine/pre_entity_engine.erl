@@ -169,7 +169,9 @@ handle_call({receive_entity, Entity}, _From, State) ->
     {reply, ok, NewState};
 
 handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From, State) ->
-	{Response, NewState} = call_behavior_func(EntityID, client_request,
+	Entities = State#state.entities,
+	Entity = dict:fetch(EntityID, Entities),
+	{Response, NewState} = call_behavior_func(Entity, client_request,
 		[Entity, Channel, RequestType, RequestID, Request], State),
     {reply, Response, NewState};
 
