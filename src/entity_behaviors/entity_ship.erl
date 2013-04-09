@@ -157,8 +157,20 @@ entity_event(Event, From, Entity) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 simulate(Entity, EntityEngineState) ->
-	Entity1 = do_flight_control(Entity),
-	entity_physical:simulate(Entity1, EntityEngineState).
+	{ShipUpdate, Entity1} = do_flight_control(Entity),
+	PhysicalResult = entity_physical:simulate(Entity1, EntityEngineState),
+
+	case PhysicalResult of
+		{undefined, Entity2} ->
+			{ShipUpdate, Entity2};
+		{PhysicalUpdate, Entity3} ->
+			case ShipUpdate of
+				undefined ->
+					{PhysicalUpdate, Entity3};
+				_ ->
+					{ShipUpdate ++ PhysicalUpdate, Entity3}
+			end
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -262,6 +274,8 @@ do_flight_control(Entity) ->
 	Orientation = pre_physics_rk4:get_prop(orientation, Physical),
 	PositionVelAbs = pre_physics_rk4:get_prop(linear_velocity, Physical),
 	AngularVelAbs = pre_physics_rk4:get_prop(angular_velocity, Physical),
+	OldForce = pre_physics_rk4:get_prop(force_relative, Physical),
+	OldTorque = pre_physics_rk4:get_prop(torque_relative, Physical),
 
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	{TX, TY, TZ} = dict:fetch(target_linear_velocity, ShipState),
@@ -293,16 +307,34 @@ do_flight_control(Entity) ->
 		calc_thrust(MaxYawT, YawR, YawVel, TYawScale * TYaw)
 	},
 
-	% Update physical state
-	NewPhysical = pre_physics_rk4:update_from_proplist(Physical, [
-		{force_relative, Force},
-		{torque_relative, Torque}
-	]),
+	PhysicalChanges = [
+		{force_relative, OldForce, Force},
+		{torque_relative, OldTorque, Torque}
+	],
+	PhysicalUpdates = [
+		{Key, NewVal}
+		|| {Key, OldVal, NewVal} <- PhysicalChanges, OldVal =/= NewVal
+	],
 
-	% Update entity state
-	Entity#entity{
-		state = dict:store(physical, NewPhysical, Entity#entity.state)
-	}.
+	case PhysicalUpdates of
+		[] ->
+			{undefined, Entity};
+		_ ->
+			% Update physical state
+			NewPhysical = pre_physics_rk4:update_from_proplist(Physical, PhysicalUpdates),
+
+			% Update entity state
+			Entity1 = Entity#entity{
+				state = dict:store(physical, NewPhysical, Entity#entity.state)
+			},
+
+			% Create delta update
+			%TODO: Use [{K, vector:vec_to_list(V)} || {K, V} <- PhysicalUpdates] here, instead of the entirety of the
+			% physical state!
+			Update = [{physical, pre_physics_rk4:to_proplist(NewPhysical)}],
+
+			{Update, Entity1}
+	end.
 
 
 calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
@@ -316,7 +348,7 @@ update_vector({UpdateX, UpdateY, UpdateZ}, {CurrentX, CurrentY, CurrentZ}) ->
 		first_defined(UpdateX, CurrentX),
 		first_defined(UpdateY, CurrentY),
 		first_defined(UpdateZ, CurrentZ)
-		}.
+	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
