@@ -267,11 +267,12 @@ send_entity_to(FromEnginePid, Entity, TargetNode) ->
 
 
 call_behavior_func(#entity{} = Entity, Func, Args, State) ->
-	NewEntity = call_behavior_func(Entity, Func, Args),
-
-	State#state{
-		entities = dict:store(Entity#entity.id, NewEntity, State#state.entities)
-	};
+	case call_behavior_func(Entity, Func, Args) of
+		{Reply, NewEntity1} ->
+			{Reply, update_entity_state(NewEntity1, State)};
+		NewEntity2 ->
+			update_entity_state(NewEntity2, State)
+	end;
 
 call_behavior_func(EntityID, Func, Args, State) ->
 	Entities = State#state.entities,
@@ -308,6 +309,12 @@ call_behavior_func(Entity, Func, Args) ->
 				[Behavior, Func, Args, EntityID, Exception]),
 			Entity
 	end.
+
+
+update_entity_state(NewEntity, State) ->
+	State#state{
+		entities = dict:store(NewEntity#entity.id, NewEntity, State#state.entities)
+	}.
 
 
 send_update(undefined, EntityID, Update) ->
