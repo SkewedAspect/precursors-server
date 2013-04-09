@@ -16,6 +16,7 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(InitialEntity) ->
+	% Defaults for physical
 	Entity = case dict:find(physical, InitialEntity#entity.state) of
 		{ok, _} ->
 			entity_physical:init(InitialEntity);
@@ -56,8 +57,18 @@ init(InitialEntity) ->
 
 	% -------------------------------------------------------------------------
 
+	% Defaults for modelDef
+	State1 = case dict:find(modelDef, Entity#entity.state) of
+		{ok, Value} ->
+			Entity#entity.state;
+		error ->
+			dict:store(modelDef, [{model, <<"Ships/ares">>}], Entity#entity.state)
+	end,
+
+	% -------------------------------------------------------------------------
+
 	% Set up ship state
-	InitialShip = case dict:find(ship, Entity#entity.state) of
+	InitialShip = case dict:find(ship, State1) of
 		{ok, Value} ->
 			Value;
 		error ->
@@ -86,7 +97,6 @@ init(InitialEntity) ->
 	% -------------------------------------------------------------------------
 
 	% Set up our initial state
-	State1 = Entity#entity.state,
 	State2 = dict:store(ship, Ship, State1),
 
 	Entity#entity{
