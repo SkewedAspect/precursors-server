@@ -142,6 +142,13 @@ handle_call({add, Entity}, _From, State) ->
 	NewState = add_entity_internal(Entity, State),
 	% Notify all engine supervisors that we now own this entity.
 	pre_entity_engine_sup:cast_all({entity_added, Entity#entity.id, self()}),
+
+	case Entity#entity.client of
+		undefined -> ok;
+		ClientInfo ->
+			% Notify this client's connection.
+			pre_client_connection:set_inhabited_entity(ClientInfo#client_info.connection, Entity, self())
+	end,
     {reply, ok, NewState};
 
 
