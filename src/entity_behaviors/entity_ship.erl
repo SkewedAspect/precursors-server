@@ -45,7 +45,7 @@ init(InitialEntity) ->
 								random:uniform(),
 								random:uniform()
 							}),
-							random:uniform() * math:pi()
+							-random:uniform() * math:pi()
 						)
 					}
 				]
@@ -337,8 +337,13 @@ do_flight_control(Entity) ->
 
 
 calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
-	DMToP = 2 * MaxTh / math:pi(),
-	DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP).
+	case abs(CurVel - TargetVel) < 0.01 of
+		false ->
+			DMToP = 2 * MaxTh / math:pi(),
+			DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP);
+		_ ->
+		0
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
