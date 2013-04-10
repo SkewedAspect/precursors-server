@@ -12,7 +12,7 @@
 	entity_event/3]).
 
 % helpers
--export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2]).
+-export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2, calc_update/3]).
 
 -define(STEP_SIZE, 50).
 
@@ -40,15 +40,15 @@ get_client_behavior() ->
 get_full_state(Entity) ->
 	ModelDef = dict:fetch(modelDef, Entity#entity.state),
 
-	[{modelDef, ModelDef}].
+	[{base, [{modelDef, ModelDef}]}].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
 	Behavior = Entity#entity.behavior,
 	StateUpdate = [
-		{confirm, true},
-		{state, Behavior:get_full_state(Entity)}
+		{confirm, true}
+		| Behavior:get_full_state(Entity)
 	],
 
 	Response = pre_channel_entity:build_state_event(undefined, StateUpdate, Entity#entity.id),
@@ -96,10 +96,13 @@ entity_event(Event, From, Entity) ->
 	[{Key :: binary(), Value::term()}].
 
 gen_full_state(TransformFun, InitialAcc, State) ->
-	dict:fold(fun(Key, Value, AccIn) ->
-		NewVal = TransformFun(Value),
-		[{Key, NewVal} | AccIn]
-	end, InitialAcc, State).
+	dict:fold(
+		fun(Key, Value, AccIn) ->
+			NewVal = TransformFun(Value),
+			[{Key, NewVal} | AccIn]
+		end,
+		InitialAcc, State
+	).
 
 
 %% @doc Returns a json term representing the full state of the entity.
@@ -114,15 +117,21 @@ gen_full_state(TransformFun, InitialAcc, State) ->
 
 
 gen_full_state(TransformFun, State) when is_function(TransformFun) ->
-	dict:fold(fun(Key, Value, AccIn) ->
-		NewVal = TransformFun(Value),
-		[{Key, NewVal} | AccIn]
-		end, [], State);
+	dict:fold(
+		fun(Key, Value, AccIn) ->
+			NewVal = TransformFun(Value),
+			[{Key, NewVal} | AccIn]
+		end,
+		[], State
+	);
 
 gen_full_state(InitialAcc, State) when is_list(InitialAcc) ->
-	dict:fold(fun(Key, Value, AccIn) ->
-		[{Key, Value} | AccIn]
-		end, InitialAcc, State).
+	dict:fold(
+		fun(Key, Value, AccIn) ->
+			[{Key, Value} | AccIn]
+		end,
+		InitialAcc, State
+	).
 
 
 %% @doc Returns a json term representing the full state of the entity.
@@ -134,9 +143,12 @@ gen_full_state(InitialAcc, State) when is_list(InitialAcc) ->
 
 
 gen_full_state(State) ->
-	dict:fold(fun(Key, Value, AccIn) ->
-		[{Key, Value} | AccIn]
-		end, [], State).
+	dict:fold(
+		fun(Key, Value, AccIn) ->
+			[{Key, Value} | AccIn]
+		end,
+		[], State
+	).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -149,21 +161,21 @@ gen_full_state(State) ->
 	[{Key :: binary(), Value::term()}].
 
 diff_state(OldState, NewState) ->
-	dict:fold(fun(Key, OldValue, AccIn) ->
-		NewValue = dict:fetch(Key, NewState),
-		case OldValue == NewValue of
+	dict:fold(fun(Key, NewValue, AccIn) ->
+		OldValue = dict:fetch(Key, OldState),
+		case NewValue == OldValue of
 			false ->
 				case Key of
 					physical ->
-						%[{Key, pre_physics_rk4:diff_to_proplist(OldValue, NewValue)} | AccIn];
-						[{Key, pre_physics_rk4:to_proplist(NewValue)} | AccIn];
+						[{Key, pre_physics_rk4:diff_to_proplist(OldValue, NewValue)} | AccIn];
+						%[{Key, pre_physics_rk4:to_proplist(NewValue)} | AccIn];
 					_ ->
 						[{Key, NewValue} | AccIn]
 				end;
 			_ ->
 				AccIn
 		end
-	end, [], OldState).
+	end, [], NewState).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -173,6 +185,9 @@ diff_state(OldState, NewState) ->
 %% between the states, and returns a properly formated return tuple.
 
 calc_update(NewState, Entity) ->
+	calc_update(NewState, Entity, []).
+
+calc_update(NewState, Entity, []) ->
 	OldState = Entity#entity.state,
 	case diff_state(OldState, NewState) of
 		[] ->
@@ -182,4 +197,11 @@ calc_update(NewState, Entity) ->
 				state = NewState
 			},
 			{Update, NewEntity}
-	end.
+	end;
+
+calc_update(NewState, Entity, OtherUpdate) ->
+	OldState = Entity#entity.state,
+	NewEntity = Entity#entity{
+		state = NewState
+	},
+	{OtherUpdate ++ diff_state(OldState, NewState), NewEntity}.

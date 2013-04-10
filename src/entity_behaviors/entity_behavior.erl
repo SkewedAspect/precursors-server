@@ -10,7 +10,7 @@
 %%% `get_client_behavior()' is called to get the name of the client-side behavior that corresponds to this behavior
 %%% module. It should return a binary..
 %%%
-%%% `get_full_update(Entity)' is called whenever a full JSON update message is required. It is expected to return
+%%% `get_full_state(Entity)' is called whenever a full JSON state message is required. It is expected to return
 %%% a JSON structure representing the entity's current state.
 %%%
 %%% `client_request(Channel, RequestType, RequestID, Request, Entity)' is called by the entity/client communication

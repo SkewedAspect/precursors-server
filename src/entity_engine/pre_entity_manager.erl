@@ -220,8 +220,7 @@ get_full_update(Entity) ->
 		behavior = Behavior
 	} = Entity,
 
-	EntityState = [{behavior, Behavior:get_client_behavior()} | Behavior:get_full_state(Entity)],
-	[{state, EntityState}].
+	[{behavior, Behavior:get_client_behavior()} | Behavior:get_full_state(Entity)].
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Helpers

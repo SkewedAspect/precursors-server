@@ -116,21 +116,22 @@ get_full_state(Entity) ->
 	ShipFullState = dict:fetch(ship, Entity#entity.state),
 	PhysicalFullState = entity_physical:get_full_state(Entity),
 
-	% Note, we start the accumulator with the behavior key for simplicity's sake.
-	entity_base:gen_full_state(
-		fun (Value) ->
-			case Value of
-				{_, _, _} ->
-					vector:vec_to_list(Value);
-				{_, _, _, _} ->
-					quaternion:quat_to_list(Value);
-				_ ->
-					Value
-			end
-		end,
-		PhysicalFullState,
-		ShipFullState
-	).
+	[
+		{ship, entity_base:gen_full_state(
+			fun (Value) ->
+				case Value of
+					{_, _, _} ->
+						vector:vec_to_list(Value);
+					{_, _, _, _} ->
+						quaternion:quat_to_list(Value);
+					_ ->
+						Value
+				end
+			end,
+			ShipFullState
+		)}
+		| PhysicalFullState
+	].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -235,7 +236,7 @@ set_target_angular_velocity(Entity, ShipState, _CurrentAngVel, NewAngVel) ->
 
 	% Build response and update
 	Response = [{confirm, true}],
-	Update = [{target_angular_velocity, vector:vec_to_list(NewAngVel)}],
+	Update = [{ship, [{target_angular_velocity, vector:vec_to_list(NewAngVel)}]}],
 
 	{Response, Update, Entity1}.
 
@@ -263,7 +264,7 @@ set_target_linear_velocity(Entity, ShipState, _CurrentLinVel, NewLinVel) ->
 
 	% Build response and update
 	Response = [{confirm, true}],
-	Update = [{target_linear_velocity, vector:vec_to_list(NewLinVel)}],
+	Update = [{ship, [{target_linear_velocity, vector:vec_to_list(NewLinVel)}]}],
 
 	{Response, Update, Entity1}.
 
@@ -329,9 +330,7 @@ do_flight_control(Entity) ->
 			},
 
 			% Create delta update
-			%TODO: Use [{K, vector:vec_to_list(V)} || {K, V} <- PhysicalUpdates] here, instead of the entirety of the
-			% physical state!
-			Update = [{physical, pre_physics_rk4:to_proplist(NewPhysical)}],
+			Update = [{physical, [{K, vector:vec_to_list(V)} || {K, V} <- PhysicalUpdates]}],
 
 			{Update, Entity1}
 	end.

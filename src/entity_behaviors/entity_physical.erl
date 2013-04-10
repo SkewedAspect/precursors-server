@@ -60,7 +60,7 @@ get_client_behavior() ->
 get_full_state(Entity) ->
 	Physical = dict:fetch(physical, Entity#entity.state),
 
-	entity_base:get_full_state(Entity) ++ pre_physics_rk4:to_proplist(Physical).
+	[{physical, pre_physics_rk4:to_proplist(Physical)} | entity_base:get_full_state(Entity)].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
