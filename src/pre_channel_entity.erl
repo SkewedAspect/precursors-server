@@ -32,11 +32,22 @@ register_hooks() ->
 	EntityID :: binary().
 
 build_state_event(undefined, StateUpdate, EntityID) ->
+
+	{StateItems, OtherItems} = lists:foldl(
+		fun({_Key, [{_K, _V} | _] = Value}, {StateItemsAcc1, OtherItemsAcc1}) ->
+				{Value ++ StateItemsAcc1, OtherItemsAcc1};
+			({_Key, _Value} = Item, {StateItemsAcc2, OtherItemsAcc2}) ->
+				{StateItemsAcc2, [Item | OtherItemsAcc2]}
+		end,
+		{[], []},
+		StateUpdate
+	),
 	[
 		{id, EntityID},
-		{timestamp, generate_timestamp()}
-		| StateUpdate
-	];
+		{timestamp, generate_timestamp()},
+		{state, StateItems}
+	]
+	++ OtherItems;
 
 build_state_event(EventType, StateUpdate, EntityID) ->
 	build_state_event(undefined, [{type, EventType} | StateUpdate], EntityID).
