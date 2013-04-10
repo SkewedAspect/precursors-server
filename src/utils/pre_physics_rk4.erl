@@ -138,7 +138,10 @@ filter_diff_list([{Key, {_, _, _} = NewValue, _OldValue} | Rest]) ->
 	[{Key, vector:vec_to_list(NewValue)} | filter_diff_list(Rest)];
 
 filter_diff_list([{Key, NewValue, _OldValue} | Rest]) ->
-	[{Key, NewValue} | filter_diff_list(Rest)].
+	[{Key, NewValue} | filter_diff_list(Rest)];
+
+filter_diff_list([]) ->
+	[].
 
 %% ------------------------------------------------------------------------
 
