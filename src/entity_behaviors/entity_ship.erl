@@ -339,6 +339,7 @@ do_flight_control(Entity) ->
 calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
 	case abs(CurVel - TargetVel) < 0.01 of
 		false ->
+			% DMToP = Double Max Thrust over Pi.
 			DMToP = 2 * MaxTh / math:pi(),
 			DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP);
 		_ ->
