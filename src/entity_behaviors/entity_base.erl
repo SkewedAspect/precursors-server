@@ -152,7 +152,6 @@ gen_full_state(State) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-
 %% @doc Returns the difference of two state dictionaries.
 %%
 %% Assumes that both states are dictionaries, returns a list of tuples of Key, Value.
@@ -161,17 +160,48 @@ gen_full_state(State) ->
 	[{Key :: binary(), Value::term()}].
 
 diff_state(OldState, NewState) ->
+	dict:fold(fun(Key, NewSubState, AccIn) ->
+		OldSubState = dict:fetch(Key, OldState),
+
+		% Some states (like physical) need to be handled differently, because we store thier state in something other
+		% than a dict. This probably could be pulled out into a function that took the fun to call, and the states,
+		% but for now this will work fine.
+		Value = case Key of
+			physical ->
+				pre_physics_rk4:diff_to_proplist(OldSubState, NewSubState);
+			_ ->
+				diff_sub_state(OldSubState, NewSubState)
+		end,
+		case Value of
+			[] ->
+				AccIn;
+			StateDiff ->
+				[{Key, StateDiff} | AccIn]
+		end
+	end, [], NewState).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Returns the difference of two single level state dictionaries.
+%%
+%% Assumes that both states are dictionaries or proplists, returns a list of tuples of Key, Value for ever Key/Value
+%% pair that is different in NewState from OldState.
+
+-spec diff_sub_state(OldState :: dict() | list(), NewState :: dict() | list()) ->
+	[{Key :: binary(), Value::term()}].
+
+diff_sub_state(OldState, [{_, _} | _] = NewState) ->
+	lists:filter(fun({Key, NewValue}) ->
+		OldValue = proplists:get_value(Key, OldState),
+		OldValue =/= NewValue
+	end, NewState);
+
+diff_sub_state(OldState, NewState) ->
 	dict:fold(fun(Key, NewValue, AccIn) ->
 		OldValue = dict:fetch(Key, OldState),
 		case NewValue == OldValue of
 			false ->
-				case Key of
-					physical ->
-						[{Key, pre_physics_rk4:diff_to_proplist(OldValue, NewValue)} | AccIn];
-						%[{Key, pre_physics_rk4:to_proplist(NewValue)} | AccIn];
-					_ ->
-						[{Key, NewValue} | AccIn]
-				end;
+				[{Key, NewValue} | AccIn];
 			_ ->
 				AccIn
 		end
@@ -189,13 +219,13 @@ calc_update(NewState, Entity) ->
 
 calc_update(NewState, Entity, []) ->
 	OldState = Entity#entity.state,
+	NewEntity = Entity#entity{
+		state = NewState
+	},
 	case diff_state(OldState, NewState) of
 		[] ->
-			{undefined, Entity};
+			{undefined, NewEntity};
 		Update ->
-			NewEntity = Entity#entity{
-				state = NewState
-			},
 			{Update, NewEntity}
 	end;
 
