@@ -9,51 +9,67 @@
 -behaviour(entity_behavior).
 
 % pre_entity
--export([init/1, simulate/2, get_full_state/1, client_request/5, client_event/5]).
+-export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/5,
+	entity_event/3]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(Entity) ->
-	InitialEntity = entity_physical:init(Entity),
+init(InitialEntity) ->
+	% Defaults for physical
+	Entity = case dict:find(physical, InitialEntity#entity.state) of
+		{ok, _} ->
+			entity_physical:init(InitialEntity);
+		error ->
+			% The initial entity had no 'physical' key; set up a default with randomized values.
+			EntWithNoInitialPhysical = entity_physical:init(InitialEntity),
+			InitialState = EntWithNoInitialPhysical#entity.state,
+			InitialPhysical = dict:fetch(physical, InitialState),
+
+			% Set up default physical state with random position/orientation
+			DefaultPhysical = pre_physics_rk4:update_from_proplist(
+				InitialPhysical,
+				[
+					{position,
+						{
+							random:uniform() * 200 - 100,
+							random:uniform() * 200 + 600,
+							random:uniform() * 20
+						}
+					},
+					{orientation,
+						quaternion:from_axis_angle(
+							vector:unit({
+								random:uniform(),
+								random:uniform(),
+								random:uniform()
+							}),
+							-random:uniform() * math:pi()
+						)
+					}
+				]
+			),
+
+			EntWithNoInitialPhysical#entity{
+				state = dict:store(physical, DefaultPhysical, InitialState)
+			}
+	end,
 
 	% -------------------------------------------------------------------------
 
-	% Set up initial physical state
-	InitialPhysical = dict:fetch(physical, InitialEntity#entity.state),
-
-	% Set up default physical state with random position/orientation
-	DefaultPhysical = dict:from_list([
-		{
-			position, {
-				random:uniform() * 200 - 100,
-				random:uniform() * 200 + 600,
-				random:uniform() * 20
-			}
-		},
-		{
-			orientation, quaternion:from_axis_angle(
-				vector:unit({
-					random:uniform(),
-					random:uniform(),
-					random:uniform()
-				}),
-				random:uniform() * math:pi()
-			)
-		}
-	]),
-
-	% Merge our initial physical state dict with our default values, prefering our initials where there's
-	% conflicts.
-	Physical = dict:merge(fun(_Key, InitialVal, _DefaultVal) ->
-		InitialVal
-	end, InitialPhysical, DefaultPhysical),
+	% Defaults for modelDef
+	State1 = case dict:find(modelDef, Entity#entity.state) of
+		{ok, _} ->
+			Entity#entity.state;
+		error ->
+			dict:store(modelDef, [{model, <<"Ships/ares">>}], Entity#entity.state)
+	end,
 
 	% -------------------------------------------------------------------------
 
 	% Set up ship state
-	InitialShip = case dict:find(ship, InitialEntity#entity.state) of
+	InitialShip = case dict:find(ship, State1) of
 		{ok, Value} ->
 			Value;
 		error ->
@@ -82,18 +98,40 @@ init(Entity) ->
 	% -------------------------------------------------------------------------
 
 	% Set up our initial state
-	InitialState = InitialEntity#entity.state,
-	State1 = dict:store(physical, Physical, InitialState),
 	State2 = dict:store(ship, Ship, State1),
 
-	InitialEntity#entity{
+	Entity#entity{
 		state = State2
 	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+get_client_behavior() ->
+	%TODO: change this to <<"Ship">>, once the client supports that.
+	<<"Physical">>.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
 get_full_state(Entity) ->
-	entity_physical:get_full_state(Entity).
+	ShipFullState = dict:fetch(ship, Entity#entity.state),
+	PhysicalFullState = entity_physical:get_full_state(Entity),
+
+	[
+		{ship, entity_base:gen_full_state(
+			fun (Value) ->
+				case Value of
+					{_, _, _} ->
+						vector:vec_to_list(Value);
+					{_, _, _, _} ->
+						quaternion:quat_to_list(Value);
+					_ ->
+						Value
+				end
+			end,
+			ShipFullState
+		)}
+		| PhysicalFullState
+	].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -106,17 +144,34 @@ client_request(Entity, Channel, RequestType, RequestID, Request) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_event(Entity, _ClientInfo, input, <<"command">>, Event) ->
-	{_Response, Entity1} = handle_input_command(Entity, Event),
-	{noreply, Entity1};
+	{_Response, Update, Entity1} = handle_input_command(Entity, Event),
+	{Update, Entity1};
 
 client_event(Entity, ClientInfo, Channel, EventType, Event) ->
 	entity_physical:client_event(Entity, ClientInfo, Channel, EventType, Event).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+entity_event(Event, From, Entity) ->
+	entity_physical:client_event(Event, From, Entity).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
 simulate(Entity, EntityEngineState) ->
-	Entity1 = do_flight_control(Entity),
-	entity_physical:simulate(Entity1, EntityEngineState).
+	{ShipUpdate, Entity1} = do_flight_control(Entity),
+	PhysicalResult = entity_physical:simulate(Entity1, EntityEngineState),
+
+	case PhysicalResult of
+		{undefined, Entity2} ->
+			{ShipUpdate, Entity2};
+		{PhysicalUpdate, Entity3} ->
+			case ShipUpdate of
+				undefined ->
+					{PhysicalUpdate, Entity3};
+				_ ->
+					{ShipUpdate ++ PhysicalUpdate, Entity3}
+			end
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -151,59 +206,77 @@ handle_input_command(Entity, <<"yaw">>, [TargetVel], _KWArgs) ->
 % Catch-all
 handle_input_command(Entity, Command, Args, KWArgs) ->
 	?info("Got unrecognized input command: ~p, ~p, ~p", [Command, Args, KWArgs]),
-	Response = {reply, [
+	Response = [
 		{confirm, false},
 		{reason, <<"Unrecognized input command \"", Command/binary, "\"!">>}
-	]},
-	{Response, Entity}.
+	],
+	{Response, undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-set_target_angular_velocity(Entity, NewAngVel) ->
-	%?debug("Setting orientation velocity to ~p.", [NewAngVel]),
+set_target_angular_velocity(Entity, RequestedAngVel) ->
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	CurrentAngVel = dict:fetch(target_angular_velocity, ShipState),
+	set_target_angular_velocity(Entity, ShipState, CurrentAngVel, update_vector(RequestedAngVel, CurrentAngVel)).
 
+set_target_angular_velocity(Entity, _ShipState, CurAndNewAngVel, CurAndNewAngVel) ->
+	% No change; confirm, but don't produce an update.
+	Response = [{confirm, true}],
+	{Response, undefined, Entity};
+
+set_target_angular_velocity(Entity, ShipState, _CurrentAngVel, NewAngVel) ->
+	%?debug("Setting orientation velocity to ~p.", [NewAngVel]),
 	% Update the target angular velocity
-	NewShipState = dict:store(target_angular_velocity, update_vector(NewAngVel, CurrentAngVel), ShipState),
+	NewShipState = dict:store(target_angular_velocity, NewAngVel, ShipState),
 
 	% Update State
 	Entity1 = Entity#entity{
 		state = dict:store(ship, NewShipState, Entity#entity.state)
 	},
 
-	% Build response
-	Response = {reply, [{confirm, true}]},
+	% Build response and update
+	Response = [{confirm, true}],
+	Update = [{ship, [{target_angular_velocity, vector:vec_to_list(NewAngVel)}]}],
 
-	{Response, Entity1}.
+	{Response, Update, Entity1}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-set_target_linear_velocity(Entity, NewLinVel) ->
-	%?debug("Setting position velocity to ~p.", [NewLinVel]),
+set_target_linear_velocity(Entity, RequestedLinVel) ->
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	CurrentLinVel = dict:fetch(target_linear_velocity, ShipState),
+	set_target_linear_velocity(Entity, ShipState, CurrentLinVel, update_vector(RequestedLinVel, CurrentLinVel)).
 
+set_target_linear_velocity(Entity, _ShipState, CurAndNewLinVel, CurAndNewLinVel) ->
+	% No change; confirm, but don't produce an update.
+	Response = [{confirm, true}],
+	{Response, undefined, Entity};
+
+set_target_linear_velocity(Entity, ShipState, _CurrentLinVel, NewLinVel) ->
+	%?debug("Setting position velocity to ~p.", [NewLinVel]),
 	% Update the target linear velocity
-	NewShipState = dict:store(target_linear_velocity, update_vector(NewLinVel, CurrentLinVel), ShipState),
+	NewShipState = dict:store(target_linear_velocity, NewLinVel, ShipState),
 
 	% Update State
 	Entity1 = Entity#entity{
 		state = dict:store(ship, NewShipState, Entity#entity.state)
 	},
 
-	% Build response
-	Response = {reply, [{confirm, true}]},
+	% Build response and update
+	Response = [{confirm, true}],
+	Update = [{ship, [{target_linear_velocity, vector:vec_to_list(NewLinVel)}]}],
 
-	{Response, Entity1}.
+	{Response, Update, Entity1}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 do_flight_control(Entity) ->
 	Physical = dict:fetch(physical, Entity#entity.state),
-	Orientation = dict:fetch(orientation, Physical),
-	PositionVelAbs = dict:fetch(linear_velocity, Physical),
-	AngularVelAbs = dict:fetch(angular_velocity, Physical),
+	Orientation = pre_physics_rk4:get_prop(orientation, Physical),
+	PositionVelAbs = pre_physics_rk4:get_prop(linear_velocity, Physical),
+	AngularVelAbs = pre_physics_rk4:get_prop(angular_velocity, Physical),
+	OldForce = pre_physics_rk4:get_prop(force_relative, Physical),
+	OldTorque = pre_physics_rk4:get_prop(torque_relative, Physical),
 
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	{TX, TY, TZ} = dict:fetch(target_linear_velocity, ShipState),
@@ -235,19 +308,43 @@ do_flight_control(Entity) ->
 		calc_thrust(MaxYawT, YawR, YawVel, TYawScale * TYaw)
 	},
 
-	% Update physical state
-	NewPhysical1 = dict:store(force_relative, Force, Physical),
-	NewPhysical2 = dict:store(torque_relatice, Torque, NewPhysical1),
+	PhysicalChanges = [
+		{force_relative, OldForce, Force},
+		{torque_relative, OldTorque, Torque}
+	],
+	PhysicalUpdates = [
+		{Key, NewVal}
+		|| {Key, OldVal, NewVal} <- PhysicalChanges, OldVal =/= NewVal
+	],
 
-	% Update entity state
-	Entity#entity{
-		state = dict:store(physical, NewPhysical2, Entity#entity.state)
-	}.
+	case PhysicalUpdates of
+		[] ->
+			{undefined, Entity};
+		_ ->
+			% Update physical state
+			NewPhysical = pre_physics_rk4:update_from_proplist(Physical, PhysicalUpdates),
+
+			% Update entity state
+			Entity1 = Entity#entity{
+				state = dict:store(physical, NewPhysical, Entity#entity.state)
+			},
+
+			% Create delta update
+			Update = [{physical, [{K, vector:vec_to_list(V)} || {K, V} <- PhysicalUpdates]}],
+
+			{Update, Entity1}
+	end.
 
 
 calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
-	DMToP = 2 * MaxTh / math:pi(),
-	DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP).
+	case abs(CurVel - TargetVel) < 0.01 of
+		false ->
+			% DMToP = Double Max Thrust over Pi.
+			DMToP = 2 * MaxTh / math:pi(),
+			DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP);
+		_ ->
+		0
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -256,7 +353,7 @@ update_vector({UpdateX, UpdateY, UpdateZ}, {CurrentX, CurrentY, CurrentZ}) ->
 		first_defined(UpdateX, CurrentX),
 		first_defined(UpdateY, CurrentY),
 		first_defined(UpdateZ, CurrentZ)
-		}.
+	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 

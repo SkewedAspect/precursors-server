@@ -14,7 +14,8 @@
 % -------------------------------------------------------------------------
 
 % external api
--export([simulate/2]).
+-export([simulate/1, default_physical/0, to_proplist/1, diff_to_proplist/2, from_proplist/1,
+	update_from_proplist/2, get_prop/2]).
 
 % -------------------------------------------------------------------------
 
@@ -50,6 +51,187 @@
 
 %% ------------------------------------------------------------------------
 %% External API
+%% ------------------------------------------------------------------------
+
+%% @doc Simulate physical movement of the 'physical' object represented by `InitialPhysical`, over the time since that
+%% object's 'last_update' timestamp.
+simulate(InitialPhysical) ->
+	LastUpdate = InitialPhysical#physical.last_update,
+	ThisUpdate = os:timestamp(),
+	NewPhysical = simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, InitialPhysical),
+	NewPhysical#physical {
+		last_update = ThisUpdate
+	}.
+
+%% @doc Simulate physical movement of the 'physical' object represented by `InitialPhysical`, over the given
+%% `TimeDelta`.
+simulate(TimeDelta, InitialPhysical) ->
+	simulate_internal(TimeDelta, InitialPhysical).
+
+%% ------------------------------------------------------------------------
+
+%% @doc Create a new 'physical' record, with the 'last_update' timestamp set to the current time.
+default_physical() ->
+	#physical{last_update = os:timestamp()}.
+
+%% ------------------------------------------------------------------------
+
+to_proplist(Physical) ->
+	[
+		{position, vector:vec_to_list(Physical#physical.position)},
+		{linear_momentum, vector:vec_to_list(Physical#physical.linear_momentum)},
+		{orientation, quaternion:quat_to_list(Physical#physical.orientation)},
+		{angular_momentum, vector:vec_to_list(Physical#physical.angular_momentum)},
+
+		{force_absolute, vector:vec_to_list(Physical#physical.force_absolute)},
+		{force_relative, vector:vec_to_list(Physical#physical.force_relative)},
+		{torque_absolute, vector:vec_to_list(Physical#physical.torque_absolute)},
+		{torque_relative, vector:vec_to_list(Physical#physical.torque_relative)},
+
+		%{last_update, pre_channel_entity:generate_timestamp(Physical#physical.last_update)},
+		{linear_velocity, vector:vec_to_list(Physical#physical.linear_velocity)},
+		{angular_velocity, vector:vec_to_list(Physical#physical.angular_velocity)},
+		{spin, quaternion:quat_to_list(Physical#physical.spin)},
+
+		{mass, Physical#physical.mass},
+		{inverse_mass, Physical#physical.inverse_mass},
+		{inertia_tensor, Physical#physical.inertia_tensor},
+		{inverse_inertia_tensor, Physical#physical.inverse_inertia_tensor}
+	].
+
+%% ------------------------------------------------------------------------
+
+diff_to_proplist(OldPhysical, NewPhysical) ->
+	filter_diff_list([
+		{position, NewPhysical#physical.position, OldPhysical#physical.position},
+		{linear_momentum, NewPhysical#physical.linear_momentum, OldPhysical#physical.linear_momentum},
+		{orientation, NewPhysical#physical.orientation, OldPhysical#physical.orientation},
+		{angular_momentum, NewPhysical#physical.angular_momentum, OldPhysical#physical.angular_momentum},
+
+		{force_absolute, NewPhysical#physical.force_absolute, OldPhysical#physical.force_absolute},
+		{force_relative, NewPhysical#physical.force_relative, OldPhysical#physical.force_relative},
+		{torque_absolute, NewPhysical#physical.torque_absolute, OldPhysical#physical.torque_absolute},
+		{torque_relative, NewPhysical#physical.torque_relative, OldPhysical#physical.torque_relative},
+
+		%{last_update, NewPhysical#physical.last_update, OldPhysical#physical.last_update},
+		{linear_velocity, NewPhysical#physical.linear_velocity, OldPhysical#physical.linear_velocity},
+		{angular_velocity, NewPhysical#physical.angular_velocity, OldPhysical#physical.angular_velocity},
+		{spin, NewPhysical#physical.spin, OldPhysical#physical.spin},
+
+		{mass, NewPhysical#physical.mass, OldPhysical#physical.mass},
+		{inverse_mass, NewPhysical#physical.inverse_mass, OldPhysical#physical.inverse_mass},
+		{inertia_tensor, NewPhysical#physical.inertia_tensor, OldPhysical#physical.inertia_tensor},
+		{inverse_inertia_tensor,
+			NewPhysical#physical.inverse_inertia_tensor, OldPhysical#physical.inverse_inertia_tensor}
+	]).
+
+filter_diff_list([{_Key, OldAndNewValue, OldAndNewValue} | Rest]) ->
+	filter_diff_list(Rest);
+
+%filter_diff_list([{last_update, NewValue, _OldValue} | Rest]) ->
+%	[{last_update, pre_channel_entity:generate_timestamp(NewValue)} | filter_diff_list(Rest)];
+
+filter_diff_list([{Key, {_, _, _, _} = NewValue, _OldValue} | Rest]) ->
+	[{Key, quaternion:quat_to_list(NewValue)} | filter_diff_list(Rest)];
+
+filter_diff_list([{Key, {_, _, _} = NewValue, _OldValue} | Rest]) ->
+	[{Key, vector:vec_to_list(NewValue)} | filter_diff_list(Rest)];
+
+filter_diff_list([{Key, NewValue, _OldValue} | Rest]) ->
+	[{Key, NewValue} | filter_diff_list(Rest)];
+
+filter_diff_list([]) ->
+	[].
+
+%% ------------------------------------------------------------------------
+
+from_proplist(PhysicalProplist) ->
+	update_from_proplist(#physical{}, PhysicalProplist).
+
+%% ------------------------------------------------------------------------
+
+update_from_proplist(Physical, []) ->
+	Physical;
+
+update_from_proplist(Physical, [{}]) ->
+	Physical;
+
+update_from_proplist(Physical, [{position, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{position = Val}, Rest);
+update_from_proplist(Physical, [{linear_momentum, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{linear_momentum = Val}, Rest);
+update_from_proplist(Physical, [{orientation, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{orientation = Val}, Rest);
+update_from_proplist(Physical, [{angular_momentum, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{angular_momentum = Val}, Rest);
+
+update_from_proplist(Physical, [{force_absolute, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{force_absolute = Val}, Rest);
+update_from_proplist(Physical, [{force_relative, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{force_relative = Val}, Rest);
+update_from_proplist(Physical, [{torque_absolute, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{torque_absolute = Val}, Rest);
+update_from_proplist(Physical, [{torque_relative, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{torque_relative = Val}, Rest);
+
+update_from_proplist(Physical, [{last_update, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{last_update = Val}, Rest);
+update_from_proplist(Physical, [{linear_velocity, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{linear_velocity = Val}, Rest);
+update_from_proplist(Physical, [{angular_velocity, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{angular_velocity = Val}, Rest);
+update_from_proplist(Physical, [{spin, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{spin = Val}, Rest);
+
+update_from_proplist(Physical, [{mass, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{mass = Val}, Rest);
+update_from_proplist(Physical, [{inverse_mass, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{inverse_mass = Val}, Rest);
+update_from_proplist(Physical, [{inertia_tensor, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{inertia_tensor = Val}, Rest);
+update_from_proplist(Physical, [{inverse_inertia_tensor, Val} | Rest]) ->
+	update_from_proplist(Physical#physical{inverse_inertia_tensor = Val}, Rest).
+
+%% ------------------------------------------------------------------------
+
+get_prop(position, Physical) ->
+	Physical#physical.position;
+get_prop(linear_momentum, Physical) ->
+	Physical#physical.linear_momentum;
+get_prop(orientation, Physical) ->
+	Physical#physical.orientation;
+get_prop(angular_momentum, Physical) ->
+	Physical#physical.angular_momentum;
+
+get_prop(force_absolute, Physical) ->
+	Physical#physical.force_absolute;
+get_prop(force_relative, Physical) ->
+	Physical#physical.force_relative;
+get_prop(torque_absolute, Physical) ->
+	Physical#physical.torque_absolute;
+get_prop(torque_relative, Physical) ->
+	Physical#physical.torque_relative;
+
+get_prop(last_update, Physical) ->
+	Physical#physical.last_update;
+get_prop(linear_velocity, Physical) ->
+	Physical#physical.linear_velocity;
+get_prop(angular_velocity, Physical) ->
+	Physical#physical.angular_velocity;
+get_prop(spin, Physical) ->
+	Physical#physical.spin;
+
+get_prop(mass, Physical) ->
+	Physical#physical.mass;
+get_prop(inverse_mass, Physical) ->
+	Physical#physical.inverse_mass;
+get_prop(inertia_tensor, Physical) ->
+	Physical#physical.inertia_tensor;
+get_prop(inverse_inertia_tensor, Physical) ->
+	Physical#physical.inverse_inertia_tensor.
+
+%% ------------------------------------------------------------------------
+%% Internal Helpers
 %% ------------------------------------------------------------------------
 
 -spec evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) -> {Velocity, Force, Spin, Torque, State} when
@@ -155,57 +337,6 @@ update_state(State) ->
 
 %% ------------------------------------------------------------------------
 
-%% @doc Simulate physical movement of the 'physical' object represented by `State`, over the given `TimeDelta`.
-simulate(TimeDelta, InitialPhysical) ->
-
-	Physical = #physical{
-			position = dict:fetch(position, InitialPhysical),
-			linear_momentum = dict:fetch(linear_momentum, InitialPhysical),
-			orientation = dict:fetch(orientation, InitialPhysical),
-			angular_momentum = dict:fetch(angular_momentum, InitialPhysical),
-
-			force_absolute = dict:fetch(force_absolute, InitialPhysical),
-			force_relative = dict:fetch(force_relative, InitialPhysical),
-			torque_absolute = dict:fetch(torque_absolute, InitialPhysical),
-			torque_relative = dict:fetch(torque_relative, InitialPhysical),
-
-			last_update = dict:fetch(last_update, InitialPhysical),
-			linear_velocity = dict:fetch(linear_velocity, InitialPhysical),
-			angular_velocity = dict:fetch(angular_velocity, InitialPhysical),
-			spin = dict:fetch(spin, InitialPhysical),
-
-			mass = dict:fetch(mass, InitialPhysical),
-			inverse_mass = dict:fetch(inverse_mass, InitialPhysical),
-			inertia_tensor = dict:fetch(inertia_tensor, InitialPhysical),
-			inverse_inertia_tensor = dict:fetch(inverse_inertia_tensor, InitialPhysical)
-	},
-
-	NewPhysical = simulate_internal(TimeDelta, Physical),
-
-	dict:from_list([
-			{ position, NewPhysical#physical.position },
-			{ linear_momentum, NewPhysical#physical.linear_momentum },
-			{ orientation, NewPhysical#physical.orientation },
-			{ angular_momentum, NewPhysical#physical.angular_momentum },
-
-			{ force_absolute, NewPhysical#physical.force_absolute },
-			{ force_relative, NewPhysical#physical.force_relative },
-			{ torque_absolute, NewPhysical#physical.torque_absolute },
-			{ torque_relative, NewPhysical#physical.torque_relative },
-
-			{ last_update, NewPhysical#physical.last_update },
-			{ linear_velocity, NewPhysical#physical.linear_velocity },
-			{ angular_velocity, NewPhysical#physical.angular_velocity },
-			{ spin, NewPhysical#physical.spin },
-
-			{ mass, NewPhysical#physical.mass },
-			{ inverse_mass, NewPhysical#physical.inverse_mass },
-			{ inertia_tensor, NewPhysical#physical.inertia_tensor },
-			{ inverse_inertia_tensor, NewPhysical#physical.inverse_inertia_tensor }
-	]).
-
-%% ------------------------------------------------------------------------
-
 simulate_internal(TimeDelta, State) ->
 	#physical{
 		position = Position,
@@ -233,7 +364,7 @@ simulate_internal(TimeDelta, State) ->
 
 	NewTorque = vector:multiply(1.0 / 6.0, vector:add(Torque1, vector:multiply(2.0, vector:add(Torque2, Torque3)), Torque4)),
 
-	State4#physical{
+	State5 = State4#physical{
 		position = vector:add(Position, vector:multiply(TimeDelta, NewVelocity)),
 		linear_velocity = vector:add(Velocity, vector:multiply(TimeDelta, NewAcceleration)),
 		orientation = quaternion:unit({
@@ -243,4 +374,10 @@ simulate_internal(TimeDelta, State) ->
 			OrientZ + TimeDelta * NewSpinZ
 		}),
 		angular_momentum = vector:add(AngularMomentum, vector:multiply(TimeDelta, NewTorque))
-	}.
+	},
+
+	% Debug Simulation
+	%?warning("Before simulate_internal: ~p", [State]),
+	%?warning("After simulate_internal: ~p", [State5]),
+
+	State5.

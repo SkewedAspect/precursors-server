@@ -1,5 +1,5 @@
 #!/usr/bin/env escript
-%%! -noshell -noinput -smp enable
+%%! -noshell -noinput -smp enable -pa ebin
 
 %% Benchmarking key/value data types
 %%
@@ -459,3 +459,5 @@ std_dev(Results, Iterations) ->
 	F = fun(X, Sum) -> Sum + (X - Average) * (X - Average) end,
 	Variance = lists:foldl(F, 0.0, Results) / Iterations,
 	math:sqrt(Variance).
+
+% vim: ft=erlang

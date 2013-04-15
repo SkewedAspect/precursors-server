@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 
 import base64
+import sys
+
 import rkit
 from django.utils import crypto
 
 from models import Game, Entity, ItemDefinition, Item, Class, Power, Character, Credential, Account, Subscription
 
-rkit.connect("localhost", 8081)
+rkit.connect("localhost", int(sys.argv[1]) if len(sys.argv) > 1 else 8081)
 print "Making test models..."
 
 precursors = Game()

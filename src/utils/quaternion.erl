@@ -1,15 +1,15 @@
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 %% @doc Quaternion module - simplifies working with and perfoming math on quaternions.
 %%
 %% @copyright 2012 Christopher S. Case
 %% Licensed under the MIT license; see the LICENSE file for details.
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 -module(quaternion).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
-% external api 
+% external api
 -export([quat_to_list/1, list_to_quat/1, add/2, subtract/2, multiply/2, divide/2, reorient/2]).
 -export([scale_rotation/2, norm/1, length/1, unit/1, conjugate/1, inverse/1, reciprocal/1]).
 -export([compose/2, relative_to/2, rotate/2, from_axis_angle/2, from_axis_angle/3]).
@@ -22,21 +22,35 @@
 	W :: float(),
 	X :: float(),
 	Y :: float(),
-	X :: float()
+	Z :: float()
 }.
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 -define(NORMALIZED_TOLERANCE, 0.0000001).
 -define(IDENTITY, {1, 0, 0, 0}).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 -include("log.hrl").
 
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
+%% NIF module
+%% --------------------------------------------------------------------------------------------------------------------
+
+% Don't enable this unless testing, or until _all_ functions are implemented in C++ too.
+% (loading the NIF module actually replaces this module, so we lose the Erlang implementations if we load the C++ ones)
+-on_load(init/0).
+init() ->
+    case erlang:load_nif("./quaternion", 0) of
+		{error, {load_failed, _}} ->
+		   	erlang:load_nif("./ebin/quaternion", 0);
+		ok -> ok
+	end.
+
+%% --------------------------------------------------------------------------------------------------------------------
 %% External API
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Convert from a quaternion to a list
 quat_to_list({W, X, Y, Z}) ->
@@ -47,7 +61,7 @@ quat_to_list({W, X, Y, Z}) ->
 list_to_quat([W, X, Y, Z]) ->
 	{W, X, Y, Z}.
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Adds the two quaternions together.
 add({W1, X1, Y1, Z1}, {W2, X2, Y2, Z2}) ->
@@ -58,7 +72,7 @@ add({W1, X1, Y1, Z1}, {W2, X2, Y2, Z2}) ->
 subtract({W1, X1, Y1, Z1}, {W2, X2, Y2, Z2}) ->
 	{W1 - W2, X1 - X2, Y1 - Y2, Z1 - Z2}.
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Quaternion Multiplication
 multiply(Factor, {W, X, Y, Z}) when is_integer(Factor); is_float(Factor) ->
@@ -88,7 +102,7 @@ divide({_, _, _, _}, 0) ->
 divide({W, X, Y, Z}, Factor) when is_number(Factor) ->
 	{W / Factor, X / Factor, Y / Factor, Z / Factor}.
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Reorient q1's axis of rotation by rotating it by q2, but leave q1's angle of rotation intact.
 reorient({W, X, Y, Z}, {_, _, _, _}=Q2) ->
@@ -103,7 +117,7 @@ scale_rotation(Factor, {W, X, Y, Z}) when is_integer(Factor); is_float(Factor) -
 	Unit = vector:unit({X, Y, Z}),
 	from_axis_angle(Unit, OriginalRotation * Factor).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Returns the squared length of the quaternion. This is useful in some optimization cases, as it avoids a sqrt call.
 squared_norm({W, X, Y, Z}) ->
@@ -119,9 +133,9 @@ norm({_, _, _, _} = Quat) ->
 length(Quat) ->
 	norm(Quat).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
-% @doc Returns a unit vector in the same direction as Quat.
+% @doc Returns a unit quaternion in the same direction as Quat.
 unit({_, _, _, _} = Quat) ->
 	QLS = squared_norm(Quat),
 	unit(QLS, Quat).
@@ -141,7 +155,7 @@ unit(QLS, {_, _, _, _} = Quat) ->
 			divide(Quat, math:sqrt(QLS))
 	end.
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc
 conjugate({W, X, Y, Z}) ->
@@ -152,7 +166,7 @@ conjugate({W, X, Y, Z}) ->
 inverse({_, _, _, _} = Quat) ->
 	divide(conjugate(Quat), norm(Quat)).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc
 reciprocal({_, _, _, _} = Quat) ->
@@ -162,38 +176,38 @@ reciprocal({_, _, _, _} = Quat) ->
 compose({_, _, _, _} = First, {_, _, _, _} = Second) ->
 	multiply(First, Second).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Get the quaternion representing the orientation of `target` relative to `reference`.
 relative_to({_, _, _, _} = Target, {_, _, _, _} = Reference) ->
 	multiply(multiply(Reference, Target), conjugate(Reference)).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Rotates the vector by Rotation.
 rotate({X, Y, Z}, {_, _, _, _} = Rotation) ->
 	{_, X1, Y1, Z1} = relative_to({0, X, Y, Z}, Rotation),
 	{X1, Y1, Z1}.
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Converts from and axis and angle (radians), to a quaternion.
+%% @doc Converts from an axis and angle (radians) to a quaternion.
 from_axis_angle({_, _, _} = Axis, Angle) when is_number(Angle) ->
 	from_axis_angle(radians, Axis, Angle).
 
 
-%% @doc Converts from and axis and angle (radians), to a quaternion.
+%% @doc Converts from an axis and angle (radians) to a quaternion.
 from_axis_angle(radians, {_, _, _} = Axis, Angle) when is_number(Angle) ->
 	ComplexFactor = math:sin(Angle / 2),
 	{X, Y, Z} = vector:multiply(ComplexFactor, Axis),
 	{math:cos(Angle / 2), X, Y, Z};
 
-%% @doc Converts from and axis and angle (degrees), to a quaternion.
+%% @doc Converts from an axis and angle (degrees), to a quaternion.
 from_axis_angle(degrees, Axis, Angle) when is_number(Angle) ->
 	DegAngle = deg2rad(Angle),
 	from_axis_angle(radians, {_, _, _} = Axis, DegAngle).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Converts from body rates (radians) to a quaternion.
 from_body_rates({_, _, _} = Vec) ->
@@ -216,9 +230,9 @@ from_body_rates(radians, {X, Y, Z} = Vec) ->
 
 %% @doc Converts from body rates (degrees) to a quaternion.
 from_body_rates(degrees, {X, Y, Z}) ->
-	from_body_rates(radians, {deg2rad(X), deg2rad(Y), deg2rad(Z)}). 
+	from_body_rates(radians, {deg2rad(X), deg2rad(Y), deg2rad(Z)}).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
 %% @doc Converts from a vector of euler angles (radians) to a quaternion.
 from_euler({_, _, _} = Vec) ->
@@ -233,34 +247,34 @@ from_euler(radians, {Yaw, Pitch, Roll}) ->
 
 	{
 		math:cos(HalfPitch) * math:cos(HalfRoll) * math:cos(HalfYaw) +
-				math:sin(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw), 
+				math:sin(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw),
 
 		math:sin(HalfPitch) * math:cos(HalfRoll) * math:cos(HalfYaw) -
-				math:cos(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw), 
-		
+				math:cos(HalfPitch) * math:sin(HalfRoll) * math:sin(HalfYaw),
+
 		math:cos(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw) +
-				math:sin(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw), 
-		
+				math:sin(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw),
+
 		math:cos(HalfPitch) * math:cos(HalfRoll) * math:sin(HalfYaw) +
-				math:sin(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw) 
+				math:sin(HalfPitch) * math:sin(HalfRoll) * math:cos(HalfYaw)
 	};
 
 %% @doc Converts from a vector of euler angles (degrees) to a quaternion.
 from_euler(degrees, {Yaw, Pitch, Roll}) ->
 	from_euler(radians, {deg2rad(Yaw), deg2rad(Pitch), deg2rad(Roll)}).
 
-% -------------------------------------------------------------------------
+% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Checks to see if this is a zero quaternion 
+%% @doc Checks to see if this is a zero quaternion
 is_zero({0, 0, 0, 0}) ->
 	true;
 
 is_zero({_, _, _, _}) ->
 	false.
 
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 %% Internal API
-%% ------------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
 %%% @doc Convert radians to degrees.
 rad2deg(Radians) ->

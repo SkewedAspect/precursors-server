@@ -7,7 +7,10 @@
 %%% to return `{Update, NewEntity}` where `Update` is either a JSON structure representing any changes or `undefined`
 %%% if no changes occurred, and `NewEntity` is the new entity record that should be used for future simulation.
 %%%
-%%% `get_full_update(Entity)' is called whenever a full JSON update message is required. It is expected to return
+%%% `get_client_behavior()' is called to get the name of the client-side behavior that corresponds to this behavior
+%%% module. It should return a binary..
+%%%
+%%% `get_full_state(Entity)' is called whenever a full JSON state message is required. It is expected to return
 %%% a JSON structure representing the entity's current state.
 %%%
 %%% `client_request(Channel, RequestType, RequestID, Request, Entity)' is called by the entity/client communication
@@ -31,7 +34,8 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 behaviour_info(callbacks) ->
-	[{init, 1}, {simulate, 2}, {get_full_state, 1}, {client_request, 5}, {client_event, 5}, {entity_event, 3}];
+	[{init, 1}, {simulate, 2}, {get_client_behavior, 0}, {get_full_state, 1}, {client_request, 5}, {client_event, 5},
+		{entity_event, 3}];
 
 behaviour_info(_) ->
     undefined.

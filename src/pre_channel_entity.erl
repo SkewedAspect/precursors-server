@@ -1,158 +1,111 @@
-%%% @doc The entity channel worker - forwards updates from nearby entities to the client.
-%%%
-%%% One worker process exists per client, and it just handles entity updates for that client.
+%%% @doc The entity channel - forwards messages from a client to its inhabited entity
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_channel_entity).
--behavior(gen_server).
 
 -include("log.hrl").
 -include("pre_entity.hrl").
 
-% Because this saves us _so_ much code.
--define(CHANNEL, entity).
-
 % API
--export([start_link/0, client_connected/2, client_disconnected/3, client_inhabited_entity/3]).
--export([broadcast_event/3, build_state_event/4, send_update_for_entity/1]).
-% gen_server
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([register_hooks/0, build_state_event/3, generate_timestamp/0, generate_timestamp/1]).
 
--type(entity_event_type() :: 'full' | 'update' | 'create' | 'remove').
--export_type([entity_event_type/0]).
+% Hooks
+-export([client_logged_in_hook/2]).
 
--record(state, {
-	clients = [] :: [{pid(), #entity{} | undefined}]
-}).
+% pre_client_channels
+-export([client_request/4, client_response/4, client_event/3]).
 
-%% -------------------------------------------------------------------
+
+%% --------------------------------------------------------------------------------------------------------------------
 %% API
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-start_link() ->
-	gen_server:start_link(?MODULE, [], []).
+register_hooks() ->
+	?debug("Registering client hooks."),
+	pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-client_connected(Pid, ClientInfo) ->
-	gen_server:cast(Pid, {client_connected, ClientInfo}).
-
-%% -------------------------------------------------------------------
-
-client_disconnected(Pid, ClientPid, Reason) ->
-	gen_server:cast(Pid, {client_disconnected, ClientPid, Reason}).
-
-%% -------------------------------------------------------------------
-
-client_inhabited_entity(Pid, ClientPid, EntityID) ->
-	pre_entity_engine:get_entity_record_async(EntityID, fun (EntityDef) ->
-		gen_server:cast(Pid, {client_inhabited_entity, ClientPid, EntityDef})
-	end).
-
-%% -------------------------------------------------------------------
-
-broadcast_event(Pid, EntityID, Content) ->
-	gen_server:cast(Pid, {entity_event, EntityID, Content}).
-
-%% -------------------------------------------------------------------
-
--spec build_state_event(EventType, StateUpdate, EntityID, Timestamp) -> json() when
+-spec build_state_event(EventType, StateUpdate, EntityID) -> json() when
 	EventType :: binary(),
 	StateUpdate :: json(),
-	EntityID :: binary(),
-	Timestamp :: number().
+	EntityID :: binary().
 
-build_state_event(EventType, StateUpdate, EntityID, Timestamp) ->
+build_state_event(undefined, StateUpdate, EntityID) ->
+
+	{StateItems, OtherItems} = lists:foldl(
+		fun({_Key, [{_K, _V} | _] = Value}, {StateItemsAcc1, OtherItemsAcc1}) ->
+				{Value ++ StateItemsAcc1, OtherItemsAcc1};
+			({_Key, _Value} = Item, {StateItemsAcc2, OtherItemsAcc2}) ->
+				{StateItemsAcc2, [Item | OtherItemsAcc2]}
+		end,
+		{[], []},
+		StateUpdate
+	),
 	[
-		{type, EventType},
 		{id, EntityID},
-		{timestamp, Timestamp}
-		| StateUpdate
-	].
+		{timestamp, generate_timestamp()},
+		{state, StateItems}
+	]
+	++ OtherItems;
 
-%% -------------------------------------------------------------------
-%% gen_server
-%% -------------------------------------------------------------------
+build_state_event(EventType, StateUpdate, EntityID) ->
+	build_state_event(undefined, [{type, EventType} | StateUpdate], EntityID).
 
-init([]) ->
-	State = #state{},
-	{ok, State}.
+%% --------------------------------------------------------------------------------------------------------------------
 
-%% -------------------------------------------------------------------
+%% @doc Generates a timestamp for a network message.
+%%
+%% This just generates a (floating-point) number representing a number of seconds.
 
-handle_call(_, _From, State) ->
-    {reply, invalid, State}.
+generate_timestamp() ->
+	generate_timestamp(os:timestamp()).
 
-%% -------------------------------------------------------------------
 
-handle_cast({client_connected, ClientInfo}, State) ->
-	Clients = State#state.clients,
-	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, ?CHANNEL]),
+generate_timestamp({MegaSecs, Secs, MicroSecs}) ->
+	MegaSecs * 1000000 + Secs + MicroSecs / 1000000.
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% Hooks
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Handle a client login hook call.
+client_logged_in_hook(undefined, ClientInfo) ->
+	?debug("Client ~p logged in; registering 'entity' channel.", [ClientInfo]),
 	#client_info{
-		channel_manager = ChannelManager,
-		connection = ConnectionPID
+		channel_manager = ChannelManager
 	} = ClientInfo,
-	pre_client_channels:set_channel(ChannelManager, ?CHANNEL, ?MODULE, []),
-	{noreply, State#state{clients = [{ConnectionPID, undefined} | Clients]}};
 
-handle_cast({client_disconnected, ConnectionPID, Reason}, State) ->
-	Clients = State#state.clients,
-	?debug("Client process ~p disconnected for reason ~p; removing from list.", [ConnectionPID, Reason]),
-    {noreply, State#state{clients = proplists:delete(ConnectionPID, Clients)}};
+	pre_client_channels:set_channel(ChannelManager, <<"entity">>, ?MODULE, []),
+	{ok, undefined}.
 
-handle_cast({client_inhabited_entity, ConnectionPid, EntityDef}, State) ->
-	% Update our list of clients, replacing the given client's entity.
-	Clients = lists:keyreplace(ConnectionPid, 1, State#state.clients, {ConnectionPid, EntityDef}),
-	pre_entity_engine:get_full_state_async(EntityDef, fun (Timestamp, FullState) ->
-		#entity{
-			model = ModelDef
-		} = EntityDef,
 
-		FullUpdate = [
-			{modelDef, ModelDef},
-			{state, FullState}
-		],
-		FullMessage = build_state_event(inhabit, FullUpdate, EntityDef#entity.id, Timestamp),
-		pre_client_connection:send(ConnectionPid, udp, event, entity, FullMessage)
-	end),
+%% --------------------------------------------------------------------------------------------------------------------
+%% pre_client_channels
+%% --------------------------------------------------------------------------------------------------------------------
 
-	Timer = timer:apply_interval(200, ?MODULE, send_update_for_entity, [EntityDef]),
-	?info("Started entity full update event timer ~p for ~p.", [Timer, EntityDef#entity.id]),
+client_request(#client_info{entity = undefined} = _ClientInfo, _RequestID, _Request, _Info) ->
+	% INCREDIBLY NOISY:
+	%?warning("Can't process 'entity' request ~p for client ~p; no entity inhabited!", [Request, ClientInfo]),
+	Response = [
+		{confirm, false},
+		{reason, <<"No entity inhabited">>}
+	],
+	{reply, Response};
 
-	{noreply, State#state{clients = Clients}};
+client_request(ClientInfo, RequestID, Request, _Info) ->
+	RequestType = proplists:get_value(type, Request),
+	Response = pre_entity_comm:client_request(ClientInfo, entity, RequestType, RequestID, Request),
+	{reply, Response}.
 
-handle_cast({entity_event, _EntityID, FullEvent}, State) ->
-	%?debug("Broadcasting event for entity ~p: ~p", [EntityID, FullEvent]),
-	%FIXME: Filter this so it only goes to clients within a certain distance!
-	%(ClientEntity#entity.physical#physical.position)
-	broadcast_event(FullEvent, State),
-    {noreply, State};
+%% --------------------------------------------------------------------------------------------------------------------
 
-handle_cast(_, State) ->
-    {noreply, State}.
+client_response(_Client, _Id, _Response, _Info) ->
+	{ok, []}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-send_update_for_entity(EntityDef) ->
-	%?debug("Sending update for entity ~p.", [EntityDef#entity.id]),
-	pre_channel_entity_sup:broadcast_full_update(EntityDef).
-
-%% -------------------------------------------------------------------
-
-handle_info(_, State) ->
-    {noreply, State}.
-
-%% -------------------------------------------------------------------
-
-terminate(Reason, _State) ->
-	?info("Terminating due to ~p.", [Reason]),
-	ok.
-
-code_change(_OldVersion, State, _Extra) ->
-	{reply, State}.
-
-%% -------------------------------------------------------------------
-
-broadcast_event(FullMessage, State) ->
-	[pre_client_connection:send(Pid, udp, event, entity, FullMessage)
-		|| {Pid, _EntityDef} <- State#state.clients],
-	State.
+client_event(ClientInfo, Event, _Info) ->
+	EventType = proplists:get_value(type, Event),
+	ok = pre_entity_comm:client_event(ClientInfo, entity, EventType, Event),
+	{ok, []}.

@@ -6,7 +6,7 @@
 -module(pre_entity_manager).
 
 -export([get_entity/1, create_entity/2, create_entity/3, create_entity/4, load_entity/1]).
--export([start_entity_engine/1]).
+-export([start_entity_engine/1, get_full_update/1]).
 
 -include("log.hrl").
 -include("pre_entity.hrl").
@@ -36,6 +36,7 @@ get_entity(EntityID) ->
 
 create_entity(Behavior, Definition) ->
 	Entity = #entity {
+		id = make_entity_id(),
 		behavior = Behavior
 	},
 
@@ -62,6 +63,7 @@ create_entity(Behavior, Definition) ->
 
 create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
 	Entity = #entity {
+		id = make_entity_id(),
 		behavior = Behavior,
 		client = ClientInfo
 	},
@@ -85,7 +87,7 @@ create_entity(undefined, Behavior, Definition) ->
 
 create_entity(EntityID, Behavior, Definition) ->
 	% Do a database lookup, and attempt to load the entity.
-	InitialEntity = case predata:get(<<"entity">>, EntityID) of
+	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
 			json_to_entity(Value);
 		notfound ->
@@ -98,6 +100,7 @@ create_entity(EntityID, Behavior, Definition) ->
 
 	% Set the entity's default behavior
 	Entity = InitialEntity#entity {
+		id = make_entity_id(),
 		behavior = Behavior
 	},
 
@@ -124,7 +127,7 @@ create_entity(undefined, Behavior, Definition, ClientInfo) ->
 
 create_entity(EntityID, Behavior, Definition, ClientInfo) ->
 	% Do a database lookup, and attempt to load the entity.
-	InitialEntity = case predata:get(<<"entity">>, EntityID) of
+	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
 			json_to_entity(Value);
 		notfound ->
@@ -137,6 +140,7 @@ create_entity(EntityID, Behavior, Definition, ClientInfo) ->
 
 	% Set the entity's default behavior
 	Entity = InitialEntity#entity {
+		id = make_entity_id(),
 		behavior = Behavior,
 		client = ClientInfo
 	},
@@ -160,7 +164,7 @@ create_entity(EntityID, Behavior, Definition, ClientInfo) ->
 
 load_entity(EntityID) ->
 	% Do a database lookup, and attempt to load the entity.
-	InitialEntity = case predata:get(<<"entity">>, EntityID) of
+	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
 			json_to_entity(Value);
 
@@ -203,6 +207,22 @@ start_entity_engine(Args) ->
 	gen_server:cast(pre_entity_engine_sup, {start_entity_engine, Args}).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Starts a new entity engine.
+%%
+%% This starts a new (supervised) entity engine, and adds it to our list of tracked entity engines.
+-spec get_full_update(Entity :: #entity{}) ->
+	FullUpdate :: json().
+
+get_full_update(Entity) ->
+	#entity{
+		id = EntityID,
+		behavior = Behavior
+	} = Entity,
+
+	[{behavior, Behavior:get_client_behavior()} | Behavior:get_full_state(Entity)].
+
+%% --------------------------------------------------------------------------------------------------------------------
 %% Helpers
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -218,33 +238,30 @@ json_to_entity(EntityJSON) ->
 	#entity {
 		id = proplists:get_value(id, EntityJSON),
 		behavior = proplists:get_value(behavior, EntityJSON),
-		model = proplists:get_value(model, EntityJSON),
 		state = proplists:get_value(state, EntityJSON)
 }.
 
-% Populates the state dict with the definition from the database; however since model/behavior are not part of state,
+% Populates the state dict with the definition from the database; however since behavior is not part of state,
 % we need to pull it out and handle it seperately.
 populate_definition(Entity, Definition) ->
 	DefDict = json_to_dict(Definition),
 
-	% Pull out the model from the definition
-	Model = dict:find(model, DefDict),
-	dict:erase(model, DefDict),
-
 	% Update the entity
 	case dict:find(behavior, DefDict) of
-	{ok, Behavior} ->
-		dict:erase(behavior, DefDict),
+		{ok, Behavior} ->
+			dict:erase(behavior, DefDict),
 
-		Entity#entity{
-			behavior = Behavior,
-			model = Model,
-			state = DefDict
-		};
-	error ->
-		Entity#entity{
-			model = Model,
-			state = DefDict
-		}
+			Entity#entity{
+				behavior = Behavior,
+				state = DefDict
+			};
+		error ->
+			Entity#entity{
+				state = DefDict
+			}
 	end.
 
+
+make_entity_id() ->
+	%list_to_binary(ref_to_list(make_ref())).
+	base64:encode(crypto:sha(term_to_binary({make_ref(), os:timestamp()}))).
