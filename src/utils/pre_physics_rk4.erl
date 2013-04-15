@@ -14,7 +14,7 @@
 % -------------------------------------------------------------------------
 
 % external api
--export([simulate/1, simulate/2, default_physical/0, to_proplist/1, diff_to_proplist/2, from_proplist/1,
+-export([simulate/1, default_physical/0, to_proplist/1, diff_to_proplist/2, from_proplist/1,
 	update_from_proplist/2, get_prop/2]).
 
 % -------------------------------------------------------------------------
@@ -88,7 +88,7 @@ to_proplist(Physical) ->
 		{torque_absolute, vector:vec_to_list(Physical#physical.torque_absolute)},
 		{torque_relative, vector:vec_to_list(Physical#physical.torque_relative)},
 
-		{last_update, pre_channel_entity:generate_timestamp(Physical#physical.last_update)},
+		%{last_update, pre_channel_entity:generate_timestamp(Physical#physical.last_update)},
 		{linear_velocity, vector:vec_to_list(Physical#physical.linear_velocity)},
 		{angular_velocity, vector:vec_to_list(Physical#physical.angular_velocity)},
 		{spin, quaternion:quat_to_list(Physical#physical.spin)},
@@ -113,7 +113,7 @@ diff_to_proplist(OldPhysical, NewPhysical) ->
 		{torque_absolute, NewPhysical#physical.torque_absolute, OldPhysical#physical.torque_absolute},
 		{torque_relative, NewPhysical#physical.torque_relative, OldPhysical#physical.torque_relative},
 
-		{last_update, NewPhysical#physical.last_update, OldPhysical#physical.last_update},
+		%{last_update, NewPhysical#physical.last_update, OldPhysical#physical.last_update},
 		{linear_velocity, NewPhysical#physical.linear_velocity, OldPhysical#physical.linear_velocity},
 		{angular_velocity, NewPhysical#physical.angular_velocity, OldPhysical#physical.angular_velocity},
 		{spin, NewPhysical#physical.spin, OldPhysical#physical.spin},
@@ -128,8 +128,8 @@ diff_to_proplist(OldPhysical, NewPhysical) ->
 filter_diff_list([{_Key, OldAndNewValue, OldAndNewValue} | Rest]) ->
 	filter_diff_list(Rest);
 
-filter_diff_list([{last_update, NewValue, _OldValue} | Rest]) ->
-	[{last_update, pre_channel_entity:generate_timestamp(NewValue)} | filter_diff_list(Rest)];
+%filter_diff_list([{last_update, NewValue, _OldValue} | Rest]) ->
+%	[{last_update, pre_channel_entity:generate_timestamp(NewValue)} | filter_diff_list(Rest)];
 
 filter_diff_list([{Key, {_, _, _, _} = NewValue, _OldValue} | Rest]) ->
 	[{Key, quaternion:quat_to_list(NewValue)} | filter_diff_list(Rest)];
@@ -364,7 +364,7 @@ simulate_internal(TimeDelta, State) ->
 
 	NewTorque = vector:multiply(1.0 / 6.0, vector:add(Torque1, vector:multiply(2.0, vector:add(Torque2, Torque3)), Torque4)),
 
-	State4#physical{
+	State5 = State4#physical{
 		position = vector:add(Position, vector:multiply(TimeDelta, NewVelocity)),
 		linear_velocity = vector:add(Velocity, vector:multiply(TimeDelta, NewAcceleration)),
 		orientation = quaternion:unit({
@@ -374,4 +374,10 @@ simulate_internal(TimeDelta, State) ->
 			OrientZ + TimeDelta * NewSpinZ
 		}),
 		angular_momentum = vector:add(AngularMomentum, vector:multiply(TimeDelta, NewTorque))
-	}.
+	},
+
+	% Debug Simulation
+	%?warning("Before simulate_internal: ~p", [State]),
+	%?warning("After simulate_internal: ~p", [State5]),
+
+	State5.
