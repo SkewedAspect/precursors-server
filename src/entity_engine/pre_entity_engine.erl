@@ -29,6 +29,9 @@
 % Simulation interval
 -define(INTERVAL, 16). % about 1/60th of a second. (16 ms)
 
+% Update interval
+-define(UPDATE_INTERVAL, 50).
+
 % Full Update interval
 -define(FULL_INTERVAL, 30000). % 30 seconds.
 
@@ -133,6 +136,7 @@ init([]) ->
 
 	% Start the simulation timer
 	erlang:send_after(?INTERVAL, self(), simulate),
+    erlang:send_after(?UPDATE_INTERVAL, self(), update_limit),
 
 	{ok, #state{}}.
 
@@ -226,6 +230,27 @@ handle_info(simulate, State) ->
 
     {noreply, State1};
 
+handle_info(update_limit, State) ->
+	Entities = State#state.entities,
+
+	% Send updates
+	NewEntities = dict:map(fun(_EntityID, Entity) ->
+		handle_behavior_update(Entity#entity.latest_update, {Entity, undefined, undefined}),
+		Entity#entity {
+			latest_update = []
+		}
+	end, Entities),
+
+	% Start new timer
+    erlang:send_after(?UPDATE_INTERVAL, self(), update_limit),
+
+	% Update state
+	NewState = State#state {
+		entities = NewEntities
+	},
+
+    {noreply, NewState};
+
 
 handle_info(_, State) ->
     {noreply, State}.
@@ -318,8 +343,16 @@ call_behavior_func(Entity, Func, Args) ->
 
 % 3-tuples
 handle_behavior_result({Reply, Update, #entity{} = NewEntity}, Ctx) ->
-	handle_behavior_update(Update, Ctx),
-	handle_behavior_reply(Reply, NewEntity, Ctx);
+	NewEntity1 = case Update of
+		undefined ->
+			NewEntity;
+		_ ->
+			NewEntity#entity{
+				latest_update = lists:keymerge(1, Update, NewEntity#entity.latest_update)
+			}
+	end,
+	%handle_behavior_update(Update, Ctx),
+	handle_behavior_reply(Reply, NewEntity1, Ctx);
 
 handle_behavior_result({_, _, UnrecognizedEntity}, {OriginalEntity, Func, Args}) ->
 	Behavior = OriginalEntity#entity.behavior,
@@ -328,9 +361,18 @@ handle_behavior_result({_, _, UnrecognizedEntity}, {OriginalEntity, Func, Args})
 	{noreply, OriginalEntity};
 
 % 2-tuples
-handle_behavior_result({Update, #entity{} = NewEntity}, Ctx) ->
-	handle_behavior_update(Update, Ctx),
-	{noreply, NewEntity};
+handle_behavior_result({Update, #entity{} = NewEntity}, _Ctx) ->
+	NewEntity1 = case Update of
+		undefined ->
+			NewEntity;
+		_ ->
+			NewEntity#entity{
+				latest_update = lists:keymerge(1, Update, NewEntity#entity.latest_update)
+			}
+	end,
+	%handle_behavior_update(Update, Ctx),
+
+	{noreply, NewEntity1};
 
 handle_behavior_result({_, UnrecognizedEntity}, {OriginalEntity, Func, Args}) ->
 	Behavior = OriginalEntity#entity.behavior,
@@ -355,6 +397,8 @@ handle_behavior_update([{_K, _V} | _] = Update, {OriginalEntity, _Func, _Args}) 
 		client = ClientInfo
 	} = OriginalEntity,
 	send_update(ClientInfo, EntityID, Update);
+
+handle_behavior_update([], {_OriginalEntity, _Func, _Args}) -> ok;
 
 handle_behavior_update(UnrecognizedUpdate, {OriginalEntity, Func, Args}) ->
 	Behavior = OriginalEntity#entity.behavior,
