@@ -50,7 +50,7 @@ call_all(Request) ->
 	abcast.
 
 cast_all(Request) ->
-	gen_server:abcast(?MODULE, Request).
+	[gen_server:cast(Pid, Request) || Pid <- pg2:get_members(entity_engines)].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
