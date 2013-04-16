@@ -63,7 +63,6 @@ general_test_() ->
 					Return2 = pre_entity_engine:get_entity(Pid, <<"0">>),
 					?assertEqual({ok, #entity{id = <<"0">>}}, Return2)
 				end},
-				%% TODO: Complete this test
 				{"Simulate Entities No Update Test", fun() ->
 					meck:new(nochange),
 					meck:expect(nochange, simulate, fun(Entity, State) -> {undefined, Entity} end),

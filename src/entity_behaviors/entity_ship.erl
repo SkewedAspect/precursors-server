@@ -89,7 +89,7 @@ init(InitialEntity) ->
 		{ angular_responsiveness, {3, 3, 3} } %  {pitch, roll, yaw}
 	]),
 
-	% Merge our initial shipstate dict with our default values, prefering our initials where there's
+	% Merge our initial shipstate dict with our default values, prefering our initials where there are
 	% conflicts.
 	Ship = dict:merge(fun(_Key, InitialVal, _DefaultVal) ->
 		InitialVal
