@@ -208,8 +208,8 @@ handle_cast({update, EntityID, Update}, State) ->
 			{_, undefined} -> ok; % Skip entities that don't have clients.
 			{_, ClientInfo} ->
 				%TODO: Filter according to distance from TargetEntity or something.
-				%?debug("Sending entity update for entity ~p to client ~p (entity ~p):~n~p",
-					%[EntityID, ClientInfo, TargetEntityID, Update]),
+				%warn("Sending entity update for entity ~p to client ~p (entity ~p):~n~p",
+				%	[EntityID, ClientInfo, TargetEntityID, Update]),
 				pre_entity_comm:send_update(ClientInfo, EntityID, Update)
 		end
 	end, ok, State#state.entities),
@@ -348,7 +348,7 @@ handle_behavior_result({Reply, Update, #entity{} = NewEntity}, Ctx) ->
 			NewEntity;
 		_ ->
 			NewEntity#entity{
-				latest_update = lists:keymerge(1, Update, NewEntity#entity.latest_update)
+				latest_update = merge_lists(Update, NewEntity#entity.latest_update)
 			}
 	end,
 	%handle_behavior_update(Update, Ctx),
@@ -367,7 +367,7 @@ handle_behavior_result({Update, #entity{} = NewEntity}, _Ctx) ->
 			NewEntity;
 		_ ->
 			NewEntity#entity{
-				latest_update = lists:keymerge(1, Update, NewEntity#entity.latest_update)
+				latest_update = merge_lists(Update, NewEntity#entity.latest_update)
 			}
 	end,
 	%handle_behavior_update(Update, Ctx),
@@ -437,3 +437,10 @@ send_update(ClientInfo, EntityID, Update) ->
 	%?debug("Sending entity update for entity ~p to client ~p (self):~n~p", [EntityID, ClientInfo, Update]),
 	pre_entity_comm:send_update(ClientInfo, EntityID, Update),
 	send_update(undefined, EntityID, Update).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+merge_lists(NewList, OldList) ->
+	lists:foldl(fun({Key, _} = Item, AccIn) ->
+			lists:keystore(Key, 1, AccIn, Item)
+		end, OldList, NewList).
