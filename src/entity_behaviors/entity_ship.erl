@@ -337,14 +337,20 @@ do_flight_control(Entity) ->
 
 
 calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
-	case abs(CurVel - TargetVel) < 0.01 of
-		false ->
-			% DMToP = Double Max Thrust over Pi.
-			DMToP = 2 * MaxTh / math:pi(),
-			DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP);
-		_ ->
-		0
-	end.
+	% We might want to go back to limiting this, but only after we modify the code to also zero velocity and
+	% acceleration.
+	%case abs(CurVel - TargetVel) < 0.0001 of
+	%	false ->
+	%		% DMToP = Double Max Thrust over Pi.
+	%		DMToP = 2 * MaxTh / math:pi(),
+	%		DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP);
+	%	_ ->
+	%	0
+	%end.
+
+	% DMToP = Double Max Thrust over Pi.
+	DMToP = 2 * MaxTh / math:pi(),
+	DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
