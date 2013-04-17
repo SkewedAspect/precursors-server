@@ -129,6 +129,9 @@ client_event(Pid, EntityID, Channel, EventType, Event) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 init([]) ->
+	% Set out priority high
+	process_flag(priority, high),
+
 	% Join the entity_engines process group.
 	pg2:create(entity_engines),
 	pg2:join(entity_engines, self()),
