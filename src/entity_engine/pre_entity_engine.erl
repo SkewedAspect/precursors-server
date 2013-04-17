@@ -29,6 +29,9 @@
 % Simulation interval
 -define(INTERVAL, 16). % about 1/60th of a second. (16 ms)
 
+% Simulation time at which we start warning about our load.
+-define(WARN_INTERVAL, (?INTERVAL - (?INTERVAL * 0.05))). % 5% of Interval
+
 % Update interval
 -define(UPDATE_INTERVAL, 50).
 
@@ -222,8 +225,26 @@ handle_cast(_, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 handle_info(simulate, State) ->
+	Start = erlang:now(),
+
 	% Simulate all our entities
 	State1 = simulate_entities(State),
+
+	% Record the amount of time taken to perform simulate
+	SimTime = (timer:now_diff(erlang:now(), Start) / 1000),
+
+	% Report if there's issues.
+	case ((SimTime >= ?WARN_INTERVAL) and (SimTime < ?INTERVAL)) of
+		true ->
+			?warn("High Load on Entity Engine ~p (~p ms).", [self(), SimTime]);
+		false ->
+			case SimTime >= ?INTERVAL of
+				true ->
+					?error("Overloaded Entity Engine ~p (~p ms).", [self(), SimTime]);
+				false ->
+					ok
+			end
+	end,
 
 	% Start new timer
     erlang:send_after(?INTERVAL, self(), simulate),
