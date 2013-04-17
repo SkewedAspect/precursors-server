@@ -22,19 +22,26 @@
 %% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
 %% is always expected.
 
--spec client_request(ClientInfo, Channel, RequestType, RequestID, Request) -> Response when
+-spec client_request(ClientInfo | EntityID, Channel, RequestType, RequestID, Request) -> Response when
 	ClientInfo :: #client_info{},
+	EntityID :: binary(),
 	Channel :: atom(),
 	RequestType :: binary(),
 	RequestID :: integer(),
 	Request :: json(),
 	Response :: json().
 
-client_request(ClientInfo, Channel, RequestType, RequestID, Request) ->
-	#client_info {
+client_request(#client_info{} = ClientInfo, Channel, RequestType, RequestID, Request) ->
+	#client_info{
 		entity_engine = EntityEngine,
 		entity = EntityID				%TODO: Make this 'entity_id' instead of 'entity'
 	} = ClientInfo,
+
+	% Call the entity engine
+	client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request);
+
+client_request(EntityID, Channel, RequestType, RequestID, Request) ->
+	EntityEngine = pre_entity_engine_sup:get_entity_engine(EntityID),
 
 	% Call the entity engine
 	client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request).
