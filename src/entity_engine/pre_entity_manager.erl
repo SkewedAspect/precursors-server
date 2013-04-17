@@ -216,11 +216,10 @@ start_entity_engine(Args) ->
 
 get_full_update(Entity) ->
 	#entity{
-		id = EntityID,
 		behavior = Behavior
 	} = Entity,
 
-	[{behavior, Behavior:get_client_behavior()} | Behavior:get_full_state(Entity)].
+	Behavior:get_full_state(Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Helpers
