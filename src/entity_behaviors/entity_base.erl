@@ -39,8 +39,12 @@ get_client_behavior() ->
 
 get_full_state(Entity) ->
 	ModelDef = dict:fetch(modelDef, Entity#entity.state),
+	Behavior = Entity#entity.behavior,
 
-	[{base, [{modelDef, ModelDef}]}].
+	[
+		{behavior, Behavior:get_client_behavior()},
+		{base, [{modelDef, ModelDef}]}
+	].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
