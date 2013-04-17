@@ -90,7 +90,7 @@
 %-type(password() :: string()).
 %-type(backend_identifier() :: any()).
 %-type(backend_init_reply() :: {'ok', backend_identifier()}).
-%-type(backend_auth_reply() :: 'allow' | {'deny', cause()} | backend_error()).
+%-type(backend_auth_reply() :: {'allow', username()} | {'deny', cause()} | backend_error()).
 
 %% ==================================================================
 %% API
@@ -119,7 +119,7 @@ start_link(Auths) ->
 %% highest.  Query stops at the first backend that returns a definitive
 %% allow or deny.
 -spec(authenticate/2 :: (Username :: string(), Password :: string()) ->
-	'allow' | {'deny', string()}).
+	{'allow', binary()} | {'deny', string()}).
 authenticate(Username, Password) ->
 	Handlers = gen_event:which_handlers(?MODULE),
 	Handlers0 = lists:keysort(2, Handlers),
@@ -172,8 +172,8 @@ handle_authentication(Username, Password, undefined) ->
 			undefined;
 		[#user_auth{password = DP} | _] when DP =/= Password ->
 			{deny, "invalid password"};
-		_ ->
-			allow
+		[_Account | _] ->
+			{allow, Username}
 	end.
 
 %% @hidden
@@ -219,7 +219,7 @@ handle_event(Event, State) ->
 %% ------------------------------------------------------------------
 
 %% @hidden
-handle_call({authentication, Username, Password}, undefined) ->
+handle_call({authentication, _Username, _Password}, undefined) ->
 	% TODO mnesia backed
 	{ok, undefined, undefined};
 
@@ -227,7 +227,7 @@ handle_call({authentication, Username, Password}, State) ->
 	#state{callback = Callback, substate = Substate, error_count = Errs} = State,
 	Out = Callback:handle_authentication(Username, Password, Substate),
 	ErrCount = case Out of
-		allow -> Errs;
+		{allow, _} -> Errs;
 		{deny, _} -> Errs;
 		undefined -> Errs;
 		_Err -> Errs + 1
@@ -243,7 +243,7 @@ handle_call({authentication, Username, Password}, State) ->
 			{ok, Out, State#state{error_count = ErrCount}}
 	end;
 
-handle_call({get_user, Username}, undefined) ->
+handle_call({get_user, _Username}, undefined) ->
 	% TODO mnesia backed
 	{ok, undefined, undefined};
 
@@ -299,17 +299,17 @@ authenticate([], _Username, _Password) ->
 	% if no-one knows, deny
 	{deny, "No backends definitive"};
 
-authenticate([Handler | Tail], Username, Password) ->
-	case gen_event:call(?MODULE, Handler, {authentication, Username, Password}) of
-		allow ->
-			allow;
+authenticate([Handler | Tail], UserOrNick, Password) ->
+	case gen_event:call(?MODULE, Handler, {authentication, UserOrNick, Password}) of
+		{allow, Username} ->
+			{allow, Username};
 		{deny, Msg} ->
 			{deny, Msg};
 		undefined ->
-			authenticate(Tail, Username, Password);
+			authenticate(Tail, UserOrNick, Password);
 		Else ->
 			?info("Handler ~p returned a bad value ~p", [Handler, Else]),
-			authenticate(Tail, Username, Password)
+			authenticate(Tail, UserOrNick, Password)
 	end.
 
 build_tables() ->

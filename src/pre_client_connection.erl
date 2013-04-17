@@ -387,12 +387,12 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	?info("starting authentication"),
 	?info("Request: ~p", [Request]),
 	% Check with authentication backends
-	Username = proplists:get_value(user, Request),
+	UserOrNick = proplists:get_value(user, Request),
 	Password= proplists:get_value(password, Request),
-	?info("Authenticating user: ~p", [Username]),
-	{Confirm, Reason} = case pre_gen_auth:authenticate(Username, Password) of
-		allow ->
-			{true, undefined};
+	?info("Authenticating user: ~p", [UserOrNick]),
+	{Confirm, ReasonOrUsername} = case pre_gen_auth:authenticate(UserOrNick, Password) of
+		{allow, Username} ->
+			{true, Username};
 		{deny, Msg} ->
 			{false, list_to_binary(Msg)};
 		_ ->
@@ -405,7 +405,7 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	{ok, UdpPort} = inet:port(UdpSocket),
 	LoginRep = [
 		{confirm, Confirm},
-		{reason, Reason},
+		{reason, ReasonOrUsername},
 		{cookie, Cookie},
 		{udpPort, UdpPort},
 		{tcpPort, 6007}
@@ -424,9 +424,13 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 		udp_remote_info = undefined,
 		aes_key = AESKey,
 		aes_vector = AESVector,
-		client_info = ClientInfo#client_info{
-			username = Username
-		}
+		client_info = case Confirm of
+				true ->
+					ClientInfo#client_info{
+						username = ReasonOrUsername
+					};
+				false -> undefined
+			end
 	};
 
 service_control_message(request, <<"getCharacters">>, MessageID, _Request, State) ->
@@ -479,7 +483,7 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	EntityID = undefined,
 
 	?info("Creating entity for client ~p.", [State#state.client_info]),
-	{ok, Entity} = pre_entity_manager:create_entity(EntityID, entity_ship, [{}], State#state.client_info),
+	{ok, _Entity} = pre_entity_manager:create_entity(EntityID, entity_ship, [{}], State#state.client_info),
 
 	CharSelRep = [
 		{confirm, true}
