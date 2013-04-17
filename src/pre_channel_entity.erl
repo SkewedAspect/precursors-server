@@ -10,7 +10,7 @@
 -export([register_hooks/0, build_state_event/3, generate_timestamp/0, generate_timestamp/1]).
 
 % Hooks
--export([client_logged_in_hook/2]).
+-export([client_logged_in_hook/2, client_logged_out_hook/2]).
 
 % pre_client_channels
 -export([client_request/4, client_response/4, client_event/3]).
@@ -22,7 +22,8 @@
 
 register_hooks() ->
 	?debug("Registering client hooks."),
-	pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]).
+    pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]),
+    pre_hooks:add_hook(client_logged_out, ?MODULE, client_logged_out_hook, undefined, [node()]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -78,6 +79,15 @@ client_logged_in_hook(undefined, ClientInfo) ->
 
 	pre_client_channels:set_channel(ChannelManager, <<"entity">>, ?MODULE, []),
 	{ok, undefined}.
+
+client_logged_out_hook(undefined, ClientInfo) ->
+    ?debug("Client ~p logged out; de-registering 'entity' channel.", [ClientInfo]),
+    #client_info{
+    channel_manager = ChannelManager
+    } = ClientInfo,
+
+    pre_client_channels:drop_channel(ChannelManager, <<"entity">>, ?MODULE, []),
+    {ok, undefined}.
 
 
 %% --------------------------------------------------------------------------------------------------------------------
