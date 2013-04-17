@@ -95,7 +95,13 @@ client_request(#client_info{entity = undefined} = _ClientInfo, _RequestID, _Requ
 
 client_request(ClientInfo, RequestID, Request, _Info) ->
 	RequestType = proplists:get_value(type, Request),
-	Response = pre_entity_comm:client_request(ClientInfo, entity, RequestType, RequestID, Request),
+	Response = case RequestType of
+		<<"full">> ->
+			EntityID = proplists:get_value(id, Request),
+			pre_entity_comm:client_request(EntityID, entity, RequestType, RequestID, Request);
+		_ ->
+			pre_entity_comm:client_request(ClientInfo, entity, RequestType, RequestID, Request)
+	end,
 	{reply, Response}.
 
 %% --------------------------------------------------------------------------------------------------------------------
