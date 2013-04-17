@@ -208,7 +208,7 @@ handle_cast({update, EntityID, Update}, State) ->
 			{_, undefined} -> ok; % Skip entities that don't have clients.
 			{_, ClientInfo} ->
 				%TODO: Filter according to distance from TargetEntity or something.
-				%warn("Sending entity update for entity ~p to client ~p (entity ~p):~n~p",
+				%?warn("Sending entity update for entity ~p to client ~p (entity ~p):~n~p",
 				%	[EntityID, ClientInfo, TargetEntityID, Update]),
 				pre_entity_comm:send_update(ClientInfo, EntityID, Update)
 		end
