@@ -27,7 +27,7 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
 % Simulation interval
--define(INTERVAL, 16). % about 1/60th of a second. (16 ms)
+-define(INTERVAL, 33). % about 1/60th of a second. (16 ms)
 
 % Simulation time at which we start warning about our load.
 -define(WARN_INTERVAL, (?INTERVAL - (?INTERVAL * 0.05))). % 5% of Interval
@@ -39,7 +39,8 @@
 -define(FULL_INTERVAL, 30000). % 30 seconds.
 
 -record(state, {
-	entities = dict:new()
+	entities = dict:new() :: dict(),
+	last_simulate :: integer()
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -228,7 +229,24 @@ handle_cast(_, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 handle_info(simulate, State) ->
+	LastSim = State#state.last_simulate,
 	Start = erlang:now(),
+	SimGap = if
+		LastSim == undefined ->
+			0;
+		true ->
+			(timer:now_diff(Start, LastSim) / 1000)
+	end,
+
+	if
+		SimGap >= (?INTERVAL + (?INTERVAL * 0.1)) ->
+			?warn("Overly long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
+
+		SimGap >= (?INTERVAL + (?INTERVAL * 0.25)) ->
+			?error("Extremely long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
+
+		true -> ok
+	end,
 
 	% Simulate all our entities
 	State1 = simulate_entities(State),
@@ -251,7 +269,11 @@ handle_info(simulate, State) ->
 	% Start new timer
     erlang:send_after(NextInterval, self(), simulate),
 
-    {noreply, State1};
+	State2 = State1#state{
+		last_simulate = Start
+	},
+
+    {noreply, State2};
 
 handle_info(update_limit, State) ->
 	Entities = State#state.entities,

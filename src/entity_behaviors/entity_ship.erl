@@ -33,9 +33,9 @@ init(InitialEntity) ->
 				[
 					{position,
 						{
-							random:uniform() * 200 - 100,
-							random:uniform() * 200 + 600,
-							random:uniform() * 20
+							random:uniform() * 2000 - 100,
+							random:uniform() * 2000 + 600,
+							random:uniform() * 200
 						}
 					},
 					{orientation,
@@ -45,7 +45,7 @@ init(InitialEntity) ->
 								random:uniform(),
 								random:uniform()
 							}),
-							-random:uniform() * math:pi()
+							random:uniform() * 2 * math:pi()
 						)
 					}
 				]
