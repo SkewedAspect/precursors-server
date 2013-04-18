@@ -80,13 +80,9 @@ client_logged_in_hook(undefined, ClientInfo) ->
 	pre_client_channels:set_channel(ChannelManager, <<"entity">>, ?MODULE, []),
 	{ok, undefined}.
 
-client_disconnected_hook(undefined, PID, ClientInfo) ->
-    ?debug("Client ~p logged out; de-registering 'entity' channel.", [ClientInfo]),
-    #client_info{
-    channel_manager = ChannelManager
-    } = ClientInfo,
-
-    pre_client_channels:drop_channel(ChannelManager, <<"entity">>, ?MODULE, []),
+client_disconnected_hook(undefined, Reason, ClientInfo) ->
+    ?debug("Client connection ~p terminated due to ~p, cleaning up entity", [Reason, ClientInfo]),
+    pre_entity_manager:delete_entity(ClientInfo#client_info.entity),
     {ok, undefined}.
 
 

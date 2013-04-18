@@ -311,7 +311,8 @@ handle_info(Info, State) ->
 %% ------------------------------------------------------------------
 
 %% @hidden
-terminate(_Reason, _State) ->
+terminate(Reason, State) ->
+    pre_hooks:async_trigger_hooks(client_disconnected, [Reason, State#state.client_info], all),
 	ok.
 
 %% ------------------------------------------------------------------

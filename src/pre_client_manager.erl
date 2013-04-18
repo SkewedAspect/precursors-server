@@ -105,7 +105,6 @@ handle_info({'EXIT', Pid, Cause}, State) ->
 	?info("Handling an exit of ~p due to ~p", [Pid, Cause]),
 	#state{ets = Ets} = State,
 	ets:delete(Ets, Pid),
-	pre_hooks:async_trigger_hooks(client_disconnected, [Pid, Cause], all),
 	{noreply, State};
 
 handle_info(_Info, State) ->
