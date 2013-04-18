@@ -81,8 +81,13 @@ client_logged_in_hook(undefined, ClientInfo) ->
 	{ok, undefined}.
 
 client_disconnected_hook(undefined, Reason, ClientInfo) ->
-    ?debug("Client connection ~p terminated due to ~p, cleaning up entity", [Reason, ClientInfo]),
-    pre_entity_manager:delete_entity(ClientInfo#client_info.entity),
+    case ClientInfo of
+        undefined ->
+            ?debug("Connection terminated, never logged in");
+        _ ->
+            ?debug("Client connection ~p terminated due to ~p, cleaning up entity", [ClientInfo, Reason]),
+            pre_entity_manager:delete_entity(ClientInfo#client_info.entity)
+    end,
     {ok, undefined}.
 
 
