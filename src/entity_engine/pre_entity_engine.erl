@@ -237,20 +237,19 @@ handle_info(simulate, State) ->
 	SimTime = (timer:now_diff(erlang:now(), Start) / 1000),
 
 	% Report if there's issues.
-	case ((SimTime >= ?WARN_INTERVAL) and (SimTime < ?INTERVAL)) of
+	NextInterval = if
+		SimTime >= ?INTERVAL ->
+			?error("Overloaded Entity Engine ~p (~p ms).", [self(), SimTime]),
+			0;
+		SimTime >= ?WARN_INTERVAL ->
+			?warn("High Load on Entity Engine ~p (~p ms).", [self(), SimTime]),
+			round(?INTERVAL - SimTime);
 		true ->
-			?warn("High Load on Entity Engine ~p (~p ms).", [self(), SimTime]);
-		false ->
-			case SimTime >= ?INTERVAL of
-				true ->
-					?error("Overloaded Entity Engine ~p (~p ms).", [self(), SimTime]);
-				false ->
-					ok
-			end
+			round(?INTERVAL - SimTime)
 	end,
 
 	% Start new timer
-    erlang:send_after(?INTERVAL, self(), simulate),
+    erlang:send_after(NextInterval, self(), simulate),
 
     {noreply, State1};
 
