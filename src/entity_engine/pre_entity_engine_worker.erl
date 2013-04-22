@@ -17,7 +17,13 @@
 -include("pre_entity.hrl").
 
 % API
--export([start_worker/1]).
+-export([start_worker/1, init/1]).
+
+% State record
+-record(state, {
+  entities = [] :: list(),
+  updates = dict:new() :: dict()
+}).
 
 % Simulation interval
 -define(INTERVAL, 33). % about 1/60th of a second. (16 ms)
@@ -26,12 +32,16 @@
 %% Worker API
 %% --------------------------------------------------------------------------------------------------------------------
 
-start_worker(InitialState) ->
-  init(InitialState).
+start_worker(InitialEntities) ->
+  spawn_link(?MODULE, init, [InitialEntities]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(InitialState) ->
+init(InitialEntities) ->
+  InitialState = #state {
+    entities = InitialEntities
+  },
+
   % Start the simulate timer
   erlang:send_after(?INTERVAL, self(), simulate),
 
