@@ -23,6 +23,9 @@
 -define(notice(Message), ?debugFmt("[~p][~p][~p]~n	NOTICE: ~s~n", [erlang:localtime(), node(), self(), Message])).
 -define(notice(Message, Args), ?debugFmt("[~p][~p][~p]~n	NOTICE: ~s~n", [erlang:localtime(), node(), self(), lists:flatten(io_lib:format(Message, Args))])).
 
+-define(warn(Message), ?debugFmt("[~p][~p][~p]~n	WARNING: ~s~n", [erlang:localtime(), node(), self(), Message])).
+-define(warn(Message, Args), ?debugFmt("[~p][~p][~p]~n	WARNING: ~s~n", [erlang:localtime(), node(), self(), lists:flatten(io_lib:format(Message, Args))])).
+
 -define(warning(Message), ?debugFmt("[~p][~p][~p]~n	WARNING: ~s~n", [erlang:localtime(), node(), self(), Message])).
 -define(warning(Message, Args), ?debugFmt("[~p][~p][~p]~n	WARNING: ~s~n", [erlang:localtime(), node(), self(), lists:flatten(io_lib:format(Message, Args))])).
 
