@@ -28,7 +28,7 @@ register_hooks() ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 -spec build_state_event(EventType, StateUpdate, EntityID) -> json() when
-	EventType :: binary(),
+	EventType :: binary() | 'undefined',
 	StateUpdate :: json(),
 	EntityID :: binary().
 
