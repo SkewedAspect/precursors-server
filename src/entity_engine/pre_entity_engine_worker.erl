@@ -19,14 +19,22 @@
 % API
 -export([start_worker/1, init/1]).
 
+-ifdef(TEST).
+-export([simulate_entities/1]).
+-endif.
+
 % State record
 -record(state, {
 	entities = [] :: list(),
-	updates = dict:new() :: dict()
+	incoming_updates = dict:new() :: dict(),
+	last_simulate :: integer()
 }).
 
 % Simulation interval
 -define(INTERVAL, 33). % about 1/60th of a second. (16 ms)
+
+% Simulation time at which we start warning about our load.
+-define(WARN_INTERVAL, (?INTERVAL - (?INTERVAL * 0.05))). % 5% of Interval
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Worker API
@@ -38,11 +46,17 @@ start_worker(InitialEntities) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(InitialEntities) ->
+	% Set our priority to high.
+	process_flag(priority, high),
+
 	InitialState = #state {
 		entities = InitialEntities
 	},
 
-	% Start the simulate timer
+	% Join the entity_updates process group. (created by the entity engine process if needed)
+	pg2:join(entity_updates, self()),
+
+	% Start the simulation timer
 	erlang:send_after(?INTERVAL, self(), simulate),
 
 	% Start the receive loop.
@@ -72,14 +86,137 @@ do_receive(State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 handle_msg(simulate, _From, State) ->
-	% Would do simulate here.
+	LastSim = State#state.last_simulate,
+	Start = erlang:now(),
+	SimGap = if
+		LastSim == undefined ->
+			0;
+		true ->
+			(timer:now_diff(Start, LastSim) / 1000)
+	end,
 
-	%TODO: Need the code for detecting how long simulate too, and adjusting interval that much.
+	if
+		SimGap >= (?INTERVAL + (?INTERVAL * 0.25)) ->
+			?error("Extremely long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
 
-	% Restart the simulate timer
-	erlang:send_after(?INTERVAL, self(), simulate),
+		SimGap >= (?INTERVAL + (?INTERVAL * 0.1)) ->
+			?warn("Overly long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
 
-	{noreply, State};
+		true -> ok
+	end,
+
+	% Simulate all our entities
+	State1 = simulate_entities(State),
+
+	% Record the amount of time taken to perform simulate
+	SimTime = (timer:now_diff(erlang:now(), Start) / 1000),
+
+	% Report if there's issues.
+	NextInterval = if
+		SimTime >= ?INTERVAL ->
+			?error("Overloaded Entity Engine ~p (~p ms).", [self(), SimTime]),
+			0;
+		SimTime >= ?WARN_INTERVAL ->
+			?warn("High Load on Entity Engine ~p (~p ms).", [self(), SimTime]),
+			round(?INTERVAL - SimTime);
+		true ->
+			round(?INTERVAL - SimTime)
+	end,
+
+	% Restart the simulation timer
+	erlang:send_after(NextInterval, self(), simulate),
+
+	State2 = State1#state {
+		last_simulate = Start
+	},
+
+    {noreply, State2};
+
+handle_msg({updates, NewUpdates}, _From, State) ->
+	#state {
+		incoming_updates = IncomingUpdates
+	} = State,
+
+	NewIncomingUpdates = lists:foldl(
+		fun({EntityID, Update}, IncomingUpdates1) ->
+			dict:append(EntityID, Update, IncomingUpdates1)
+		end,
+		IncomingUpdates,
+		NewUpdates
+	),
+	
+	State1 = State#state {
+		incoming_updates = NewIncomingUpdates
+	},
+	{noreply, State1};
 
 handle_msg(_Msg, _From, State) ->
 	{noreply, State}.
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% Internal API
+%% --------------------------------------------------------------------------------------------------------------------
+
+simulate_entities(State) ->
+	#state {
+		entities = Entities,
+		incoming_updates = Updates
+	} = State,
+	
+	{NewEntities2, OutgoingUpdates2} = lists:foldl(
+		fun(Entity, {NewEntities1, OutgoingUpdates1}) ->
+			IncomingEntityUpdates = dict:fetch(Entity#entity.id, Updates),
+
+			% Wrap return_result, passing the new entities and outgoing updates lists.
+			ReturnResult = fun(BehaviorFuncResult, Context) ->
+				return_result(BehaviorFuncResult, Context, {NewEntities1, OutgoingUpdates1})
+			end,
+
+			% First, apply any incoming updates.
+			Entity1 = case IncomingEntityUpdates of
+				[] -> Entity;
+				_ -> entity_behavior:apply_updates(lists:flatten(IncomingEntityUpdates), Entity)
+			end,
+
+			% Then, call simulate.
+			entity_behavior:call(Entity1, simulate, [Entity1, State], ReturnResult)
+		end,
+		{[], []},
+		Entities
+	),
+
+	pre_entity_engine_sup:broadcast_updates(OutgoingUpdates2),
+
+	State#state {
+		entities = NewEntities2,
+		incoming_updates = dict:new()
+	}.
+
+-spec return_result(BehaviorFuncResult, Context, SimulateEntityResponse) -> SimulateEntityResponse when
+	BehaviorFuncResult :: term(),
+	Context :: {OriginalEntity, Func, Args},
+		OriginalEntity :: #entity{},
+		Func :: atom(),
+		Args :: list(),
+	SimulateEntityResponse :: {NewEntities, OutgoingUpdates},
+		NewEntities :: [#entity{}],
+		OutgoingUpdates :: [json()].
+
+% 2-tuples
+return_result({undefined, #entity{} = NewEntity}, _Ctx, {NewEntities, OutgoingUpdates}) ->
+	{[NewEntity | NewEntities], OutgoingUpdates};
+
+return_result({Update, #entity{} = NewEntity}, _Ctx, {NewEntities, OutgoingUpdates}) ->
+	EntityID = NewEntity#entity.id,
+	{[NewEntity | NewEntities], [{EntityID, Update} | OutgoingUpdates]};
+
+return_result({_, UnrecognizedEnt}, {OriginalEntity, Func, Args}, {NewEntities, OutgoingUpdates}) ->
+	Behavior = OriginalEntity#entity.behavior,
+	?error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p", [Behavior, Func, Args, UnrecognizedEnt]),
+	{[OriginalEntity | NewEntities], OutgoingUpdates};
+
+% Other
+return_result(Unrecognized, {OriginalEntity, Func, Args}, {NewEntities, OutgoingUpdates}) ->
+	Behavior = OriginalEntity#entity.behavior,
+	?error("Unrecognized result from ~p:~p(~p): ~p", [Behavior, Func, Args, Unrecognized]),
+	{[OriginalEntity | NewEntities], OutgoingUpdates}.

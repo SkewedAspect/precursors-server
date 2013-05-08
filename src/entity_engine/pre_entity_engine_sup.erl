@@ -10,7 +10,8 @@
 -include("supervisor.hrl").
 
 % External API
--export([start_link/1, call_all/1, cast_all/1, broadcast_update/2, get_entity_engine/1, add_entity/1]).
+-export([start_link/1, call_all/1, cast_all/1, broadcast_update/2, broadcast_updates/1, get_entity_engine/1,
+	add_entity/1]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -42,28 +43,50 @@ call_all(Request) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Casts to all other entity engine supervisors with Request.
-%%
-%% This makes a cast into the other entity engine supervisors, returning immediately.
+%% @doc Casts the given Request to all entity engines.
 
 -spec cast_all(Request :: term()) ->
-	abcast.
+	[ok | _].
 
 cast_all(Request) ->
 	[gen_server:cast(Pid, Request) || Pid <- pg2:get_members(entity_engines)].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @doc Sends the given Message to all entity engines.
+
+-spec send_all(Message :: term()) ->
+	[ok | _].
+
+send_all(Message) ->
+	[Pid ! Message || Pid <- pg2:get_members(entity_engines)].
+
+%% --------------------------------------------------------------------------------------------------------------------
+
 %% @doc Sends an entity update to all other entity engines.
 %%
-%% Convience function for sending a `cast_all` to the other listening entity engine supervisors with an update message.
-%% The message is a json structure indicating the portions of state that have changed.
+%% Convience function for sending the given update message to all listening entity engines with `send_all`.
+%% The message is a JSON structure indicating the portions of state that have changed.
 
 -spec broadcast_update(EntityID::binary(), Update :: json()) ->
 	ok.
 
 broadcast_update(EntityID, Update) ->
-	cast_all({update, EntityID, Update}),
+	send_all({updates, [{EntityID, Update}]}),
+	ok.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Sends a list of entity updates to all other entity engines.
+%%
+%% Convience function for sending the given updates message to all listening entity engines with `send_all`.
+%% The message is a JSON structure indicating the portions of state that have changed.
+
+-spec broadcast_updates(Updates :: [{binary(), json()}]) ->
+	ok.
+
+broadcast_updates(Updates) ->
+	send_all({updates, Updates}),
 	ok.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -72,11 +95,6 @@ get_entity_engine(EntityID) ->
 	gen_server:call(?MODULE, {get_entity_engine, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Sends an entity update to all other entity engines.
-%%
-%% Convience function for sending a `cast_all` to the other listening entity engine supervisors with an update message.
-%% The message is a json structure indicating the portions of state that have changed.
 
 -spec add_entity(Entity::#entity{}) ->
 	ok.

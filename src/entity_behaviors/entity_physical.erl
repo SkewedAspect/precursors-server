@@ -10,7 +10,7 @@
 
 % pre_entity
 -export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/5,
-	entity_event/3]).
+	entity_event/3, apply_update/3]).
 
 -define(STEP_SIZE, 50).
 
@@ -75,4 +75,19 @@ client_event(Entity, ClientInfo, Channel, EventType, Event) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 entity_event(Event, From, Entity) ->
-	entity_physical:client_event(Event, From, Entity).
+	entity_base:client_event(Event, From, Entity).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+apply_update(physical, PhysicalUpdates, Entity) ->
+	Physical = dict:fetch(physical, Entity#entity.state),
+
+	NewPhysical = pre_physics_rk4:update_from_proplist(Physical, PhysicalUpdates),
+
+	Entity1 = Entity#entity {
+		state = dict:store(physical, NewPhysical, Entity#entity.state)
+	},
+	{undefined, Entity1};
+
+apply_update(Key, Value, Entity) ->
+	entity_base:apply_update(Key, Value, Entity).

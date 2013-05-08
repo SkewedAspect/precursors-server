@@ -10,7 +10,7 @@
 
 % pre_entity
 -export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/5,
-	entity_event/3]).
+	entity_event/3, apply_update/3]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
@@ -153,6 +153,33 @@ client_event(Entity, ClientInfo, Channel, EventType, Event) ->
 
 entity_event(Event, From, Entity) ->
 	entity_physical:client_event(Event, From, Entity).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+apply_update(ship, ShipUpdate, Entity) ->
+	ShipState = dict:fetch(ship, Entity#entity.state),
+	
+	NewShip = lists:foldl(
+		fun
+			({Key, [_, _, _] = NewValue}, ShipState1) ->
+				dict:store(Key, vector:list_to_vec(NewValue), ShipState1);
+			({Key, [_, _, _, _] = NewValue}, ShipState1) ->
+				dict:store(Key, vector:list_to_vec(NewValue), ShipState1);
+			({Key, NewValue}, ShipState1) ->
+				dict:store(Key, NewValue, ShipState1)
+		end,
+		ShipState,
+		ShipUpdate
+	),
+
+	Entity1 = Entity#entity {
+		state = dict:store(ship, NewShip, Entity#entity.state)
+	},
+	{undefined, Entity1};
+
+apply_update(Key, Value, Entity) ->
+	?error("Unrecognized key in entity_ship:apply_update(~p, ~p, <entity>)!", [Key, Value]),
+	entity_physical:apply_update(Key, Value, Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
