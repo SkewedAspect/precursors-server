@@ -194,17 +194,21 @@ handle_cast(_, State) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-handle_info({updates, Updates}, State) ->
+handle_info({_From, {updates, Updates}}, State) ->
 	State1 = handle_updates(Updates, State),
-	dict:fold(fun(_TargetEntityID, TargetEntity, _Acc) ->
-		%TODO: Filter outgoing updates according to distance from TargetEntity or something.
-		%?warn("Sending entity updates for entities ~p to client ~p (entity ~p):~n~p",
-		%	[EntityIDs, ClientInfo, TargetEntityID, Updates]),
-		pre_entity_comm:send_updates(TargetEntity#entity.client, Updates)
+	dict:fold(fun
+		(_TargetEntityID, #entity{client = undefined}, _Acc) ->
+			ok;
+		(_TargetEntityID, TargetEntity, _Acc) ->
+			%TODO: Filter outgoing updates according to distance from TargetEntity or something.
+			%?warn("Sending entity updates for entities ~p to client ~p (entity ~p):~n~p",
+			%	[EntityIDs, ClientInfo, TargetEntityID, Updates]),
+			pre_entity_comm:send_updates(TargetEntity#entity.client, Updates)
 	end, ok, State1#state.entities),
 	{noreply, State1};
 
-handle_info(_, State) ->
+handle_info(Message, State) ->
+	?warn("handle_info: Unrecognized message: ~p", [Message]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -239,6 +243,9 @@ code_change(_OldVersion, State, _Extra) ->
 add_entity_internal(Entity, State) ->
 	Entities = State#state.entities,
 	EntityID = Entity#entity.id,
+
+	WorkerPID = State#state.worker,
+	WorkerPID ! {self(), {add_entity, Entity}},
 
 	State#state {
 		entities = dict:store(EntityID, Entity, Entities)
