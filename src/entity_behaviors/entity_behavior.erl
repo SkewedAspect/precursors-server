@@ -17,9 +17,8 @@
 %%% interface (pre_entity_comm) when the client sends a request that the behavior needs to process. It is expected to
 %%% return `{ok, Response, NewEntity}` where `Response` is a JSON structure to send back to the client.
 %%%
-%%% `client_event(ClientInfo, Channel, EventType, Event, Entity)' is called by the entity/client communication
-%%% interface (pre_entity_comm) when the client sends an event that the behavior needs to process. No response is
-%%% expected.
+%%% `client_event(Channel, EventType, Event, Entity)' is called by the entity/client communication interface
+%%% (pre_entity_comm) when the client sends an event that the behavior needs to process. No response is expected.
 %%%
 %%% `entity_event(Event, From, Entity)' is called by the entity engine whenever another entity sends or broadcasts an
 %%% event. No response is expected.
@@ -44,7 +43,7 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 behaviour_info(callbacks) ->
-	[{init, 1}, {simulate, 2}, {get_client_behavior, 0}, {get_full_state, 1}, {client_request, 5}, {client_event, 5},
+	[{init, 1}, {simulate, 2}, {get_client_behavior, 0}, {get_full_state, 1}, {client_request, 5}, {client_event, 4},
 		{entity_event, 3}, {apply_update, 3}];
 
 behaviour_info(_) ->
