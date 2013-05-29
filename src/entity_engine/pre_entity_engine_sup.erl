@@ -59,7 +59,17 @@ cast_all(Request) ->
 	[ok | _].
 
 send_all(Message) ->
-	[Pid ! Message || Pid <- pg2:get_members(entity_engines)].
+	send_all(Message, entity_engines).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Sends the given Message to all entity engines.
+
+-spec send_all(Message :: term(), ProcessGroup :: pid()) ->
+	[ok | _].
+
+send_all(Message, ProcessGroup) ->
+	[Pid ! {self(), Message} || Pid <- pg2:get_members(ProcessGroup)].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -72,7 +82,7 @@ send_all(Message) ->
 	ok.
 
 broadcast_update(EntityID, Update) ->
-	send_all({updates, [{EntityID, Update}]}),
+	send_all({updates, [{EntityID, Update}]}, entity_updates),
 	ok.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -85,8 +95,11 @@ broadcast_update(EntityID, Update) ->
 -spec broadcast_updates(Updates :: [{binary(), json()}]) ->
 	ok.
 
+broadcast_updates([]) ->
+	ok;
+
 broadcast_updates(Updates) ->
-	send_all({updates, Updates}),
+	send_all({updates, Updates}, entity_updates),
 	ok.
 
 %% --------------------------------------------------------------------------------------------------------------------
