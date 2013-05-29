@@ -162,9 +162,9 @@ apply_update(ship, ShipUpdate, Entity) ->
 	NewShip = lists:foldl(
 		fun
 			({Key, [_, _, _] = NewValue}, ShipState1) ->
-				dict:store(Key, vector:list_to_vec(NewValue), ShipState1);
+				dict:store(Key, vector:to_vec(NewValue), ShipState1);
 			({Key, [_, _, _, _] = NewValue}, ShipState1) ->
-				dict:store(Key, vector:list_to_vec(NewValue), ShipState1);
+				dict:store(Key, vector:to_vec(NewValue), ShipState1);
 			({Key, NewValue}, ShipState1) ->
 				dict:store(Key, NewValue, ShipState1)
 		end,

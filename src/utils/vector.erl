@@ -10,7 +10,7 @@
 % -------------------------------------------------------------------------
 
 % external api
--export([vec_to_list/1, list_to_vec/1, dot/2, cross/2, multiply/2, divide/2, squared_norm/1, norm/1, length/1]).
+-export([vec_to_list/1, to_vec/1, dot/2, cross/2, multiply/2, divide/2, squared_norm/1, norm/1, length/1]).
 -export([unit/1, hpr_to/1, add/2, add/3, subtract/2, is_zero/1]).
 
 -export_type([vec/0]).
@@ -75,8 +75,11 @@ vec_to_list({X, Y, Z}) ->
 	[X, Y, Z].
 
 
-%% @doc Convert from a vector to a list.
-list_to_vec([X, Y, Z]) ->
+%% @doc Convert from a list or vector tuple to a vector.
+to_vec({_X, _Y, _Z} = Vec) ->
+	Vec;
+
+to_vec([X, Y, Z]) ->
 	{X, Y, Z}.
 
 % -------------------------------------------------------------------------

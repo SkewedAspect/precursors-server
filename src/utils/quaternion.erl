@@ -10,7 +10,7 @@
 % ---------------------------------------------------------------------------------------------------------------------
 
 % external api
--export([quat_to_list/1, list_to_quat/1, add/2, subtract/2, multiply/2, divide/2, reorient/2]).
+-export([quat_to_list/1, to_quat/1, add/2, subtract/2, multiply/2, divide/2, reorient/2]).
 -export([scale_rotation/2, norm/1, length/1, unit/1, conjugate/1, inverse/1, reciprocal/1]).
 -export([compose/2, relative_to/2, rotate/2, from_axis_angle/2, from_axis_angle/3]).
 -export([from_body_rates/1, from_body_rates/2, from_euler/1, from_euler/2, rad2deg/1, deg2rad/1, is_zero/1]).
@@ -57,8 +57,11 @@ quat_to_list({W, X, Y, Z}) ->
 	[W, X, Y, Z].
 
 
-%% @doc Convert from a quaternion to a list
-list_to_quat([W, X, Y, Z]) ->
+%% @doc Convert from a list or quaternion tuple to a quaternion.
+to_quat({_W, _X, _Y, _Z} = Quat) ->
+	Quat;
+
+to_quat([W, X, Y, Z]) ->
 	{W, X, Y, Z}.
 
 % ---------------------------------------------------------------------------------------------------------------------
