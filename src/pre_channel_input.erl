@@ -54,6 +54,11 @@ client_request(ClientInfo, RequestID, Request, _Info) ->
 client_response(_Client, _Id, _Response, _Info) ->
 	{ok, []}.
 
+client_event(#client_info{entity = undefined} = _ClientInfo, _Event, _Info) ->
+	% INCREDIBLY NOISY:
+	%?warning("Can't process 'input' event ~p for client ~p; no entity inhabited!", [Event, ClientInfo]),
+	{ok, []};
+
 client_event(ClientInfo, Event, _Info) ->
 	EventType = proplists:get_value(type, Event),
 	ok = pre_entity_comm:client_event(ClientInfo, input, EventType, Event),
