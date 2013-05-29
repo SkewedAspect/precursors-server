@@ -46,6 +46,8 @@ start_worker(InitialEntities) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(InitialEntities) ->
+	?info("pre_entity_engine_worker:init(~p)", [InitialEntities]),
+
 	% Set our priority to high.
 	process_flag(priority, high),
 
@@ -57,7 +59,7 @@ init(InitialEntities) ->
 	pg2:join(entity_updates, self()),
 
 	% Start the simulation timer
-	erlang:send_after(?INTERVAL, self(), simulate),
+	erlang:send_after(?INTERVAL, self(), {self(), simulate}),
 
 	% Start the receive loop.
 	do_receive(InitialState).
@@ -67,9 +69,12 @@ init(InitialEntities) ->
 do_receive(State) ->
 	% Listen for messages being sent to the process.
 	{Reply, NewState, From} = receive
-		{From1, Msg} ->
+		{From1, Msg} when is_pid(From1) ->
 			{Reply1, NewState1} = handle_msg(Msg, From1, State),
-			{Reply1, NewState1, From1}
+			{Reply1, NewState1, From1};
+		Other ->
+			?error("pre_entity_engine_worker:do_receive: Received invalid message: ~p", [Other]),
+			{noreply, State, undefined}
 	end,
 
 	% Handle potential replies
@@ -124,13 +129,21 @@ handle_msg(simulate, _From, State) ->
 	end,
 
 	% Restart the simulation timer
-	erlang:send_after(NextInterval, self(), simulate),
+	erlang:send_after(NextInterval, self(), {self(), simulate}),
 
 	State2 = State1#state {
 		last_simulate = Start
 	},
 
     {noreply, State2};
+
+handle_msg({add_entity, NewEntity}, _From, State) ->
+	?info("pre_entity_engine_worker[~p]: adding entity ~p", [self(), NewEntity]),
+	Entities = State#state.entities,
+	State1 = State#state {
+		entities = [NewEntity | Entities]
+	},
+	{noreply, State1};
 
 handle_msg({updates, NewUpdates}, _From, State) ->
 	#state {
@@ -150,7 +163,8 @@ handle_msg({updates, NewUpdates}, _From, State) ->
 	},
 	{noreply, State1};
 
-handle_msg(_Msg, _From, State) ->
+handle_msg(Msg, From, State) ->
+	?warn("pre_entity_engine_worker:handle_msg(~p, ~p, ~p): Unrecognized message!", [Msg, From, State]),
 	{noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -162,10 +176,10 @@ simulate_entities(State) ->
 		entities = Entities,
 		incoming_updates = Updates
 	} = State,
-	
+
 	{NewEntities2, OutgoingUpdates2} = lists:foldl(
 		fun(Entity, {NewEntities1, OutgoingUpdates1}) ->
-			IncomingEntityUpdates = dict:fetch(Entity#entity.id, Updates),
+			IncomingEntityUpdates = dict:find(Entity#entity.id, Updates),
 
 			% Wrap return_result, passing the new entities and outgoing updates lists.
 			ReturnResult = fun(BehaviorFuncResult, Context) ->
@@ -174,8 +188,9 @@ simulate_entities(State) ->
 
 			% First, apply any incoming updates.
 			Entity1 = case IncomingEntityUpdates of
-				[] -> Entity;
-				_ -> entity_behavior:apply_updates(lists:flatten(IncomingEntityUpdates), Entity)
+				error -> Entity;
+				{ok, []} -> Entity;
+				{ok, EntityUpdates} -> entity_behavior:apply_updates(lists:flatten(EntityUpdates), Entity)
 			end,
 
 			% Then, call simulate.
