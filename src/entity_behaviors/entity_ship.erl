@@ -178,7 +178,6 @@ apply_update(ship, ShipUpdate, Entity) ->
 	{undefined, Entity1};
 
 apply_update(Key, Value, Entity) ->
-	?error("Unrecognized key in entity_ship:apply_update(~p, ~p, <entity>)!", [Key, Value]),
 	entity_physical:apply_update(Key, Value, Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
