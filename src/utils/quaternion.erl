@@ -246,18 +246,19 @@ from_euler(radians, {Yaw, Pitch, Roll}) ->
 	HalfPitch = Pitch / 2,
 	HalfRoll = Roll / 2,
 
+	CosHalfYaw = math:cos(HalfYaw),
+	CosHalfPitch = math:cos(HalfPitch),
+	CosHalfRoll = math:cos(HalfRoll),
+
+	SinHalfYaw = math:sin(HalfYaw),
+	SinHalfPitch = math:sin(HalfPitch),
+	SinHalfRoll = math:sin(HalfRoll),
+
 	{
-		math:cos(HalfYaw) * math:cos(HalfPitch) * math:cos(HalfRoll) +
-			math:sin(HalfYaw) * math:sin(HalfPitch) * math:sin(HalfRoll),
-
-		math:cos(HalfYaw) * math:sin(HalfPitch) * math:cos(HalfRoll) -
-			math:sin(HalfYaw) * math:cos(HalfPitch) * math:sin(HalfRoll),
-
-		math:cos(HalfYaw) * math:cos(HalfPitch) * math:sin(HalfRoll) +
-			math:sin(HalfYaw) * math:sin(HalfPitch) * math:cos(HalfRoll),
-
-		math:sin(HalfYaw) * math:cos(HalfPitch) * math:cos(HalfRoll) +
-			math:cos(HalfYaw) * math:sin(HalfPitch) * math:sin(HalfRoll)
+		CosHalfYaw * CosHalfPitch * CosHalfRoll + SinHalfYaw * SinHalfPitch * SinHalfRoll,
+		CosHalfYaw * CosHalfPitch * SinHalfRoll - SinHalfYaw * SinHalfPitch * CosHalfRoll,
+		CosHalfYaw * SinHalfPitch * CosHalfRoll + SinHalfYaw * CosHalfPitch * SinHalfRoll,
+		SinHalfYaw * CosHalfPitch * CosHalfRoll - CosHalfYaw * SinHalfPitch * SinHalfRoll
 	};
 
 %% @doc Converts from a vector of euler angles (degrees) to a quaternion.
