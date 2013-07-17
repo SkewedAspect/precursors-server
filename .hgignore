@@ -19,6 +19,7 @@ key
 key.pub
 precursors.crt
 precursors.csr
+c_src/**.o
 
 # test/eunit artifacts
 .eunit
@@ -39,3 +40,6 @@ doc
 # python bytecode artifacts
 **.pyc
 **.pyo
+
+# local Riak install
+riak/**

@@ -10,7 +10,7 @@
 % -----------------------------------------------------------------------------
 
 % gen_server
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, 
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
 		code_change/3]).
 
 % External AI
@@ -52,18 +52,18 @@ init({gen_server, Args}) ->
 	Auth = case proplists:get_value(allow, Args) of
 		true ->
 			{allow, all};
-		
+
 		undefined ->
 			case proplists:get_value(deny, Args) of
 				true ->
 					{deny, all};
-				
+
 				undefined ->
 					% This is the default: allow everyone. Yes, I know this is the
 					% deny case. however, if we have no lists defined, then we go to
 					% the default, which is _allow_.
 					{allow, all};
-				
+
 				Else ->
 					{deny, Else}
 			end;
@@ -120,29 +120,29 @@ code_change(_OldVersion, State, _Extra) ->
 %% ----------------------------------------------------------------------------
 
 %% @doc Authenticate user against config
-handle_auth(_Username, _Password, #state{auth = {allow,all}}) ->
-				allow;
+handle_auth(Username, _Password, #state{auth = {allow, all}}) ->
+	{allow, Username};
 
 handle_auth(_Username, _Password, #state{auth = {deny, all}}) ->
-			{deny, "Authorization Denied."};
+	{deny, "Authorization Denied."};
 
 handle_auth(Username, _Password, #state{auth = {allow, Allowed}})->
 	UserBin = binary_to_list(Username),
-			case lists:member(UserBin, Allowed) of
-				true ->
-					allow;
-				false ->	
-					{deny, "Authorization Denied."}
-			end;
+	case lists:member(UserBin, Allowed) of
+		true ->
+			{allow, Username};
+		false ->
+			{deny, "Authorization Denied."}
+	end;
 
 handle_auth(Username, _Password, #state{auth = {deny, Denied}})->
 	UserBin = binary_to_list(Username),
-			case lists:member(UserBin, Denied) of
-				true ->
-					{deny, "Authorization Denied."};
-				false ->	
-					allow
-			end.
+	case lists:member(UserBin, Denied) of
+		true ->
+			{deny, "Authorization Denied."};
+		false ->
+			{allow, Username}
+	end.
 
 %% @doc We have no user info
 handle_userinfo(_Username, _State) ->

@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -include("log.hrl").
--include("pre_client.hrl").
+-include("pre_entity.hrl").
 
 -define(AES_BLOCK_SIZE, 16).
 
@@ -24,7 +24,7 @@
 %% API Function Exports
 %% ------------------------------------------------------------------
 
--export([start_link/2, start/2, set_tcp/5, send/5, set_inhabited_entity/2, json_to_envelope/1]).
+-export([start_link/2, start/2, set_tcp/5, send/5, set_inhabited_entity/3, json_to_envelope/1]).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Exports
@@ -115,12 +115,13 @@ respond(Pid, Socket, MessageID, Channel, Json) ->
 
 %% @doc Set the given client's inhabited entity.
 
--spec set_inhabited_entity(Pid, EntityID) -> 'ok' when
-	Pid :: pid() | #client_info{},
-	EntityID :: #entity_id{}.
+-spec set_inhabited_entity(Pid, Entity, EntityEngine) -> 'ok' when
+	Pid :: pid(),
+	Entity :: #entity{},
+	EntityEngine :: pid().
 
-set_inhabited_entity(Pid, EntityID) ->
-	gen_server:cast(Pid, {inhabit_entity, EntityID}).
+set_inhabited_entity(Pid, Entity, EntityEngine) ->
+	gen_server:cast(Pid, {inhabit_entity, Entity, EntityEngine}).
 
 %% ------------------------------------------------------------------
 %% gen_server Function Definitions
@@ -206,11 +207,20 @@ handle_cast(start_accept_tcp, State) ->
 	?info("TCP socket set:  ~p", [Socket]),
 	{noreply, State};
 
-handle_cast({inhabit_entity, EntityID}, State) ->
+handle_cast({inhabit_entity, Entity, EntityEngine}, State) ->
 	ClientInfo = State#state.client_info,
+	EntityID = Entity#entity.id,
+
+	FullUpdate = pre_entity_manager:get_full_update(Entity),
+	FullMessage = pre_channel_entity:build_state_event(inhabit, FullUpdate, EntityID),
+	send(ClientInfo#client_info.connection, udp, event, entity, FullMessage),
+
 	pre_hooks:async_trigger_hooks(client_inhabited_entity, [self(), EntityID], all),
-	NewState = State#state{
-		client_info = ClientInfo#client_info{entity = EntityID}
+	NewState = State#state {
+		client_info = ClientInfo#client_info {
+			entity = EntityID,
+			entity_engine = EntityEngine
+		}
 	},
 	{noreply, NewState};
 
@@ -301,7 +311,8 @@ handle_info(Info, State) ->
 %% ------------------------------------------------------------------
 
 %% @hidden
-terminate(_Reason, _State) ->
+terminate(Reason, State) ->
+    pre_hooks:async_trigger_hooks(client_disconnected, [Reason, State#state.client_info], all),
 	ok.
 
 %% ------------------------------------------------------------------
@@ -331,8 +342,9 @@ service_message(Binary, State) when is_binary(Binary) ->
 service_message(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
-service_message(Envelope, #state{channel_mgr = undefined} = _State) when is_record(Envelope, envelope) ->
-	?warning("service_message: Got message ~p while channel_mgr=undefined! Ignoring message.", [Envelope]);
+service_message(Envelope, #state{channel_mgr = undefined} = State) when is_record(Envelope, envelope) ->
+	?warning("service_message: Got message ~p while channel_mgr=undefined! Ignoring message.", [Envelope]),
+	State;
 
 service_message(Envelope, State) when is_record(Envelope, envelope) ->
 	#state{client_info = ClientInfo, channel_mgr = ChannelMgr} = State,
@@ -376,12 +388,12 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	?info("starting authentication"),
 	?info("Request: ~p", [Request]),
 	% Check with authentication backends
-	Username = proplists:get_value(user, Request),
+	UserOrNick = proplists:get_value(user, Request),
 	Password= proplists:get_value(password, Request),
-	?info("Authenticating user: ~p", [Username]),
-	{Confirm, Reason} = case pre_gen_auth:authenticate(Username, Password) of
-		allow ->
-			{true, undefined};
+	?info("Authenticating user: ~p", [UserOrNick]),
+	{Confirm, ReasonOrUsername} = case pre_gen_auth:authenticate(UserOrNick, Password) of
+		{allow, Username} ->
+			{true, Username};
 		{deny, Msg} ->
 			{false, list_to_binary(Msg)};
 		_ ->
@@ -394,7 +406,7 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	{ok, UdpPort} = inet:port(UdpSocket),
 	LoginRep = [
 		{confirm, Confirm},
-		{reason, Reason},
+		{reason, ReasonOrUsername},
 		{cookie, Cookie},
 		{udpPort, UdpPort},
 		{tcpPort, 6007}
@@ -413,9 +425,13 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 		udp_remote_info = undefined,
 		aes_key = AESKey,
 		aes_vector = AESVector,
-		client_info = ClientInfo#client_info{
-			username = Username
-		}
+		client_info = case Confirm of
+				true ->
+					ClientInfo#client_info{
+						username = ReasonOrUsername
+					};
+				false -> undefined
+			end
 	};
 
 service_control_message(request, <<"getCharacters">>, MessageID, _Request, State) ->
@@ -448,9 +464,9 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	Character = pre_data:get(<<"character">>, CharId),
 
 	% Store character and id in state.
-	State#state{
+	NewState = State#state{
 		client_info = State#state.client_info#client_info{
-		character_id = CharId,
+			character_id = CharId,
 			character = Character
 		}
 	},
@@ -465,13 +481,16 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	send(Connection, tcp, event, level, LoadLevel),
 
 	%TODO: Look up existing entity, if possible.
+	EntityID = undefined,
+
 	?info("Creating entity for client ~p.", [State#state.client_info]),
-	set_inhabited_entity(Connection, pre_entity_engine_sup:create_entity(entity_ship)),
+	{ok, _Entity} = pre_entity_manager:create_entity(EntityID, entity_ship, [{}], State#state.client_info),
 
 	CharSelRep = [
 		{confirm, true}
 	],
-	respond(ssl, MessageID, <<"control">>, CharSelRep);
+	respond(ssl, MessageID, <<"control">>, CharSelRep),
+	NewState;
 
 service_control_message(event, <<"logout">>, _, _, _) ->
 	?info("Got logout event from client."),

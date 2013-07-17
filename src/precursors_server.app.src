@@ -1,15 +1,16 @@
-{application, precursors_server,
- [
-  {description, ""},
-  {vsn, "1"},
-  {registered, []},
-  {applications, [
-                  kernel,
-                  stdlib,
-                  mnesia,
-                  lager,
-                  ssl
-                 ]},
-  {mod, {pre_server_app, []}},
-  {env, []}
- ]}.
+{application, precursors_server, [
+	{description, ""},
+	{vsn, "1"},
+	{registered, []},
+	{applications, [
+		kernel,
+		stdlib,
+		mnesia,
+		lager,
+		ssl
+	]},
+	{mod, {pre_server_app, []}},
+	{env, []}
+]}.
+
+% vim: ft=erlang

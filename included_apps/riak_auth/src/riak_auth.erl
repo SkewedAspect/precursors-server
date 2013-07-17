@@ -172,17 +172,20 @@ handle_auth(Username, Password, State) ->
 					{deny, "Database Error: " ++ Reason}
 			end;
 
-		Credentials when is_list(Credentials) ->
-			?info("Got credentials for account '~s': ~p", [Username, Credentials]),
-			case lists:any(
-					fun (CredentialProps) -> check_cred(Username, Password, CredentialProps) end,
-					Credentials) of
-				true ->
-					allow;
+		{ok, Email, Credentials} when is_list(Credentials) ->
+			handle_auth_credentials(Email, Password, Credentials)
+	end.
 
-				false ->
-					{deny, "Incorrect Password"}
-			end
+handle_auth_credentials(Username, Password, Credentials) ->
+	?info("Got credentials for account '~s': ~p", [Username, Credentials]),
+	case lists:any(
+			fun (CredentialProps) -> check_cred(Username, Password, CredentialProps) end,
+			Credentials) of
+		true ->
+			{allow, Username};
+
+		false ->
+			{deny, "Incorrect Password"}
 	end.
 
 
@@ -264,10 +267,8 @@ get_account_credentials(Username, State) ->
 	Email = case binary:match(Username, <<$@>>) of
 		nomatch ->
 			case riakc_pb_socket:get_index(RiakConn, <<"account">>, <<"nickname_bin">>, Username) of
-				{ok, RiakCObj} ->
-					AccountBin = riakc_obj:get_value(RiakCObj),
-					Account = pre_json:to_term(AccountBin),
-					proplists:get_value(email, Account);
+				{ok, [EmailBin]} ->
+					EmailBin;
 				Error ->
 					Error
 			end;
@@ -282,12 +283,13 @@ get_account_credentials(Username, State) ->
 				]
 			) of
 		{ok, [{1, Results}]} ->
-			lists:map(
+			Credentials = lists:map(
 				fun (CredentialBin) ->
 					pre_json:to_term(CredentialBin)
 				end,
 				Results
-				);
+				),
+			{ok, Email, Credentials};
 		Error2 ->
 			Error2
 	end.

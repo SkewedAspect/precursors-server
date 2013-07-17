@@ -1,109 +1,78 @@
 %%% @doc An entity representing a physical object.
+%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(entity_physical).
 
 -include("log.hrl").
 -include("pre_entity.hrl").
 
+-behaviour(entity_behavior).
+
 % pre_entity
--export([init/2, get_full_state/1, client_request/6, client_event/5, timer_fired/2]).
+-export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/5,
+	entity_event/3]).
 
 -define(STEP_SIZE, 50).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 %% API
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-init(EntityID, Behavior) ->
-	pre_entity_engine:start_entity_timer(EntityID, ?STEP_SIZE, do_physics),
-	#entity{
-		id = EntityID,
-		callback_module = Behavior,
-		physical = #physical{
-			last_update = os:timestamp()
-		}
+init(InitialEntity) ->
+	% Pull out the initial physical state from the entity we were passed.
+	Physical = case dict:find(physical, InitialEntity#entity.state) of
+		{ok, Value} ->
+			InitialPhysical = pre_physics_rk4:from_proplist(Value),
+			pre_physics_rk4:update_from_proplist(InitialPhysical, [{last_update, os:timestamp()}]);
+		error ->
+			pre_physics_rk4:default_physical()
+	end,
+
+	State = dict:store(physical, Physical, dict:new()),
+
+	% Return the updated entity
+	InitialEntity#entity{
+		state = State
 	}.
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-get_full_state(EntityState) ->
-	#physical{
-		% Updated values (assume these change every frame)
-		position = Position,
-		linear_momentum = LinearMomentum,
-		orientation = Orientation,
-		angular_momentum = AngularMomentum,
+simulate(Entity, _EntityEngineState) ->
+	EntityState = Entity#entity.state,
+	LastPhysical = dict:fetch(physical, EntityState),
 
-		% Input-only values
-		force_absolute = AbsoluteForce,
-		force_relative = RelativeForce,
-		torque_absolute = AbsoluteTorque,
-		torque_relative = RelativeTorque,
+	% Do physics simulation
+	Physical = pre_physics_rk4:simulate(LastPhysical),
 
-		% Purely calculated values (DON'T try to change these externally)
-		linear_velocity = LinearVelocity,
-		angular_velocity = AngularVelocity,
+	% Save State
+	NewState = dict:store(physical, Physical, EntityState),
 
-		% Intrinsic values (should NOT change during the life of an object)
-		mass = Mass,
-		inverse_mass = InverseMass,
-		inertia_tensor = InertiaTensor,
-		inverse_inertia_tensor = InverseInertiaTensor
-	} = EntityState#entity.physical,
+	% Calculate the updated state
+	entity_base:calc_update(NewState, Entity).
 
-	FullState = [
-		{position, vector:vec_to_list(Position)},
-		{linear_momentum, vector:vec_to_list(LinearMomentum)},
-		{orientation, quaternion:quat_to_list(Orientation)},
-		{angular_momentum, vector:vec_to_list(AngularMomentum)},
+%% --------------------------------------------------------------------------------------------------------------------
 
-		{force_absolute, vector:vec_to_list(AbsoluteForce)},
-		{force_relative, vector:vec_to_list(RelativeForce)},
-		{torque_absolute, vector:vec_to_list(AbsoluteTorque)},
-		{torque_relative, vector:vec_to_list(RelativeTorque)},
+get_client_behavior() ->
+	<<"Physical">>.
 
-		{linear_velocity, vector:vec_to_list(LinearVelocity)},
-		{angular_velocity, vector:vec_to_list(AngularVelocity)},
+%% --------------------------------------------------------------------------------------------------------------------
 
-		{mass, Mass},
-		{inverse_mass, InverseMass},
-		{inertia_tensor, InertiaTensor},
-		{inverse_inertia_tensor, InverseInertiaTensor}
-	],
+get_full_state(Entity) ->
+	Physical = dict:fetch(physical, Entity#entity.state),
 
-	{FullState, EntityState}.
+	[{physical, pre_physics_rk4:to_proplist(Physical)} | entity_base:get_full_state(Entity)].
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-client_request(EntityState, _ClientInfo, Channel, RequestType, _RequestID, Request) ->
-	?debug("~p received invalid request ~p on channel ~p! (full request: ~p)",
-		[EntityState#entity.id, RequestType, Channel, Request]),
-	Response = {reply, [
-		{confirm, false},
-		{reason, <<"VALID CRAPBACK: Invalid request!">>}
-	]},
-	{Response, EntityState}.
+client_request(Entity, Channel, RequestType, RequestID, Request) ->
+	entity_base:client_request(Entity, Channel, RequestType, RequestID, Request).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-client_event(EntityState, _ClientInfo, Channel, EventType, Event) ->
-	?debug("~p received invalid event ~p on channel ~p! (full event: ~p)",
-		[EntityState#entity.id, EventType, Channel, Event]),
-	{noreply, EntityState}.
+client_event(Entity, ClientInfo, Channel, EventType, Event) ->
+	entity_base:client_event(Entity, ClientInfo, Channel, EventType, Event).
 
-%% -------------------------------------------------------------------
+%% --------------------------------------------------------------------------------------------------------------------
 
-timer_fired(EntityState, do_physics) ->
-	#entity{
-		physical = #physical{
-			last_update = LastUpdate
-		} = LastPhysical
-	} = EntityState,
-	ThisUpdate = os:timestamp(),
-	Physical = pre_physics_rk4:simulate(timer:now_diff(ThisUpdate, LastUpdate) / 1000000, LastPhysical),
-	EntityState1 = EntityState#entity{
-		physical = Physical#physical{
-			last_update = ThisUpdate
-		}
-	},
-	{noreply, EntityState1}.
+entity_event(Event, From, Entity) ->
+	entity_physical:client_event(Event, From, Entity).
