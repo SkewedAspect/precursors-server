@@ -186,21 +186,21 @@ handle_input_command(Entity, [{_, _} | _] = RawCommand) ->
 handle_input_command(Entity, <<"sideslip">>, [TargetVel], _KWArgs) ->
 	set_target_linear_velocity(Entity, {TargetVel, undefined, undefined});
 
-handle_input_command(Entity, <<"throttle">>, [TargetVel], _KWArgs) ->
+handle_input_command(Entity, <<"lift">>, [TargetVel], _KWArgs) ->
 	set_target_linear_velocity(Entity, {undefined, TargetVel, undefined});
 
-handle_input_command(Entity, <<"lift">>, [TargetVel], _KWArgs) ->
-	set_target_linear_velocity(Entity, {undefined, undefined, TargetVel});
+handle_input_command(Entity, <<"throttle">>, [TargetVel], _KWArgs) ->
+	set_target_linear_velocity(Entity, {undefined, undefined, -TargetVel});
 
 % Rotational target velocity
 handle_input_command(Entity, <<"pitch">>, [TargetVel], _KWArgs) ->
 	set_target_angular_velocity(Entity, {TargetVel, undefined, undefined});
 
-handle_input_command(Entity, <<"roll">>, [TargetVel], _KWArgs) ->
+handle_input_command(Entity, <<"yaw">>, [TargetVel], _KWArgs) ->
 	set_target_angular_velocity(Entity, {undefined, TargetVel, undefined});
 
-handle_input_command(Entity, <<"yaw">>, [TargetVel], _KWArgs) ->
-	set_target_angular_velocity(Entity, {undefined, undefined, TargetVel});
+handle_input_command(Entity, <<"roll">>, [TargetVel], _KWArgs) ->
+	set_target_angular_velocity(Entity, {undefined, undefined, -TargetVel});
 
 % Catch-all
 handle_input_command(Entity, Command, Args, KWArgs) ->
