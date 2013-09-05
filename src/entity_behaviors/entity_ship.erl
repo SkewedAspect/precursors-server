@@ -39,14 +39,15 @@ init(InitialEntity) ->
 						}
 					},
 					{orientation,
-						quaternion:from_axis_angle(
-							vector:unit({
-								random:uniform(),
-								random:uniform(),
-								random:uniform()
-							}),
-							random:uniform() * 2 * math:pi()
-						)
+						{1, 0, 0, 0}
+						%quaternion:from_axis_angle(
+						%	vector:unit({
+						%		random:uniform(),
+						%		random:uniform(),
+						%		random:uniform()
+						%	}),
+						%	random:uniform() * 2 * math:pi()
+						%)
 					}
 				]
 			),
@@ -81,12 +82,12 @@ init(InitialEntity) ->
 		{ target_angular_velocity, {0, 0, 0} },
 
 		% Intrinsic ship parameters
-		{ linear_target_velocity_scaling, {600, 800, 500} }, % {sideslip, throttle, lift}
-		{ angular_target_velocity_scaling, {2, 2, 2} }, %  {pitch, roll, yaw}
-		{ max_linear_thrust, {300, 400, 250} }, % {sideslip, throttle, lift}
-		{ max_angular_thrust, {2, 2, 2} }, %  {pitch, roll, yaw}
-		{ linear_responsiveness, {3, 3, 3} }, % {sideslip, throttle, lift}
-		{ angular_responsiveness, {3, 3, 3} } %  {pitch, roll, yaw}
+		{ linear_target_velocity_scaling, {1200, 1000, 1600} }, % {sideslip, lift, throttle}
+		{ angular_target_velocity_scaling, {2, 2, 2} }, %  {pitch, heading, roll}
+		{ max_linear_thrust, {600, 500, 800} }, % {sideslip, lift, throttle}
+		{ max_angular_thrust, {2, 2, 2} }, %  {pitch, heading, roll}
+		{ linear_responsiveness, {3, 3, 3} }, % {sideslip, lift, throttle}
+		{ angular_responsiveness, {3, 3, 3} } %  {pitch, heading, roll}
 	]),
 
 	% Merge our initial shipstate dict with our default values, prefering our initials where there are
@@ -196,11 +197,11 @@ handle_input_command(Entity, <<"throttle">>, [TargetVel], _KWArgs) ->
 handle_input_command(Entity, <<"pitch">>, [TargetVel], _KWArgs) ->
 	set_target_angular_velocity(Entity, {TargetVel, undefined, undefined});
 
-handle_input_command(Entity, <<"yaw">>, [TargetVel], _KWArgs) ->
+handle_input_command(Entity, <<"heading">>, [TargetVel], _KWArgs) ->
 	set_target_angular_velocity(Entity, {undefined, TargetVel, undefined});
 
 handle_input_command(Entity, <<"roll">>, [TargetVel], _KWArgs) ->
-	set_target_angular_velocity(Entity, {undefined, undefined, -TargetVel});
+	set_target_angular_velocity(Entity, {undefined, undefined, TargetVel});
 
 % Catch-all
 handle_input_command(Entity, Command, Args, KWArgs) ->
@@ -279,19 +280,19 @@ do_flight_control(Entity) ->
 
 	ShipState = dict:fetch(ship, Entity#entity.state),
 	{TX, TY, TZ} = dict:fetch(target_linear_velocity, ShipState),
-	{TPitch, TRoll, TYaw} = dict:fetch(target_angular_velocity, ShipState),
+	{TPitch, THeading, TRoll} = dict:fetch(target_angular_velocity, ShipState),
 	{TXScale, TYScale, TZScale} = dict:fetch(linear_target_velocity_scaling, ShipState),
-	{TPitchScale, TRollScale, TYawScale} = dict:fetch(angular_target_velocity_scaling, ShipState),
+	{TPitchScale, THeadingScale, TRollScale} = dict:fetch(angular_target_velocity_scaling, ShipState),
 	{MaxXT, MaxYT, MaxZT} = dict:fetch(max_linear_thrust, ShipState),
-	{MaxPitchT, MaxRollT, MaxYawT} = dict:fetch(max_angular_thrust, ShipState),
+	{MaxPitchT, MaxHeadingT, MaxRollT} = dict:fetch(max_angular_thrust, ShipState),
 	{XR, YR, ZR} = dict:fetch(linear_responsiveness, ShipState),
-	{PitchR, RollR, YawR} = dict:fetch(angular_responsiveness, ShipState),
+	{PitchR, HeadingR, RollR} = dict:fetch(angular_responsiveness, ShipState),
 
 	% Get the ship-relative linear velocity
 	{XVel, YVel, ZVel} = quaternion:rotate(PositionVelAbs, quaternion:reciprocal(Orientation)),
 
 	% Get the ship-relative angular velocity
-	{PitchVel, RollVel, YawVel} = quaternion:rotate(AngularVelAbs, quaternion:reciprocal(Orientation)),
+	{PitchVel, HeadingVel, RollVel} = quaternion:rotate(AngularVelAbs, quaternion:reciprocal(Orientation)),
 
 	% Calculate relative force
 	Force = {
@@ -303,8 +304,8 @@ do_flight_control(Entity) ->
 	% Calculate relative torque
 	Torque = {
 		calc_thrust(MaxPitchT, PitchR, PitchVel, TPitchScale * TPitch),
-		calc_thrust(MaxRollT, RollR, RollVel, TRollScale * TRoll),
-		calc_thrust(MaxYawT, YawR, YawVel, TYawScale * TYaw)
+		calc_thrust(MaxHeadingT, HeadingR, HeadingVel, THeadingScale * THeading),
+		calc_thrust(MaxRollT, RollR, RollVel, TRollScale * TRoll)
 	},
 
 	PhysicalChanges = [
