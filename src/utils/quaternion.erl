@@ -241,29 +241,31 @@ from_euler({_, _, _} = Vec) ->
 
 
 %% @doc Converts from a vector of euler angles (radians) to a quaternion.
-from_euler(radians, {Yaw, Pitch, Roll}) ->
-	HalfYaw = Yaw / 2,
+%%
+%% Based on: http://www.euclideanspace.com/maths/geometry/rotations/conversions/eulerToQuaternion/index.htm
+from_euler(radians, {Heading, Pitch, Roll}) ->
+	HalfHeading = Heading / 2,
 	HalfPitch = Pitch / 2,
 	HalfRoll = Roll / 2,
 
-	CosHalfYaw = math:cos(HalfYaw),
+	CosHalfHeading = math:cos(HalfHeading),
 	CosHalfPitch = math:cos(HalfPitch),
 	CosHalfRoll = math:cos(HalfRoll),
 
-	SinHalfYaw = math:sin(HalfYaw),
+	SinHalfHeading = math:sin(HalfHeading),
 	SinHalfPitch = math:sin(HalfPitch),
 	SinHalfRoll = math:sin(HalfRoll),
 
 	{
-		CosHalfYaw * CosHalfPitch * CosHalfRoll + SinHalfYaw * SinHalfPitch * SinHalfRoll,
-		CosHalfYaw * CosHalfPitch * SinHalfRoll - SinHalfYaw * SinHalfPitch * CosHalfRoll,
-		CosHalfYaw * SinHalfPitch * CosHalfRoll + SinHalfYaw * CosHalfPitch * SinHalfRoll,
-		SinHalfYaw * CosHalfPitch * CosHalfRoll - CosHalfYaw * SinHalfPitch * SinHalfRoll
+		CosHalfHeading * CosHalfPitch * CosHalfRoll - SinHalfHeading * SinHalfPitch * SinHalfRoll,
+		SinHalfHeading * SinHalfPitch * CosHalfRoll + CosHalfHeading * CosHalfPitch * SinHalfRoll,
+		SinHalfHeading * CosHalfPitch * CosHalfRoll + CosHalfHeading * SinHalfPitch * SinHalfRoll,
+		CosHalfHeading * SinHalfPitch * CosHalfRoll - SinHalfHeading * CosHalfPitch * SinHalfRoll
 	};
 
 %% @doc Converts from a vector of euler angles (degrees) to a quaternion.
-from_euler(degrees, {Yaw, Pitch, Roll}) ->
-	from_euler(radians, {deg2rad(Yaw), deg2rad(Pitch), deg2rad(Roll)}).
+from_euler(degrees, {Heading, Pitch, Roll}) ->
+	from_euler(radians, {deg2rad(Heading), deg2rad(Pitch), deg2rad(Roll)}).
 
 % ---------------------------------------------------------------------------------------------------------------------
 
