@@ -34,7 +34,7 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 behaviour_info(callbacks) ->
-	[{init, 1}, {simulate, 2}, {get_client_behavior, 0}, {get_full_state, 1}, {client_request, 5}, {client_event, 5},
+	[{init, 1}, {simulate, 2}, {get_client_behavior, 0}, {get_full_state, 1}, {client_request, 5}, {client_event, 4},
 		{entity_event, 3}];
 
 behaviour_info(_) ->
