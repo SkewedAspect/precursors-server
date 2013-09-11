@@ -1,11 +1,8 @@
  ***********************************************************************
  * Build succeeded!                                                    *
  *                                                                     *
- * The quick and dirty start:                                          *
- *     ./devboot                                                       *
- *                                                                     *
  * Production style start:                                             *
- *    ./rebar generate                                                 *
- *    ./rel/precursors_server/bin/precursors_server console            *
+ *    make rel                                                         *
+ *    ./rel/precursors_server/bin/precursors_server start              *
  *                                                                     *
  ***********************************************************************
