@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! -f "key" ]; then
+if [ ! -f "priv/key" ]; then
 	echo "RSA key does not exist, generating..."
 	ssh-keygen -t rsa -f priv/key -N ""
 	RES=$?
@@ -10,7 +10,7 @@ if [ ! -f "key" ]; then
 	fi
 fi
 	
-if [ ! -f "precursors.csr" ]; then
+if [ ! -f "priv/precursors.csr" ]; then
 	echo "Certificate Signing Request does not exist, generating..."
 	openssl req -new -key priv/key -out priv/precursors.csr
 	RES=$?
@@ -20,7 +20,7 @@ if [ ! -f "precursors.csr" ]; then
 	fi
 fi
 
-if [ ! -f "precursors.crt" ]; then
+if [ ! -f "priv/precursors.crt" ]; then
 	echo "Certificate does not exists, generating self-signed for a year..."
 	openssl x509 -req -days 365 -in priv/precursors.csr -signkey priv/key -out priv/precursors.crt
 	RES=$?
