@@ -24,7 +24,7 @@ server running detached from your terminal.
 
 For a production build and run:
 
-		./buildcerts
+    ./buildcerts
     make rel
-		./rel/precursors_server/bin/precursors_server start
+    ./rel/precursors_server/bin/precursors_server start
 
