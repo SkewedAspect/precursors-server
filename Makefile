@@ -1,4 +1,4 @@
-REPO        ?= precursors-server
+REPO        ?= precursors_server
 
 .PHONY: rel deps
 
@@ -37,4 +37,4 @@ relclean:
 	rm -rf rel/$(REPO)
 
 devrel: rel
-	rm -rf rel/$(REPO)/lib/$(REPO)*; ln -sf $(abspath app/$(REPO)) rel/$(REPO)/lib/$(REPO)-1;
+	rm -rf rel/$(REPO)/lib/$(REPO)*; ln -sf $(abspath .) rel/$(REPO)/lib/$(REPO)-1;
