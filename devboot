@@ -1,4 +1,12 @@
 #!/bin/bash
-./buildcerts.sh
-make devrel
-rel/precursors_server/bin/precursors_server console
+APP_BIN=rel/precursors_server/bin/precursors_server
+case $1 in
+	"ping")
+	  $APP_BIN ping;;
+	"attach")
+		$APP_BIN attach;;
+	*)
+		./buildcerts.sh
+		make devrel
+		$APP_BIN start;;
+esac

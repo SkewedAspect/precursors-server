@@ -19,8 +19,8 @@ If you just want a quick and dirty start up:
 
     ./devboot
 
-This will do a build and create a development enviroment, dumping you into
-the erlang console at start up.
+This will do a build and create a development enviroment, and start the
+server running detached from your terminal.
 
 For a production build and run:
 
