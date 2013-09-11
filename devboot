@@ -5,6 +5,13 @@ case $1 in
 	  $APP_BIN ping;;
 	"attach")
 		$APP_BIN attach;;
+	"help")
+		echo "
+ping - ping the server to see if it is running
+attach - attach a remote erlang shell to the running server
+help - this thing
+ - build the certs, make a deverl, and start the server
+ ";;
 	*)
 		./buildcerts.sh
 		make devrel
