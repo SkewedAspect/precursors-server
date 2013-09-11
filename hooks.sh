@@ -1,17 +1,5 @@
 #!/bin/bash
 
-function included_apps_do {
-	for dir in included_apps/*
-	do
-		# If a file named 'do-not-build' exists in the included app's directory, skip it.
-		[ -e $dir/do-not-build ] && continue
-
-		pushd $dir
-		../../rebar "$@"
-		popd
-	done
-}
-
 function pre_compile {
 	if [ ! -d ebin ]; then
 		mkdir ebin
@@ -26,9 +14,6 @@ function pre_compile {
 		ln -sf ../priv precursors_server/priv
 		ln -sf ../deps precursors_server/deps
 	fi
-
-	# compile the included apps
-	included_apps_do "compile"
 
 	# record what commit/version the repository is at
 	PRECURSORS_COMMIT=""
@@ -57,16 +42,10 @@ function pre_compile {
 function pre_clean {
 	rm -rf precursors_server
 	rm -f include/commit_ver.hrl
-	included_apps_do "clean"
 }
 
 function post_compile {
 	cat success_message
-}
-
-function post_get_deps {
-	# get the deps of the included apps
-	included_apps_do "get-deps" deps_dir="../../deps"
 }
 
 case $1 in
