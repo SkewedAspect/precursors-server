@@ -10,7 +10,7 @@ all: compile
 
 
 # Targets that don't correspond to the name of a file
-.PHONY: all help deps compile script cert rel devrel
+.PHONY: all help deps compile script cert rel
 .PHONY: clean-deps clean-cert clean-rel clean-test clean distclean
 
 
@@ -29,7 +29,7 @@ help:
 	@echo "    script         run 'escriptize' to generate an executable script for the project"
 	@echo "    devcert        generate an SSL certificate for development"
 	@echo "    rel            generate a production release"
-	@echo "    devrel         generate a development release"
+	@echo "    devrel         generate a development release, and a ./devrel runner script"
 	@echo
 	@echo "    clean          clean up after 'compile' and 'test'"
 	@echo "    clean-deps     clean up after 'deps'"
@@ -79,12 +79,10 @@ rel/$(RELDIR) rel/$(DEVRELDIR): compile
 
 rel: rel/$(RELDIR)
 
-dev-$(REPO):
-	@echo "#!/bin/bash" > dev-$(REPO)
-	@echo 'exec $(abspath rel/$(DEVRELDIR)/bin/$(REPO)) "$$@"' >> dev-$(REPO)
-	chmod +x dev-$(REPO)
-
-devrel: rel/$(DEVRELDIR) dev-$(REPO)
+devrel: rel/$(DEVRELDIR)
+	@echo "#!/bin/bash" > devrel
+	@echo 'exec $(abspath rel/$(DEVRELDIR)/bin/$(REPO)) "$$@"' >> devrel
+	chmod +x devrel
 	-rm -rf rel/$(DEVRELDIR)/lib/$(REPO)*
 	ln -sf $(abspath .) rel/$(DEVRELDIR)/lib/$(REPO)-1
 
@@ -109,8 +107,7 @@ clean-rel:
 	-rm -rf rel/$(RELDIR)
 
 clean-devrel:
-	-rm -f dev-$(REPO)
-	-rm -rf rel/$(DEVRELDIR)
+	-rm -rf devrel rel/$(DEVRELDIR)
 
 TEST_LOG_FILE := eunit.log
 clean-test:
