@@ -16,6 +16,7 @@ include/commit_ver.hrl
 precursors_server/*
 rel/precursors_server
 rel/dev
+devrel
 priv/key
 priv/key.pub
 priv/precursors.crt
