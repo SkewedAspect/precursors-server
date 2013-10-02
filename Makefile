@@ -10,7 +10,7 @@ all: compile
 
 
 # Targets that don't correspond to the name of a file
-.PHONY: all help deps compile script cert rel
+.PHONY: all help compile script cert rel
 .PHONY: clean-deps clean-cert clean-rel clean-test clean distclean
 
 
@@ -41,14 +41,11 @@ help:
 
 
 # Building
-deps:
-	./rebar get-deps
+deps: rebar.config
+	./rebar get-deps update-deps
 
 compile: deps
 	./rebar compile
-
-script: compile
-	./rebar escriptize skip_deps=true
 
 
 # SSL certificates
@@ -88,11 +85,7 @@ devrel: rel/$(DEVRELDIR)
 
 
 # Testing
-#FIXME: Why are these two identical, with slightly different deps?
-eunit: clean deps compile
-	./rebar eunit skip_deps=true
-
-test: deps compile testclean
+eunit test: clean deps compile
 	./rebar eunit skip_deps=true
 
 
