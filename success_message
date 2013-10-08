@@ -1,8 +1,11 @@
- ***********************************************************************
- * Build succeeded!                                                    *
- *                                                                     *
- * Production style start:                                             *
- *    make rel                                                         *
- *    ./rel/precursors_server/bin/precursors_server start              *
- *                                                                     *
- ***********************************************************************
+ *****************************************************************************
+ * Build succeeded!                                                          *
+ *                                                                           *
+ * Development-style start:                                                  *
+ *    ./devrel console                                                       *
+ *                                                                           *
+ * Production-style start:                                                   *
+ *    make rel                                                               *
+ *    ./rel/precursors_server/bin/precursors_server start                    *
+ *                                                                           *
+ *****************************************************************************
