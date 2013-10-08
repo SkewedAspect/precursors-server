@@ -6,7 +6,7 @@ DEVRELDIR ?= dev
 
 
 # The default target
-all: compile
+all: compile devrel
 
 
 # Targets that don't correspond to the name of a file
@@ -42,6 +42,7 @@ help:
 
 # Building
 deps: rebar.config
+	mkdir deps
 	./rebar get-deps update-deps
 
 compile: deps
@@ -71,10 +72,13 @@ devcert: $(SSL_CERT)
 
 
 # Building releases
-rel/$(RELDIR) rel/$(DEVRELDIR): compile
+rel/$(RELDIR): compile
 	./rebar generate target_dir=$(@F) skip_deps=true
 
 rel: rel/$(RELDIR)
+
+rel/$(DEVRELDIR):
+	./rebar generate target_dir=$(@F) skip_deps=true
 
 devrel: rel/$(DEVRELDIR)
 	@echo "#!/bin/bash" > devrel
@@ -92,6 +96,7 @@ eunit test: clean deps compile
 # Cleanup
 clean-deps: clean
 	./rebar delete-deps
+	-rm -rf deps
 
 clean-devcert:
 	-rm -f $(SSL_CERT) $(SSL_CSR) $(SSL_KEY) $(SSL_PUBKEY)
