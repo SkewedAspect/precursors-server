@@ -23,7 +23,7 @@ confirm_continue
 
 info "Getting and building Riak and dependencies..."
 
-git clone -b riak-1.3.1 git://github.com/basho/riak.git
+git clone -b riak-1.4.2 git://github.com/basho/riak.git
 pushd riak
 
 make all
