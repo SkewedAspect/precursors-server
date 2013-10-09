@@ -80,7 +80,7 @@ rel: rel/$(RELDIR)
 rel/$(DEVRELDIR):
 	./rebar generate target_dir=$(@F) skip_deps=true
 
-devrel: rel/$(DEVRELDIR)
+devrel: rel/$(DEVRELDIR) $(SSL_CERT)
 	@echo "#!/bin/bash" > devrel
 	@echo 'exec $(abspath rel/$(DEVRELDIR)/bin/$(REPO)) "$$@"' >> devrel
 	chmod +x devrel
