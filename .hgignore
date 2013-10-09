@@ -5,20 +5,22 @@ single.config
 
 # pycharm artifacts
 .idea**
-.idea/**
 
 # mac artifacts
 **.DS_Store
 
 # build artifacts
-ebin/**
-deps/**
+ebin
+deps
 include/commit_ver.hrl
-precursors_server
-key
-key.pub
-precursors.crt
-precursors.csr
+precursors_server/*
+rel/precursors_server
+rel/dev
+devrel
+priv/key
+priv/key.pub
+priv/precursors.crt
+priv/precursors.csr
 c_src/**.o
 
 # test/eunit artifacts
@@ -42,4 +44,4 @@ doc
 **.pyo
 
 # local Riak install
-riak/**
+riak

@@ -157,31 +157,31 @@ update_from_proplist(Physical, [{}]) ->
 	Physical;
 
 update_from_proplist(Physical, [{position, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{position = Val}, Rest);
+	update_from_proplist(Physical#physical{position = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{linear_momentum, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{linear_momentum = Val}, Rest);
+	update_from_proplist(Physical#physical{linear_momentum = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{orientation, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{orientation = Val}, Rest);
+	update_from_proplist(Physical#physical{orientation = quaternion:to_quat(Val)}, Rest);
 update_from_proplist(Physical, [{angular_momentum, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{angular_momentum = Val}, Rest);
+	update_from_proplist(Physical#physical{angular_momentum = vector:to_vec(Val)}, Rest);
 
 update_from_proplist(Physical, [{force_absolute, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{force_absolute = Val}, Rest);
+	update_from_proplist(Physical#physical{force_absolute = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{force_relative, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{force_relative = Val}, Rest);
+	update_from_proplist(Physical#physical{force_relative = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{torque_absolute, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{torque_absolute = Val}, Rest);
+	update_from_proplist(Physical#physical{torque_absolute = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{torque_relative, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{torque_relative = Val}, Rest);
+	update_from_proplist(Physical#physical{torque_relative = vector:to_vec(Val)}, Rest);
 
 update_from_proplist(Physical, [{last_update, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{last_update = Val}, Rest);
+	update_from_proplist(Physical#physical{last_update = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{linear_velocity, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{linear_velocity = Val}, Rest);
+	update_from_proplist(Physical#physical{linear_velocity = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{angular_velocity, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{angular_velocity = Val}, Rest);
+	update_from_proplist(Physical#physical{angular_velocity = vector:to_vec(Val)}, Rest);
 update_from_proplist(Physical, [{spin, Val} | Rest]) ->
-	update_from_proplist(Physical#physical{spin = Val}, Rest);
+	update_from_proplist(Physical#physical{spin = quaternion:to_quat(Val)}, Rest);
 
 update_from_proplist(Physical, [{mass, Val} | Rest]) ->
 	update_from_proplist(Physical#physical{mass = Val}, Rest);

@@ -57,10 +57,19 @@ static ERL_NIF_TERM vec_to_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	} // end if
 } // end vec_to_list
 
-// list_to_vec/1
-static ERL_NIF_TERM list_to_vec(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// to_vec/1
+static ERL_NIF_TERM to_vec(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
+	int arity;
+	const ERL_NIF_TERM* array;
+
+	if(enif_get_tuple(env, argv[0], &arity, &array) && arity == 3)
+	{
+		// This is already a tuple; return it.
+		return argv[0];
+	} // end if
+
 	ERL_NIF_TERM vecTuple[3];
 	ERL_NIF_TERM current = argv[0], tail;
 
@@ -82,7 +91,7 @@ static ERL_NIF_TERM list_to_vec(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
 	{
 		FAIL;
 	} // end if
-} // end list_to_vec
+} // end to_vec
 
 // dot/2
 static ERL_NIF_TERM dot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

@@ -97,7 +97,7 @@ init({gen_server, _Args}) ->
 
 init(Args) ->
 	?debug("Starting Riak Auth Plugin"),
-	ok = pre_util:start_app(riak_auth),
+	riak_auth_sup:start_link(),
 
 	% Start our gen_server
 	Pid = riak_auth_sup:start_server(Args),

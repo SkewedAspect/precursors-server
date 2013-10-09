@@ -7,7 +7,7 @@
 
 /* Erlang module exports:
  * - vec_to_list/1
- * - list_to_vec/1
+ * - to_vec/1
  * - dot/2
  * - cross/2
  * - multiply/2
@@ -43,8 +43,8 @@ static int nif_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, E
 // vec_to_list/1
 static ERL_NIF_TERM vec_to_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-// list_to_vec/1
-static ERL_NIF_TERM list_to_vec(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+// to_vec/1
+static ERL_NIF_TERM to_vec(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 // dot/2
 static ERL_NIF_TERM dot(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -92,7 +92,7 @@ static ERL_NIF_TERM is_zero(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 static ErlNifFunc nif_funcs[] =
 {
 	{"vec_to_list", 1, vec_to_list},
-	{"list_to_vec", 1, list_to_vec},
+	{"to_vec", 1, to_vec},
 	{"dot", 2, dot},
 	{"cross", 2, cross},
 	{"multiply", 2, multiply},
