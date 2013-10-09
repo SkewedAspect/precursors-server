@@ -36,7 +36,7 @@
 
 % Don't enable this unless testing, or until _all_ functions are implemented in C++ too.
 % (loading the NIF module actually replaces this module, so we lose the Erlang implementations if we load the C++ ones)
--on_load(init/0).
+%-on_load(init/0).
 init() ->
     NifPaths = [
 		"vector",
