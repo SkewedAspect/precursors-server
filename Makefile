@@ -89,7 +89,7 @@ devrel: rel/$(DEVRELDIR) $(SSL_CERT)
 
 
 # Testing
-eunit test: clean deps compile
+eunit test: clean-test deps compile
 	./rebar eunit skip_deps=true
 
 
