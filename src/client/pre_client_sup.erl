@@ -2,7 +2,7 @@
 %% logged in.
 -module(pre_client_sup).
 
--behavior(supervisor).
+-behaviour(supervisor).
 
 -include("log.hrl").
 

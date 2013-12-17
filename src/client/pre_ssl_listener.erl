@@ -2,7 +2,7 @@
 %% this listener before attempting to reach the others.  Uses an accept
 %% pool for extra awesome.
 -module(pre_ssl_listener).
--behavior(gen_server).
+-behaviour(gen_server).
 
 -include("log.hrl").
 

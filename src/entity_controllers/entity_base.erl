@@ -1,18 +1,24 @@
-%%% @doc An base behavior. Mostly useful as something to call into to from other behaviors.
+%%% @doc The base entity controller. Mostly useful as something to call into to from other controllers.
 %%% -------------------------------------------------------------------------------------------------------------------
+
 -module(entity_base).
 
 -include("log.hrl").
 -include("pre_entity.hrl").
 
--behaviour(entity_behavior).
+-behaviour(entity_controller).
 
 % pre_entity
--export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/4,
+-export([init/1, simulate/2, get_client_controller/0, get_full_state/1, client_request/5, client_event/4,
 	entity_event/3, apply_update/3]).
 
 % helpers
 -export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2, calc_update/3]).
+
+-record(state, {
+	h :: any(),
+	model_def :: list()
+}).
 
 -define(STEP_SIZE, 50).
 
@@ -32,27 +38,27 @@ simulate(Entity, _EntityEngineState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-get_client_behavior() ->
+get_client_controller() ->
 	<<"Base">>.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 get_full_state(Entity) ->
 	ModelDef = dict:fetch(modelDef, Entity#entity.state),
-	Behavior = Entity#entity.behavior,
+	Controller = Entity#entity.controller,
 
 	[
-		{behavior, Behavior:get_client_behavior()},
+		{controller, Controller:get_client_controller()},
 		{base, [{modelDef, ModelDef}]}
 	].
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
-	Behavior = Entity#entity.behavior,
+	Controller = Entity#entity.controller,
 	StateUpdate = [
 		{confirm, true}
-		| Behavior:get_full_state(Entity)
+		| Controller:get_full_state(Entity)
 	],
 
 	Response = pre_channel_entity:build_state_event(undefined, StateUpdate, Entity#entity.id),
@@ -63,10 +69,10 @@ client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 		[Entity#entity.id, RequestType, Channel, Request]),
 
 	% Respond humorously.
-	BehaviorBin = atom_to_binary(Entity#entity.behavior, latin1),
+	ControllerBin = atom_to_binary(Entity#entity.controller, latin1),
 	Response = [
 		{confirm, false},
-		{reason, <<BehaviorBin/binary, " entity does not acknowledge your pathetic requests.">>}
+		{reason, <<ControllerBin/binary, " entity does not acknowledge your pathetic requests.">>}
 	],
 
 	{Response, undefined, Entity}.

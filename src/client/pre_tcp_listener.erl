@@ -1,7 +1,7 @@
 %% @doc Listener for new client connections, spawning a transient process
 %% to see if it's a legit connection.
 -module(pre_tcp_listener).
--behavior(gen_server).
+-behaviour(gen_server).
 
 -include("log.hrl").
 
@@ -90,7 +90,7 @@ handle_info({'EXIT', Pid, Reason}, State) ->
 	NewPid = spawn_link(?MODULE, spawn_acceptor, [Sock]),
 	Acceptors1 = [NewPid | Acceptors0],
 	{noreply, State#state{acceptors = Acceptors1}};
-	
+
 handle_info(Req, State) ->
 	?debug("Unhandled info:  ~p", [Req]),
 	{noreply, State}.

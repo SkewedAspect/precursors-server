@@ -3,7 +3,7 @@
 %%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_entity_engine_sup).
--behavior(gen_server).
+-behaviour(gen_server).
 
 -include("log.hrl").
 -include("pre_entity.hrl").

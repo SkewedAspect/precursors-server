@@ -94,7 +94,7 @@
 %% Same as above, but allows one to specific which socket to use.
 
 -module(pre_client_channels).
--behavior(gen_event).
+-behaviour(gen_event).
 
 -include("log.hrl").
 -include("pre_client.hrl").

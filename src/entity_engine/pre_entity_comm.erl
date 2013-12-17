@@ -17,9 +17,9 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client request to the appropriate behavior to be handled.
+%% @doc Passes the client request to the appropriate controller to be handled.
 %%
-%% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
+%% This passes a request from the client to the controller of the entity the client is currently controlling. A response
 %% is always expected.
 
 -spec client_request(ClientInfo | EntityID, Channel, RequestType, RequestID, Request) -> Response when
@@ -47,9 +47,9 @@ client_request(EntityID, Channel, RequestType, RequestID, Request) ->
 	client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client request to the appropriate behavior to be handled.
+%% @doc Passes the client request to the appropriate controller to be handled.
 %%
-%% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
+%% This passes a request from the client to the controller of the entity the client is currently controlling. A response
 %% is always expected.
 
 -spec client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request) -> Response when
@@ -66,9 +66,9 @@ client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request)
 	pre_entity_engine:client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client event to the appropriate behavior to be handled.
+%% @doc Passes the client event to the appropriate controller to be handled.
 %%
-%% This passes an eventvfrom the client to the behavior of the entity the client is currently controlling. No response
+%% This passes an eventvfrom the client to the controller of the entity the client is currently controlling. No response
 %% is expected.
 
 -spec client_event(ClientInfo, Channel, EventType, Event) -> Response when
@@ -88,9 +88,9 @@ client_event(ClientInfo, Channel, EventType, Event) ->
 	client_event(EntityEngine, EntityID, Channel, EventType, Event).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client event to the appropriate behavior to be handled.
+%% @doc Passes the client event to the appropriate controller to be handled.
 %%
-%% This passes an eventvfrom the client to the behavior of the entity the client is currently controlling. No response
+%% This passes an eventvfrom the client to the controller of the entity the client is currently controlling. No response
 %% is expected.
 
 -spec client_event(EntityEngine, EntityID, Channel, EventType, Event) -> Response when

@@ -6,10 +6,10 @@
 -include("log.hrl").
 -include("pre_entity.hrl").
 
--behaviour(entity_behavior).
+-behaviour(entity_controller).
 
 % pre_entity
--export([init/1, simulate/2, get_client_behavior/0, get_full_state/1, client_request/5, client_event/4,
+-export([init/1, simulate/2, get_client_controller/0, get_full_state/1, client_request/5, client_event/4,
 	entity_event/3, apply_update/3]).
 
 -define(STEP_SIZE, 50).
@@ -52,7 +52,7 @@ simulate(Entity, _EntityEngineState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-get_client_behavior() ->
+get_client_controller() ->
 	<<"Physical">>.
 
 %% --------------------------------------------------------------------------------------------------------------------

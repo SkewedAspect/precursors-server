@@ -5,7 +5,7 @@
 %% Licensed under the MIT license; see the LICENSE file for details.
 %% ------------------------------------------------------------------------
 -module(riak_auth).
-%-behavior(pre_gen_auth).
+%-behaviour(pre_gen_auth).
 
 % -------------------------------------------------------------------------
 %Testing:

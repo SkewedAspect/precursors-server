@@ -157,7 +157,7 @@ handle_msg({updates, NewUpdates}, _From, State) ->
 		IncomingUpdates,
 		NewUpdates
 	),
-	
+
 	State1 = State#state {
 		incoming_updates = NewIncomingUpdates
 	},
@@ -182,19 +182,19 @@ simulate_entities(State) ->
 			IncomingEntityUpdates = dict:find(Entity#entity.id, Updates),
 
 			% Wrap return_result, passing the new entities and outgoing updates lists.
-			ReturnResult = fun(BehaviorFuncResult, Context) ->
-				return_result(BehaviorFuncResult, Context, {NewEntities1, OutgoingUpdates1})
+			ReturnResult = fun(ControllerFuncResult, Context) ->
+				return_result(ControllerFuncResult, Context, {NewEntities1, OutgoingUpdates1})
 			end,
 
 			% First, apply any incoming updates.
 			Entity1 = case IncomingEntityUpdates of
 				error -> Entity;
 				{ok, []} -> Entity;
-				{ok, EntityUpdates} -> entity_behavior:apply_updates(lists:flatten(EntityUpdates), Entity)
+				{ok, EntityUpdates} -> entity_controller:apply_updates(lists:flatten(EntityUpdates), Entity)
 			end,
 
 			% Then, call simulate.
-			entity_behavior:call(Entity1, simulate, [Entity1, State], ReturnResult)
+			entity_controller:call(Entity1, simulate, [Entity1, State], ReturnResult)
 		end,
 		{[], []},
 		Entities
@@ -207,8 +207,8 @@ simulate_entities(State) ->
 		incoming_updates = dict:new()
 	}.
 
--spec return_result(BehaviorFuncResult, Context, SimulateEntityResponse) -> SimulateEntityResponse when
-	BehaviorFuncResult :: term(),
+-spec return_result(ControllerFuncResult, Context, SimulateEntityResponse) -> SimulateEntityResponse when
+	ControllerFuncResult :: term(),
 	Context :: {OriginalEntity, Func, Args},
 		OriginalEntity :: #entity{},
 		Func :: atom(),
@@ -226,12 +226,12 @@ return_result({Update, #entity{} = NewEntity}, _Ctx, {NewEntities, OutgoingUpdat
 	{[NewEntity | NewEntities], [{EntityID, Update} | OutgoingUpdates]};
 
 return_result({_, UnrecognizedEnt}, {OriginalEntity, Func, Args}, {NewEntities, OutgoingUpdates}) ->
-	Behavior = OriginalEntity#entity.behavior,
-	?error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p", [Behavior, Func, Args, UnrecognizedEnt]),
+	Controller = OriginalEntity#entity.controller,
+	?error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedEnt]),
 	{[OriginalEntity | NewEntities], OutgoingUpdates};
 
 % Other
 return_result(Unrecognized, {OriginalEntity, Func, Args}, {NewEntities, OutgoingUpdates}) ->
-	Behavior = OriginalEntity#entity.behavior,
-	?error("Unrecognized result from ~p:~p(~p): ~p", [Behavior, Func, Args, Unrecognized]),
+	Controller = OriginalEntity#entity.controller,
+	?error("Unrecognized result from ~p:~p(~p): ~p", [Controller, Func, Args, Unrecognized]),
 	{[OriginalEntity | NewEntities], OutgoingUpdates}.

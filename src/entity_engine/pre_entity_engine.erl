@@ -1,12 +1,12 @@
 %%% @doc The entity engine.
 %%%
-%%% This module is designed to be the heart of our entity behavior engine. It holds on to a dictionary of entities,
-%%% handles incoming messages from the client and other entities, and provides a simple way for behaviors to inform any
+%%% This module is designed to be the heart of our entity controller engine. It holds on to a dictionary of entities,
+%%% handles incoming messages from the client and other entities, and provides a simple way for controllers to inform any
 %%% watchers that something has changed in the entity's state.
 %%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_entity_engine).
--behavior(gen_server).
+-behaviour(gen_server).
 
 -include("log.hrl").
 -include("pre_entity.hrl").
@@ -86,9 +86,9 @@ get_entity(Pid, EntityID) ->
 %% Client API
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Passes the client request to the appropriate behavior to be handled.
+%% @doc Passes the client request to the appropriate controller to be handled.
 %%
-%% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
+%% This passes a request from the client to the controller of the entity the client is currently controlling. A response
 %% is always expected.
 -spec client_request(Pid::pid(), EntityID::binary(), Channel::atom(), RequestType::binary(), RequestID::integer(), Request::json()) ->
 	Response::json().
@@ -98,9 +98,9 @@ client_request(Pid, EntityID, Channel, RequestType, RequestID, Request) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Passes the client event to the appropriate behavior to be handled.
+%% @doc Passes the client event to the appropriate controller to be handled.
 %%
-%% This passes an event from the client to the behavior of the entity the client is currently controlling. No response
+%% This passes an event from the client to the controller of the entity the client is currently controlling. No response
 %% is expected.
 -spec client_event(Pid::pid(), EntityID::binary(), Channel::atom(), EventType::binary(), Event::json()) ->
 	Response::json().
@@ -171,7 +171,7 @@ handle_call({receive_entity, Entity}, _From, State) ->
 handle_call({request, EntityID, Channel, RequestType, RequestID, Request}, _From, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
-	call_behavior(Entity, client_request, [Entity, Channel, RequestType, RequestID, Request], State);
+	call_controller(Entity, client_request, [Entity, Channel, RequestType, RequestID, Request], State);
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
@@ -181,7 +181,7 @@ handle_call(_, _From, State) ->
 handle_cast({client_event, EntityID, Channel, EventType, Event}, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
-	call_behavior(Entity, client_event, [Entity, Channel, EventType, Event], State);
+	call_controller(Entity, client_event, [Entity, Channel, EventType, Event], State);
 
 handle_cast({send_entity, EntityID, TargetNode}, State) ->
 	Entities = State#state.entities,
@@ -223,7 +223,7 @@ handle_entity_updates([], Entities) ->
 
 handle_entity_updates([{EntityID, Update} | Rest], Entities) ->
 	Entity = dict:fetch(EntityID, Entities),
-	NewEntity = entity_behavior:apply_updates(Update, Entity),
+	NewEntity = entity_controller:apply_updates(Update, Entity),
 	NewEntities = dict:store(EntityID, NewEntity, Entities),
 	handle_entity_updates(Rest, NewEntities).
 
@@ -264,18 +264,18 @@ send_entity_to(FromEnginePid, Entity, TargetNode) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-call_behavior(#entity{} = Entity, Func, Args, State) ->
-	case entity_behavior:call(Entity, Func, Args) of
+call_controller(#entity{} = Entity, Func, Args, State) ->
+	case entity_controller:call(Entity, Func, Args) of
 		{reply, Reply, NewEntity1} ->
 			{reply, Reply, update_entity_state(NewEntity1, State)};
 		{noreply, NewEntity2} ->
 			{noreply, update_entity_state(NewEntity2, State)}
 	end;
 
-call_behavior(EntityID, Func, Args, State) ->
+call_controller(EntityID, Func, Args, State) ->
 	Entities = State#state.entities,
 	Entity = dict:fetch(EntityID, Entities),
-	call_behavior(Entity, Func, Args, State).
+	call_controller(Entity, Func, Args, State).
 
 %% --------------------------------------------------------------------------------------------------------------------
 

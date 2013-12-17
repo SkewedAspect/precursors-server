@@ -285,7 +285,7 @@ evaluate(TimeDelta, Velocity, Force, Spin, Torque, State) ->
 	Force :: vector:vec(),
 	Torque :: vector:vec().
 
-%FIXME: This should be a callback so the behavior can do stuff like target-velocity calculations.
+%FIXME: This should be a callback so the controller can do stuff like target-velocity calculations.
 forces(_TimeDelta, State) ->
 	#physical{
 		force_absolute = ForceAbs,
