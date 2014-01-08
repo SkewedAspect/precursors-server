@@ -24,7 +24,21 @@ data_access_test_() ->
 		meck:unload(data_callback),
 		pre_data:stop()
 	end,
-	fun(_) -> [
+	fun(_) ->
+	
+		SearchParams = [{key, value}, {key, '<', value}, {key, '>', value},
+			{key, '==', value}, {key, '>=', value}, {key, '=<', value},
+			{key, '=:=', value}, {key, member, [value]}],
+		SearchParamTests = lists:map(fun(Param) ->
+			Name = io_lib:format("search params test: ~p", [Param]),
+			{iolist_to_binary(Name), ?_assertEqual({ok, []}, pre_data:search(goober, [Param]))}
+		end, SearchParams),
+
+		meck:expect(data_callback, search, fun(goober, _Whatevs) ->
+			{ok, []}
+		end),
+
+		SearchParamTests ++ [
 
 
 		{"get by id, all okay", fun() ->
@@ -69,8 +83,19 @@ data_access_test_() ->
 			?assertEqual({ok, 1}, pre_data:delete({goober, 3, <<"pants">>}))
 		end},
 
+		{"search", fun() ->
+			meck:expect(data_callback, search, fun(goober, [{name, <<"hemdal">>}]) ->
+				{ok, [{goober, 1, <<"hemdal">>}]}
+			end),
+			?assertEqual({ok, [{goober, 1, <<"hemdal">>}]}, pre_data:search(goober, [{name, <<"hemdal">>}]))
+		end},
+
+		{"search explosion on bad comparison", fun() ->
+			?assertThrow({badarg, infix}, pre_data:search(goober, [{field, infix, 3}]))
+		end},
+
 		{"transations", fun() ->
-			TransactionFun = fun() ->
+			TransactFun = fun() ->
 				pre_data:get_by_id(goober, 5)
 			end,
 			meck:expect(data_callback, transaction, fun(TransactionFun) ->
@@ -79,7 +104,7 @@ data_access_test_() ->
 			meck:expect(data_callback, get_by_id, fun(goober, 5) ->
 				{ok, {goober, 5, <<"pants">>}}
 			end),
-			?assertEqual({ok, {goober, 5, <<"pants">>}}, pre_data:transaction(TransactionFun))
+			?assertEqual({ok, {goober, 5, <<"pants">>}}, pre_data:transaction(TransactFun))
 		end}
 
 	] end}.

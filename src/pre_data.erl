@@ -58,6 +58,16 @@ delete(Record) ->
 delete(Record, Id) ->
     gen_server:call(?MODULE, {api, delete, [Record, Id]}, infinity).
 
+%% @doc Search the data backend for records of the given types with the
+%% given properties. Expected to be called within the context of a
+%% transaction.
+-type comparison_op() :: '>' | '>=' | '<' | '=<' | '==' | '=:='.
+-type search_parameter() :: {any(), any()} | {any(), comparison_op(), any()}.
+-spec search(Record :: atom(), Params :: [search_parameter()]) -> {'ok', [tuple()]} | {'error', any()}.
+search(Record, Params) ->
+    check_params(Params),
+    gen_server:call(?MODULE, {api, search, [Record, Params]}, infinity).
+	
 %% @doc Runs the fun as a transaction. This allows save/1, get_by_id/2,
 %% delete/1,2 to be used such that the underlying data system can rollback
 %% the changes if any later action fails. There is no acutal guarentee the
@@ -107,4 +117,24 @@ terminate(Reason, _State) ->
 
 code_change(_OldVersion, State, _Extra) ->
     {reply, State}.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+check_params([]) ->
+    ok;
+
+check_params([{_Key, _Value} | Tail]) ->
+    check_params(Tail);
+
+check_params([{_Key, member, Value} | Tail]) when is_list(Value) ->
+    check_params(Tail);
+
+check_params([{_Key, Op, _Value} | Tail]) ->
+    ValidOps = ['>', '>=', '<', '=<', '==', '=:='],
+	  case lists:member(Op, ValidOps) of
+		    false ->
+				    throw({badarg, Op});
+				true ->
+				    check_params(Tail)
+		end.
 
