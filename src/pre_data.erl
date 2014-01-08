@@ -2,6 +2,19 @@
 %%% cold-storage by the gang. Also defines the behavior of the callback
 %%% modules.
 %%%
+%%% For convience sake, data handled by this module (and by extension the
+%%% backend modules) should conform to the following format:
+%%%
+%%% `{RecordAtom, IdField, Field1, Field2, ..., FeildN, Created, Updated}'
+%%%
+%%% For example:
+%%%
+%%% `{pre_user, 1, <<"name">>, os:timestamp(), os:timestamp()}'
+%%%
+%%% The backends should check for undefined ids and automatically generate
+%%% one. On a save, check for created and updated timestamps and update
+%%% those.
+%%%
 %%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_data).
