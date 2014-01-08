@@ -94,7 +94,7 @@ delete(Record, Id) ->
 -spec search(Record :: atom(), Params :: [search_parameter()]) -> {'ok', [tuple()]} | {'error', any()}.
 search(Record, Params) ->
     check_params(Params),
-		need_transaction_api(search, [Record, Params]).
+    need_transaction_api(search, [Record, Params]).
   
 %% @doc Runs the fun as a transaction. This allows save/1, get_by_id/2,
 %% delete/1,2 to be used such that the underlying data system can rollback
@@ -117,7 +117,14 @@ init(CallbackModule) ->
 handle_call({api, Function, Args}, From, State) ->
     #state{callback_mod = CallbackModule, workers = Workers} = State,
     PidMon = spawn_monitor(fun() ->
-		    put(?callback_key, CallbackModule),
+        % The real reason to do this is to force transaction required
+        % functions to all run within the same pid. Some backends (mnesia)
+        % require transations not cross pid bounderies (it uses the process
+        % dictionary to track transactions). This does the same to keep
+        % track of the callback module. This has the advantage of requiring
+        % fewer trips to the pre_data process, so pragmatism beats the
+        % 'pdict is dirty' purity.
+        put(?callback_key, CallbackModule),
         Res = erlang:apply(CallbackModule, Function, Args),
         gen_server:reply(From, Res)
     end),
