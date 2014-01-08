@@ -20,9 +20,14 @@ data_access_test_() ->
 		{ok, Pid} = pre_data:start_link(data_callback),
 		Pid
 	end,
-	fun(_) ->
+	fun(Pid) ->
 		meck:unload(data_callback),
-		pre_data:stop()
+		pre_data:stop(),
+		Mon = erlang:monitor(process, Pid),
+		receive
+			{'DOWN', Mon, process, Pid, _} ->
+				ok
+		end
 	end,
 	fun(_) ->
 	
