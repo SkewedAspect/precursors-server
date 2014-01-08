@@ -40,6 +40,11 @@
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+-record(state, {
+  callback_mod, % the callback module implementing the behavior
+  workers = dict:new() % the pids currently doing a request, like save
+}).
+
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
@@ -88,7 +93,7 @@ delete(Record, Id) ->
 search(Record, Params) ->
     check_params(Params),
     gen_server:call(?MODULE, {api, search, [Record, Params]}, infinity).
-	
+  
 %% @doc Runs the fun as a transaction. This allows save/1, get_by_id/2,
 %% delete/1,2 to be used such that the underlying data system can rollback
 %% the changes if any later action fails. There is no acutal guarentee the
@@ -102,17 +107,19 @@ transaction(Fun) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(CallbackModule) ->
-    {ok, CallbackModule}.
+    {ok, #state{callback_mod = CallbackModule}}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @private
-handle_call({api, Function, Args}, From, CallbackModule) ->
-    spawn(fun() ->
+handle_call({api, Function, Args}, From, State) ->
+    #state{callback_mod = CallbackModule, workers = Workers} = State,
+    PidMon = spawn_monitor(fun() ->
         Res = erlang:apply(CallbackModule, Function, Args),
         gen_server:reply(From, Res)
     end),
-    {noreply, CallbackModule};
+    Workers2 = dict:store(PidMon, From, Workers),
+    {noreply, State#state{workers = Workers2}};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
@@ -126,6 +133,21 @@ handle_cast(_, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+handle_info({'DOWN', Mon, process, Pid, Why}, State) ->
+    #state{workers = Workers} = State,
+    Workers2 = dict:erase({Mon, Pid}, Workers),
+    case dict:find({Pid, Mon}, Workers) of
+      error ->
+        ?info("Didn't find a ~p in workers (~p)", [{Pid, Mon}, Workers]),
+        ok;
+      {ok, _From} when Why =:= normal; Why =:= shutdown ->
+        ok;
+      {ok, From} ->
+        ?warning("Something went horribly wrong with ~p: ~p", [Pid, Why]),
+        gen_server:reply(From, {error, Why})
+    end,
+    {noreply, State#state{workers = Workers2}};
 
 handle_info(_, State) ->
     {noreply, State}.
@@ -152,10 +174,10 @@ check_params([{_Key, member, Value} | Tail]) when is_list(Value) ->
 
 check_params([{_Key, Op, _Value} | Tail]) ->
     ValidOps = ['>', '>=', '<', '=<', '==', '=:='],
-	  case lists:member(Op, ValidOps) of
-		    false ->
-				    throw({badarg, Op});
-				true ->
-				    check_params(Tail)
-		end.
+    case lists:member(Op, ValidOps) of
+        false ->
+            throw({badarg, Op});
+        true ->
+            check_params(Tail)
+    end.
 

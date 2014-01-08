@@ -110,6 +110,17 @@ data_access_test_() ->
 				{ok, {goober, 5, <<"pants">>}}
 			end),
 			?assertEqual({ok, {goober, 5, <<"pants">>}}, pre_data:transaction(TransactFun))
+		end},
+
+		{"something throws an error", fun() ->
+			meck:expect(data_callback, transaction, fun(TransactionFun) ->
+				TransactionFun()
+			end),
+			TransactFun = fun() ->
+				1 = 2
+			end,
+			Got = pre_data:transaction(TransactFun),
+			?assertMatch({error, {{badmatch, 2}, _}}, Got)
 		end}
 
 	] end}.
