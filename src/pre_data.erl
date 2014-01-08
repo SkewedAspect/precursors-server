@@ -40,6 +40,8 @@
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+-define(callback_key, pre_data_callback).
+
 -record(state, {
   callback_mod, % the callback module implementing the behavior
   workers = dict:new() % the pids currently doing a request, like save
@@ -64,14 +66,14 @@ stop() ->
 %% occur.
 -spec get_by_id(Record :: atom(), Id :: any()) -> {'ok', tuple()} | {'error', 'notfound'}.
 get_by_id(Record, Id) ->
-     gen_server:call(?MODULE, {api, get_by_id, [Record, Id]}, infinity).
+    need_transaction_api(get_by_id, [Record, Id]).
 
 %% @doc Stores the record to long term. Expected to be called in the
 %% context of a transaction. If the id is `undefined' it is automatically
 %% set.
 -spec save(Record :: tuple()) -> {'ok', tuple()}.
 save(Record) ->
-    gen_server:call(?MODULE, {api, save, [Record]}, infinity).
+    need_transaction_api(save, [Record]).
 
 %% @doc Extract the type and id of the record and call {@link delete/2}.
 -spec delete(Record :: tuple()) -> 'ok'.
@@ -84,7 +86,7 @@ delete(Record) ->
 %% be called within the context of a transaction.
 -spec delete(Record :: atom(), Id :: any()) -> 'ok'.
 delete(Record, Id) ->
-    gen_server:call(?MODULE, {api, delete, [Record, Id]}, infinity).
+    need_transaction_api(delete, [Record, Id]).
 
 %% @doc Search the data backend for records of the given types with the
 %% given properties. Expected to be called within the context of a
@@ -92,7 +94,7 @@ delete(Record, Id) ->
 -spec search(Record :: atom(), Params :: [search_parameter()]) -> {'ok', [tuple()]} | {'error', any()}.
 search(Record, Params) ->
     check_params(Params),
-    gen_server:call(?MODULE, {api, search, [Record, Params]}, infinity).
+		need_transaction_api(search, [Record, Params]).
   
 %% @doc Runs the fun as a transaction. This allows save/1, get_by_id/2,
 %% delete/1,2 to be used such that the underlying data system can rollback
@@ -115,6 +117,7 @@ init(CallbackModule) ->
 handle_call({api, Function, Args}, From, State) ->
     #state{callback_mod = CallbackModule, workers = Workers} = State,
     PidMon = spawn_monitor(fun() ->
+		    put(?callback_key, CallbackModule),
         Res = erlang:apply(CallbackModule, Function, Args),
         gen_server:reply(From, Res)
     end),
@@ -176,8 +179,18 @@ check_params([{_Key, Op, _Value} | Tail]) ->
     ValidOps = ['>', '>=', '<', '=<', '==', '=:='],
     case lists:member(Op, ValidOps) of
         false ->
-            throw({badarg, Op});
+            error({badarg, Op});
         true ->
             check_params(Tail)
     end.
+
+need_transaction_api(Function, Args) ->
+    Callback = get(?callback_key),
+    need_transaction_api(Function, Args, Callback).
+
+need_transaction_api(_Function, _Args, undefined) ->
+    {error, no_transaction};
+
+need_transaction_api(Function, Args, CallbackMod) ->
+    erlang:apply(CallbackMod, Function, Args).
 
