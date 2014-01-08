@@ -10,6 +10,16 @@
 -include("log.hrl").
 -include("pre_entity.hrl").
 
+-type error_return() :: {'error', any()}.
+-type comparison_op() :: '>' | '>=' | '<' | '=<' | '==' | '=:='.
+-type search_parameter() :: {any(), any()} | {any(), comparison_op(), any()}.
+% behavior definition
+-callback get_by_id(Type :: atom(), Id :: any()) -> {'ok', tuple()} | {'error', notfound} | error_return().
+-callback save(Record :: tuple()) -> {'ok', tuple()} | error_return().
+-callback delete(Type :: atom(), Id :: any()) -> 'ok' | error_return().
+-callback search(Type :: atom(), Params :: [search_parameter()]) -> {'ok', []}.
+-callback transaction(Fun :: fun(() -> any())) -> any().
+
 % API
 -export([start_link/1, stop/0]).
 -export([get_by_id/2, save/1, delete/1, delete/2]).
@@ -61,8 +71,6 @@ delete(Record, Id) ->
 %% @doc Search the data backend for records of the given types with the
 %% given properties. Expected to be called within the context of a
 %% transaction.
--type comparison_op() :: '>' | '>=' | '<' | '=<' | '==' | '=:='.
--type search_parameter() :: {any(), any()} | {any(), comparison_op(), any()}.
 -spec search(Record :: atom(), Params :: [search_parameter()]) -> {'ok', [tuple()]} | {'error', any()}.
 search(Record, Params) ->
     check_params(Params),
