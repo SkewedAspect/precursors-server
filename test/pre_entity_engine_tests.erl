@@ -8,7 +8,7 @@
 	entities = dict:new()
 }).
 
-general_test_() ->
+general_test_d() ->
 	{setup, fun() ->
 		{ok, PID} = pre_entity_engine:start_link(),
 		{ok, SupPid} = pre_entity_engine_sup:start_link([]),
