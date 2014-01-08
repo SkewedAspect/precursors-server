@@ -10,7 +10,7 @@
 -define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE]).
 
 -export([check_setup/0]).
--export([transaction/1, save/1, get_by_id/2, delete/2]).
+-export([transaction/1, save/1, get_by_id/2, delete/2, search/2]).
 
 %% @doc Ensure the mnesia schema and tables exist. Assumes a schema already
 %% exists.
@@ -24,7 +24,6 @@ check_setup() ->
 
 %% @hidden
 save(Record) ->
-	?info("pdict: ~p", [get()]),
 	Table = element(1, Record),
 	MaybeId = element(2, Record),
 	SaveRecord = maybe_fix_id(Table, MaybeId, Record),
@@ -48,6 +47,11 @@ get_by_id(Type, Id) ->
 delete(Type, Id) ->
 	mnesia:delete({Type, Id}).
 
+search(Type, Params) ->
+	Matchspec = make_matchspec(Type, Params),
+	Recs = mnesia:select(Type, Matchspec),
+	{ok, Recs}.
+		
 %% @hidden
 transaction(Fun) ->
 	case mnesia:transaction(Fun) of
@@ -70,4 +74,36 @@ create_tables([]) ->
 create_tables([?COUNTERS_TABLE | Tail]) ->
 	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, []),
 	create_tables(Tail).
+
+make_matchspec(Table, Params) ->
+	Attributes = mnesia:table_info(Table, attributes),
+	Numbered = lists:zip(Attributes, lists:seq(1, length(Attributes))),
+	Dollared = lists:map(fun({Attr, N}) ->
+		NList = integer_to_list(N),
+		MatchAtom = list_to_atom("$" ++ NList),
+		{Attr, MatchAtom}
+	end, Numbered),
+	{_Attrs, DollaredAlone} = lists:unzip(Dollared),
+	MatchRec = list_to_tuple([Table | DollaredAlone]),
+	NormalParams = normalize_params(Params),
+	MatchSpecParams = make_match_guard(NormalParams, Dollared),
+	[{MatchRec, MatchSpecParams, ['$_']}].
+
+normalize_params(Params) ->
+	lists:map(fun normalize_param/1, Params).
+
+normalize_param({Key, Value}) -> {Key, '==', Value};
+normalize_param(P) -> P.
+
+make_match_guard(In, Atoms) ->
+	FilteredIn = lists:filter(fun({Key, _, _}) ->
+		case proplists:get_value(Key, Atoms) of
+			undefined -> false;
+			_ -> true
+		end
+	end, In),
+	lists:map(fun({Key, Op, Arg}) ->
+		Atom = proplists:get_value(Key, Atoms),
+		{Op, Atom, Arg}
+	end, FilteredIn).
 
