@@ -39,7 +39,8 @@ data_access_test_() ->
 
 		SearchParams = [{key, value}, {key, '<', value}, {key, '>', value},
 			{key, '==', value}, {key, '>=', value}, {key, '=<', value},
-			{key, '=:=', value}, {key, member, [value]}],
+			{key, '=:=', value}%, {key, member, [value]}
+		],
 		SearchParamTests = lists:map(fun(Param) ->
 			Name = io_lib:format("search params test: ~p", [Param]),
 			TransactFun = fun() ->
