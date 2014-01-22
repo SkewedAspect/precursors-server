@@ -25,7 +25,7 @@ acting_as_manager_test_() ->
 				end},
 
 				{"User found and denied", fun() ->
-					meck:new(goober_back),
+					ok = meck:new(goober_back, [non_strict]),
 					meck:expect(goober_back, init,
 						fun(substate) ->
 							{ok, substate}
@@ -45,7 +45,7 @@ acting_as_manager_test_() ->
 				end},
 
 				{"User allowed access", fun() ->
-					meck:new(superboy_prime),
+					ok = meck:new(superboy_prime, [non_strict]),
 					meck:expect(superboy_prime, init,
 						fun(substate) ->
 							{ok, substate}
@@ -65,7 +65,7 @@ acting_as_manager_test_() ->
 				end},
 
 				{"get user", fun() ->
-					meck:new(alonzo_pierce),
+					ok - meck:new(alonzo_pierce, [non_strict]),
 					meck:expect(alonzo_pierce, init,
 						fun(substate) ->
 							{ok, substate}
@@ -83,7 +83,7 @@ acting_as_manager_test_() ->
 				end},
 
 				{"faulty backend", fun() ->
-					meck:new(failmode),
+					ok = meck:new(failmode, [non_strict]),
 					meck:expect(failmode, init,
 						fun(substate) ->
 							{ok, substate}
@@ -105,8 +105,8 @@ acting_as_manager_test_() ->
 				end},
 
 				{"backend fallthrough", fun() ->
-					meck:new(know_nothing),
-					meck:new(smartypants),
+					ok = meck:new([smartypants, know_nothing], [non_strict]),
+					%meck:new(smartypants),
 					meck:expect([know_nothing, smartypants], init,
 						fun(substate) ->
 							{ok, substate}
