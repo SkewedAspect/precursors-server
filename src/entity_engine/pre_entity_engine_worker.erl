@@ -145,6 +145,9 @@ handle_msg({add_entity, NewEntity}, _From, State) ->
 	},
 	{noreply, State1};
 
+handle_msg({updates, NewUpdates}, From, State) when not is_list(NewUpdates) ->
+	handle_msg({updates, [NewUpdates]}, From, State);
+
 handle_msg({updates, NewUpdates}, _From, State) ->
 	#state {
 		incoming_updates = IncomingUpdates
