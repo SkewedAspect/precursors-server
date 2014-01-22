@@ -47,25 +47,25 @@ general_test_() ->
 				?assertEqual(ok, Return),
 				Return2 = pre_entity_engine:get_entity(Pid, <<"0">>),
 				?assertEqual({ok, #entity{id = <<"0">>}}, Return2)
-			end},
+			end}%,
 			%% TODO: Complete this test
-			{"Simulate Entities No Update Test", fun() ->
-				meck:new(nochange),
-				meck:expect(nochange, simulate, fun(Entity, _State) -> {undefined, Entity} end),
-				meck:new(change),
-				meck:expect(change, simulate, fun(Entity, _State) -> {change, Entity#entity{state = [{}]}} end),
-				TestEntity = #entity {id = <<"0">>, controller = nochange},
-				TestEntity1 = #entity {id = <<"1">>, controller = change},
-				TestState = #state {entities = dict:from_list([{<<"0">>, TestEntity}])},
-				TestState1 = #state {entities = dict:from_list([{<<"1">>, TestEntity1}])},
-				NewState = pre_entity_engine:simulate_entities(TestState),
-				NewState1 = pre_entity_engine:simulate_entities(TestState1),
-				?assert(meck:validate(nochange)),
-				?assert(meck:validate(change)),
-				?assertEqual(NewState, TestState),
-				?assertNot(NewState1 =:= TestState1),
-				meck:unload(nochange),
-				meck:unload(change)
-			end}
+%			{"Simulate Entities No Update Test", fun() ->
+%				meck:new(nochange),
+%				meck:expect(nochange, simulate, fun(Entity, _State) -> {undefined, Entity} end),
+%				meck:new(change),
+%				meck:expect(change, simulate, fun(Entity, _State) -> {change, Entity#entity{state = [{}]}} end),
+%				TestEntity = #entity {id = <<"0">>, controller = nochange},
+%				TestEntity1 = #entity {id = <<"1">>, controller = change},
+%				TestState = #state {entities = dict:from_list([{<<"0">>, TestEntity}])},
+%				TestState1 = #state {entities = dict:from_list([{<<"1">>, TestEntity1}])},
+%				NewState = pre_entity_engine:simulate_entities(TestState),
+%				NewState1 = pre_entity_engine:simulate_entities(TestState1),
+%				?assert(meck:validate(nochange)),
+%				?assert(meck:validate(change)),
+%				?assertEqual(NewState, TestState),
+%				?assertNot(NewState1 =:= TestState1),
+%				meck:unload(nochange),
+%				meck:unload(change)
+%			end}
 		]
 	end}.
