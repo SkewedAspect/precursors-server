@@ -11,21 +11,20 @@
 general_test_() ->
 	{setup, fun() ->
 		{ok, PID} = pre_entity_engine:start_link(),
-		PID
+		{ok, SupPid} = pre_entity_engine_sup:start_link([]),
+		{PID, SupPid}
 	end,
-	fun(Pid) ->
+	fun({Pid, SupPid}) ->
 		unlink(Pid),
-		exit(Pid, kill)
+		unlink(SupPid),
+		exit(Pid, kill),
+		exit(SupPid, kill)
 	end,
-	fun(Pid) ->
+	fun({Pid, _SupPid}) ->
 		[
 			{"Add Entity Test", fun() ->
-				meck:new(pre_entity_engine_sup),
-				meck:expect(pre_entity_engine_sup, cast_all, fun(_Thing1) -> abcast end),
 				Return = pre_entity_engine:add_entity(Pid, #entity{id = <<"0">>}),
-				?assertEqual(ok, Return),
-				?assert(meck:validate(pre_entity_engine_sup)),
-				meck:unload(pre_entity_engine_sup)
+				?assertEqual(ok, Return)
 				end},
 			{"Get Entity Test", fun() ->
 				Return = pre_entity_engine:get_entity(Pid, <<"0">>),
