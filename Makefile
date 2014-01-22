@@ -58,7 +58,9 @@ SSL_CSR_SUBJECT ?= "/C=US/ST=Texas/L=Lubbock/O=Skewed Aspect/CN=$(shell hostname
 
 $(SSL_KEY):
 	@echo "Generating RSA key..."
-	openssl genpkey -algorithm rsa -pass pass: -out $@
+	#FIXME: This doesn't work on OS X; OS X 10.9 still ships with openssl 0.9.8
+	#openssl genpkey -algorithm rsa -pass pass: -out $@
+	openssl genrsa -passout pass: -out $@
 
 $(SSL_CSR): $(SSL_KEY)
 	@echo "Generating Certificate Signing Request..."
