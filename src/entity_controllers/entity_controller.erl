@@ -67,9 +67,9 @@ call(Entity, Func, Args, HandleResult) ->
 		Result ->
 			HandleResult(Result, {Entity, Func, Args})
 	catch
-		Exception ->
+		Wut:Why->
 			?error("Exception while calling controller function ~p:~p(~p) for entity ~p: ~p",
-				[Controller, Func, Args, EntityID, Exception]),
+				[Controller, Func, Args, EntityID, {Wut, Why}]),
 			{noreply, Entity}
 	end.
 
