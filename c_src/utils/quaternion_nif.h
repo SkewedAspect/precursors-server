@@ -16,7 +16,7 @@
  *  / .- Erlang wrapper function
  * / /
  * - ! quat_to_list/1
- * - ! list_to_quat/1
+ * - ! to_quat/1
  * ! ! add/2
  * ! ! subtract/2
  * ! ! multiply/2
@@ -63,8 +63,8 @@ static int nif_upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, E
 // quat_to_list/1
 static ERL_NIF_TERM quat_to_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
-// list_to_quat/1
-static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
+// to_quat/1
+static ERL_NIF_TERM to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
 // add/2
 static ERL_NIF_TERM add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -155,7 +155,7 @@ static inline ERL_NIF_TERM quatToTerm(ErlNifEnv* env, const Quat& quat);
 static ErlNifFunc nif_funcs[] =
 {
 	{"quat_to_list", 1, quat_to_list},
-	{"list_to_quat", 1, list_to_quat},
+	{"to_quat", 1, to_quat},
 	{"add", 2, add},
 	{"subtract", 2, subtract},
 	{"multiply", 2, multiply},

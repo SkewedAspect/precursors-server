@@ -27,65 +27,65 @@ get_entity(EntityID) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Creates a new entity with the given behavior and definition.
+%% @doc Creates a new entity with the given controller and definition.
 %%
-%% This creates a new entity, using the provided behavior and definition. This does not attempt to load the entity from
+%% This creates a new entity, using the provided controller and definition. This does not attempt to load the entity from
 %% the database.
--spec create_entity(Behavior::atom(), Definition::json_object()) ->
+-spec create_entity(Controller::atom(), Definition::json_object()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
-create_entity(Behavior, Definition) ->
+create_entity(Controller, Definition) ->
 	Entity = #entity {
 		id = make_entity_id(),
-		behavior = Behavior
+		controller = Controller
 	},
 
 	% Populate the definition
 	Entity1 = populate_definition(Entity, Definition),
 
-	% Initialize the behavior
-	InitializedEntity = Behavior:init(Entity1),
+	% Initialize the controller
+	InitializedEntity = Controller:init(Entity1),
 
 	pre_entity_engine_sup:add_entity(InitializedEntity),
 	{ok, InitializedEntity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Creates a new entity with the given behavior and definition.
+%% @doc Creates a new entity with the given controller and definition.
 %%
-%% This creates a new entity, using the provided behavior and definition, as well as setting the entity's client_info
+%% This creates a new entity, using the provided controller and definition, as well as setting the entity's client_info
 %% field. This does not attempt to load the entity from the database.
--spec create_entity(Behavior::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
+-spec create_entity(Controller::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()};
 
-	(EntityID::binary(), Behavior::atom(), Definition::json_object()) ->
+	(EntityID::binary(), Controller::atom(), Definition::json_object()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
-create_entity(Behavior, Definition, ClientInfo=#client_info{}) ->
+create_entity(Controller, Definition, ClientInfo=#client_info{}) ->
 	Entity = #entity {
 		id = make_entity_id(),
-		behavior = Behavior,
+		controller = Controller,
 		client = ClientInfo
 	},
 
 	% Populate the definition
 	Entity1 = populate_definition(Entity, Definition),
 
-	% Initialize the behavior
-	InitializedEntity = Behavior:init(Entity1),
+	% Initialize the controller
+	InitializedEntity = Controller:init(Entity1),
 
 	pre_entity_engine_sup:add_entity(InitializedEntity),
 	{ok, InitializedEntity};
 
-%% @doc Creates a new entity either loading from the db, or with the given behavior and definition.
+%% @doc Creates a new entity either loading from the db, or with the given controller and definition.
 %%
 %% This creates a new entity, attempting to load it from the database. If it is not found, it will create a new one
-%% using the provided behavior and definition.
+%% using the provided controller and definition.
 
-create_entity(undefined, Behavior, Definition) ->
-	create_entity(Behavior, Definition);
+create_entity(undefined, Controller, Definition) ->
+	create_entity(Controller, Definition);
 
-create_entity(EntityID, Behavior, Definition) ->
+create_entity(EntityID, Controller, Definition) ->
 	% Do a database lookup, and attempt to load the entity.
 	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
@@ -98,34 +98,34 @@ create_entity(EntityID, Behavior, Definition) ->
 			#entity{}
 	end,
 
-	% Set the entity's default behavior
+	% Set the entity's default controller
 	Entity = InitialEntity#entity {
 		id = make_entity_id(),
-		behavior = Behavior
+		controller = Controller
 	},
 
 	% Populate the definition
 	Entity1 = populate_definition(Entity, Definition),
 
-	% Initialize the behavior
-	InitializedEntity = Behavior:init(Entity1),
+	% Initialize the controller
+	InitializedEntity = Controller:init(Entity1),
 
 	pre_entity_engine_sup:add_entity(InitializedEntity),
 	{ok, InitializedEntity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Creates a new entity either loading from the db, or with the given behavior and definition.
+%% @doc Creates a new entity either loading from the db, or with the given controller and definition.
 %%
 %% This creates a new entity, attempting to load it from the database. If it is not found, it will create a new one
-%% using the provided behavior and definition.
--spec create_entity(EntityID::binary(), Behavior::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
+%% using the provided controller and definition.
+-spec create_entity(EntityID::binary(), Controller::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
-create_entity(undefined, Behavior, Definition, ClientInfo) ->
-	create_entity(Behavior, Definition, ClientInfo);
+create_entity(undefined, Controller, Definition, ClientInfo) ->
+	create_entity(Controller, Definition, ClientInfo);
 
-create_entity(EntityID, Behavior, Definition, ClientInfo) ->
+create_entity(EntityID, Controller, Definition, ClientInfo) ->
 	% Do a database lookup, and attempt to load the entity.
 	InitialEntity = case pre_data:get(<<"entity">>, EntityID) of
 		{ok, Value} ->
@@ -138,26 +138,26 @@ create_entity(EntityID, Behavior, Definition, ClientInfo) ->
 			#entity{}
 	end,
 
-	% Set the entity's default behavior
+	% Set the entity's default controller
 	Entity = InitialEntity#entity {
 		id = make_entity_id(),
-		behavior = Behavior,
+		controller = Controller,
 		client = ClientInfo
 	},
 
 	% Populate the definition
 	Entity1 = populate_definition(Entity, Definition),
 
-	% Initialize the behavior
-	InitializedEntity = Behavior:init(Entity1),
+	% Initialize the controller
+	InitializedEntity = Controller:init(Entity1),
 
 	pre_entity_engine_sup:add_entity(InitializedEntity),
 	{ok, InitializedEntity}.
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Creates a new entity with the given behavior and definition.
+%% @doc Creates a new entity with the given controller and definition.
 %%
-%% This creates a new entity, using the provided behavior and definition. This does not attempt to load the entity from
+%% This creates a new entity, using the provided controller and definition. This does not attempt to load the entity from
 %% the database.
 -spec load_entity(EntityID::binary()) ->
 	{ok, Entity::#entity{}} | notfound | {error, Msg :: string()}.
@@ -186,10 +186,10 @@ load_entity(EntityID) ->
 			{error, Msg};
 
 		_ ->
-			Behavior = InitialEntity#entity.behavior,
+			Controller = InitialEntity#entity.controller,
 
-			% Initialize the behavior
-			InitializedEntity = Behavior:init(InitialEntity),
+			% Initialize the controller
+			InitializedEntity = Controller:init(InitialEntity),
 
 			pre_entity_engine_sup:add_entity(InitializedEntity),
 			{ok, InitializedEntity}
@@ -216,10 +216,10 @@ start_entity_engine(Args) ->
 
 get_full_update(Entity) ->
 	#entity{
-		behavior = Behavior
+		controller = Controller
 	} = Entity,
 
-	Behavior:get_full_state(Entity).
+	Controller:get_full_state(Entity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Helpers
@@ -236,22 +236,22 @@ json_to_dict(JSON) ->
 json_to_entity(EntityJSON) ->
 	#entity {
 		id = proplists:get_value(id, EntityJSON),
-		behavior = proplists:get_value(behavior, EntityJSON),
+		controller = proplists:get_value(controller, EntityJSON),
 		state = proplists:get_value(state, EntityJSON)
 }.
 
-% Populates the state dict with the definition from the database; however since behavior is not part of state,
+% Populates the state dict with the definition from the database; however since controller is not part of state,
 % we need to pull it out and handle it seperately.
 populate_definition(Entity, Definition) ->
 	DefDict = json_to_dict(Definition),
 
 	% Update the entity
-	case dict:find(behavior, DefDict) of
-		{ok, Behavior} ->
-			dict:erase(behavior, DefDict),
+	case dict:find(controller, DefDict) of
+		{ok, Controller} ->
+			dict:erase(controller, DefDict),
 
 			Entity#entity{
-				behavior = Behavior,
+				controller = Controller,
 				state = DefDict
 			};
 		error ->

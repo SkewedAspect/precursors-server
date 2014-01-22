@@ -1,7 +1,0 @@
-#!/bin/bash
-
-screen -dmS precursors_server_dev ./devboot
-
-echo -e "\033[1;32mServer started in a detached screen session.\033[m"
-echo -e "\033[32mUse \033[1;36mconnect-to-dev-server\033[0;32m or \033[1;36mscreen -r\033[0;32m to attach to the server.\033[m"
-echo -e "\033[32mUse \033[1;36mcheck-dev-server\033[0;32m to check if the server is running and accessible.\033[m"

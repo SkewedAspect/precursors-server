@@ -3,7 +3,7 @@
 -record(entity, {
 	id :: binary(),
 	client :: #client_info{},
-	behavior :: atom(),
-	state = dict:new() :: dict(),
+	controller :: atom(),
+	state :: any(),
 	latest_update = [] :: list()
 }).

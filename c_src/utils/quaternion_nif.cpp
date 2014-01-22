@@ -59,10 +59,19 @@ static ERL_NIF_TERM quat_to_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	} // end if
 } // end quat_to_list
 
-// list_to_quat/1
-static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+// to_quat/1
+static ERL_NIF_TERM to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
 	CHECK_ARGC(1);
+	int arity;
+	const ERL_NIF_TERM* array;
+
+	if(enif_get_tuple(env, argv[0], &arity, &array) && arity == 4)
+	{
+		// This is already a tuple; return it.
+		return argv[0];
+	} // end if
+
 	ERL_NIF_TERM vecTuple[4];
 	ERL_NIF_TERM current = argv[0], tail;
 
@@ -84,7 +93,7 @@ static ERL_NIF_TERM list_to_quat(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	{
 		FAIL;
 	} // end if
-} // end list_to_quat
+} // end to_quat
 
 // add/2
 static ERL_NIF_TERM add(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])

@@ -1,0 +1,46 @@
+# local config
+single.config
+
+# pycharm artifacts
+.idea
+
+# mac artifacts
+**/.DS_Store
+
+# build artifacts
+ebin
+deps
+include/commit_ver.hrl
+precursors_server/*
+rel/precursors_server
+rel/dev
+devrel
+priv/key
+priv/key.pub
+priv/precursors.crt
+priv/precursors.csr
+**/*.o
+
+# test/eunit artifacts
+.eunit
+
+# edoc artifacts
+doc
+
+# debug artifacts
+**/*.dump
+
+# vim artifacts
+**/*.swp
+**/*.swo
+
+# run artifacts
+**/*.log*
+
+# python bytecode artifacts
+**/*.pyc
+**/*.pyo
+
+# local Riak install
+riak
+

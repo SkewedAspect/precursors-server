@@ -1,5 +1,5 @@
 -module(pre_hooks).
--behavior(gen_server).
+-behaviour(gen_server).
 
 -include("log.hrl").
 -include_lib("stdlib/include/qlc.hrl").

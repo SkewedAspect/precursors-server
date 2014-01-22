@@ -10,16 +10,16 @@
 
 % API
 -export([client_request/5, client_request/6, client_event/4, client_event/5]).
--export([send_update/3]).
+-export([send_update/3, send_updates/2]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% External API
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client request to the appropriate behavior to be handled.
+%% @doc Passes the client request to the appropriate controller to be handled.
 %%
-%% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
+%% This passes a request from the client to the controller of the entity the client is currently controlling. A response
 %% is always expected.
 
 -spec client_request(ClientInfo | EntityID, Channel, RequestType, RequestID, Request) -> Response when
@@ -47,9 +47,9 @@ client_request(EntityID, Channel, RequestType, RequestID, Request) ->
 	client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client request to the appropriate behavior to be handled.
+%% @doc Passes the client request to the appropriate controller to be handled.
 %%
-%% This passes a request from the client to the behavior of the entity the client is currently controlling. A response
+%% This passes a request from the client to the controller of the entity the client is currently controlling. A response
 %% is always expected.
 
 -spec client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request) -> Response when
@@ -66,9 +66,9 @@ client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request)
 	pre_entity_engine:client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client event to the appropriate behavior to be handled.
+%% @doc Passes the client event to the appropriate controller to be handled.
 %%
-%% This passes an eventvfrom the client to the behavior of the entity the client is currently controlling. No response
+%% This passes an eventvfrom the client to the controller of the entity the client is currently controlling. No response
 %% is expected.
 
 -spec client_event(ClientInfo, Channel, EventType, Event) -> Response when
@@ -88,9 +88,9 @@ client_event(ClientInfo, Channel, EventType, Event) ->
 	client_event(EntityEngine, EntityID, Channel, EventType, Event).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @doc Passes the client event to the appropriate behavior to be handled.
+%% @doc Passes the client event to the appropriate controller to be handled.
 %%
-%% This passes an eventvfrom the client to the behavior of the entity the client is currently controlling. No response
+%% This passes an eventvfrom the client to the controller of the entity the client is currently controlling. No response
 %% is expected.
 
 -spec client_event(EntityEngine, EntityID, Channel, EventType, Event) -> Response when
@@ -115,3 +115,17 @@ send_update(ClientInfo, EntityID, Update) ->
 
 	Update1 = pre_channel_entity:build_state_event(update, Update, EntityID),
 	pre_client_connection:send(ConnectionPid, udp, event, entity, Update1).
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% @doc Sends a list of delta updates to the given client.
+
+-spec send_updates(ClientInfo :: #client_info{}, Updates :: [{binary(), json()}]) -> ok.
+
+send_updates(ClientInfo, Updates) ->
+	ConnectionPid = ClientInfo#client_info.connection,
+
+	Updates1 = [
+		pre_channel_entity:build_state_event(update, Update, EntityID)
+		|| {EntityID, Update} <- Updates
+	],
+	pre_client_connection:send(ConnectionPid, udp, event, entity, Updates1).
