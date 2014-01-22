@@ -52,12 +52,12 @@ acting_as_manager_test_() ->
 						end),
 					meck:expect(superboy_prime, handle_authentication,
 						fun("gerald", "herber", substate) ->
-							allow
+							{allow, "gerald"}
 						end),
 					pre_gen_auth:add_backend(superboy_prime, 1, substate),
 
 					Out = pre_gen_auth:authenticate("gerald", "herber"),
-					?assertEqual(allow, Out),
+					?assertEqual({allow, "gerald"}, Out),
 					?assert(meck:validate(superboy_prime)),
 
 					meck:unload(superboy_prime),
@@ -65,7 +65,7 @@ acting_as_manager_test_() ->
 				end},
 
 				{"get user", fun() ->
-					ok - meck:new(alonzo_pierce, [non_strict]),
+					ok = meck:new(alonzo_pierce, [non_strict]),
 					meck:expect(alonzo_pierce, init,
 						fun(substate) ->
 							{ok, substate}
@@ -122,11 +122,11 @@ acting_as_manager_test_() ->
 					meck:expect(smartypants, handle_authentication,
 						fun("gerald", "herber", substate) ->
 							Self ! truth,
-							allow
+							{allow, "gerald"}
 						end),
 
 					Out = pre_gen_auth:authenticate("gerald", "herber"),
-					?assertEqual(allow, Out),
+					?assertEqual({allow, "gerald"}, Out),
 					?assert(receive_truths(2)),
 
 					pre_gen_auth:remove_backend(know_nothing, 1),
@@ -211,7 +211,7 @@ acting_as_backend_test_() ->
 
 					Out = pre_gen_auth:handle_authentication("gerald", "goodpass", undefined),
 					?assert(receive_truth()),
-					?assertEqual(allow, Out)
+					?assertEqual({allow, "gerald"}, Out)
 				end},
 
 				{"get a user", fun() ->
