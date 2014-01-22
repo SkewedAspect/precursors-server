@@ -99,13 +99,14 @@ pre_channel_input_request_test_() ->
 							end),
 
 						Response = pre_channel_input:client_request(TestClient, 1, TestRequest, undefined),
-						ExpectedResponse = {
+						ExpectedResponse = {reply, {
 							{reply, [
 								{confirm, false},
 								{reason, <<"VALID CRAPBACK: Invalid request!">>}
 							]},
 							#entity{}
-						},
+						}},
+						?debugFmt("Expected: ~p~nGot: ~p", [ExpectedResponse, Response]),
 						?assertEqual(ExpectedResponse, Response)
 					end}
 			]
