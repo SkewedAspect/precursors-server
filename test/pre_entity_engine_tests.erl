@@ -10,24 +10,10 @@
 
 general_test_() ->
 	{setup, fun() ->
-		meck:new(pre_entity_engine, [passthrough]),
-		meck:expect(pre_entity_engine, init,
-			fun([]) ->
-			% Join the entity_engines process group.
-				pg2:create(entity_engines),
-				pg2:join(entity_engines, self()),
-
-			% Join the entity_updates process group.
-				pg2:create(entity_updates),
-				pg2:join(entity_updates, self()),
-
-				{ok, #state{}}
-			end),
-		{ok, PID} = gen_server:start_link(pre_entity_engine, [], []),
+		{ok, PID} = pre_entity_engine:start_link(),
 		PID
 	end,
 	fun(Pid) ->
-		meck:unload(),
 		unlink(Pid),
 		exit(Pid, kill)
 	end,
