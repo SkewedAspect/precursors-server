@@ -42,7 +42,7 @@ help:
 
 # Building
 deps: rebar.config
-	mkdir deps
+	mkdir -p deps
 	./rebar get-deps update-deps
 
 compile: deps
