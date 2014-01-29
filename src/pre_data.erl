@@ -1,4 +1,19 @@
-%%% @doc The game state engine - handles syncing of game state to the database and between nodes
+%%% @doc Abstraction layer for accessing persistant storage. Called
+%%% cold-storage by the gang. Also defines the behavior of the callback
+%%% modules.
+%%%
+%%% For convience sake, data handled by this module (and by extension the
+%%% backend modules) should conform to the following format:
+%%%
+%%% `{RecordAtom, IdField, Field1, Field2, ..., FeildN, Created, Updated}'
+%%%
+%%% For example:
+%%%
+%%% `{pre_user, 1, <<"name">>, os:timestamp(), os:timestamp()}'
+%%%
+%%% The backends should check for undefined ids and automatically generate
+%%% one. On a save, check for created and updated timestamps and update
+%%% those.
 %%%
 %%% -------------------------------------------------------------------------------------------------------------------
 
@@ -8,342 +23,142 @@
 -include("log.hrl").
 -include("pre_entity.hrl").
 
+-type error_return() :: {'error', any()}.
+-type comparison_op() :: '>' | '>=' | '<' | '=<' | '==' | '=:='.
+-type search_parameter() :: {any(), any()} | {any(), comparison_op(), any()}.
+% behavior definition
+-callback get_by_id(Type :: atom(), Id :: any()) -> {'ok', tuple()} | {'error', notfound} | error_return().
+-callback save(Record :: tuple()) -> {'ok', tuple()} | error_return().
+-callback delete(Type :: atom(), Id :: any()) -> 'ok' | error_return().
+-callback search(Type :: atom(), Params :: [search_parameter()]) -> {'ok', []}.
+-callback transaction(Fun :: fun(() -> any())) -> any().
+
 % API
--export([start_link/1]).
--export([get_riak_conn/0]).
--export([get/2, get_cache/2, get_checked/2, get_with_meta/2]).
--export([set/3, set_cache/3, set_cache/4, set_checked/3]).
--export([delete/2, delete_cache/2, delete_cache/3, delete_checked/2]).
+-export([start_link/1, stop/0]).
+-export([get_by_id/2, search/2, save/1, delete/1, delete/2]).
+-export([transaction/1]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
-% Default Riak connection parameters:
--define(DEFAULT_RIAK_PB_PORT, 8087).
+-define(callback_key, pre_data_callback).
 
 -record(state, {
-	host = "localhost",
-	port = ?DEFAULT_RIAK_PB_PORT :: riakc_pb_socket:portnum(),
-	riak_conn :: pid()
+  callback_mod, % the callback module implementing the behavior
+  workers = dict:new() % the pids currently doing a request, like save
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-start_link(Args) ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, Args, []).
+%% @doc Start linked to the calling process with the given callback module.
+-spec start_link(CallbackModule :: atom()) -> {'ok', pid()}.
+start_link(CallbackModule) ->
+    gen_server:start_link({local, ?MODULE}, ?MODULE, CallbackModule, []).
 
-%% --------------------------------------------------------------------------------------------------------------------
+%% @doc Stops the server with reason normal.
+-spec stop() -> 'ok'.
+stop() ->
+    gen_server:cast(?MODULE, stop).
 
-%% @doc Gets the current connection to riak.
-%%
-%% This returns the current connection to riak.
--spec get_riak_conn() ->
-	RiakConn :: pid().
+%% @doc Attempts to get a record of the given type with the given id. This
+%% expects to be in the context of a transaction, otherwise explosions may
+%% occur.
+-spec get_by_id(Record :: atom(), Id :: any()) -> {'ok', tuple()} | {'error', 'notfound'}.
+get_by_id(Record, Id) ->
+    need_transaction_api(get_by_id, [Record, Id]).
 
-get_riak_conn() ->
-	gen_server:call(?MODULE, riak_conn).
+%% @doc Stores the record to long term. Expected to be called in the
+%% context of a transaction. If the id is `undefined' it is automatically
+%% set.
+-spec save(Record :: tuple()) -> {'ok', tuple()}.
+save(Record) ->
+    need_transaction_api(save, [Record]).
 
-%% --------------------------------------------------------------------------------------------------------------------
+%% @doc Extract the type and id of the record and call {@link delete/2}.
+-spec delete(Record :: tuple()) -> 'ok'.
+delete(Record) ->
+    Type = element(1, Record),
+    Id = element(2, Record),
+    delete(Type, Id).
 
-%% @doc Gets the contents of Bucket/Key.
-%%
-%% This returns the value from the local ETS cache, or queries Riak and caches the value if the value was not already
-%% in the cache.
--spec get(Bucket::binary(), Key::binary()) ->
-    {ok, Value :: json()} | not_found | {error, Msg :: list()}.
+%% @doc Delete the record of the given type with the given Id. Expected to
+%% be called within the context of a transaction.
+-spec delete(Record :: atom(), Id :: any()) -> 'ok'.
+delete(Record, Id) ->
+    need_transaction_api(delete, [Record, Id]).
 
-get(Bucket, Key) ->
-	case get_cache(Bucket, Key) of
-		not_found ->
-			% Cache miss; look it up in Riak.
-			case get_checked(Bucket, Key) of
-				{ok, Value} ->
-					set_cache(Bucket, Key, Value),
-					Value;
-				{error, notfound} ->
-					not_found;
-				Error ->
-					?error("Unexpected response when setting cache during cache miss. Response: ~p", [Error]),
-					{error, "Failed to set cache with Riak's response."}
-			end;
-		Resp ->
-			% We don't care about the return; get_cache returns sane values to the user, not us.
-			Resp
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Gets the contents of Bucket/Key from the local cache.
-%%
-%% This returns the value from the local ETS cache, returning 'not_found' if it was not found.
--spec get_cache(Bucket::binary(), Key::binary()) ->
-    {ok, Value :: json()} | not_found | {error, Msg :: list()}.
-
-get_cache(Bucket, Key) ->
-	case ets:lookup(?MODULE, {Bucket, Key}) of
-		[] ->
-			not_found;
-		[{_, Value}] ->
-			Value;
-		Else ->
-			?error("Unexpected response from ETS. Response was: ~p", [Else]),
-			{error, "Error querying ETS cache."}
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Gets the contents of Bucket/Key from Riak, skipping the cache.
-%%
-%% This queries Riak for the given value, and returns it.
--spec get_checked(Bucket::binary(), Key::binary()) ->
-    {ok, Value :: json()} | not_found | {error, Msg :: list()}.
-
-get_checked(Bucket, Key) ->
-	{ok, Value, _} = gen_server:call(?MODULE, {get, Bucket, Key}),
-	{ok, Value}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Gets the contents and metadata of Bucket/Key from Riak, skipping the cache.
-%%
-%% This queries Riak for the given value, and returns the value and the metadata
--spec get_with_meta(Bucket::binary(), Key::binary()) ->
-	{ok, Value :: json(), Metadata :: dict()} | not_found | {error, Msg :: list()}.
-
-get_with_meta(Bucket, Key) ->
-	gen_server:call(?MODULE, {get, Bucket, Key}).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Sets the contents of Bucket/Key to Value.
-%%
-%% This sets the value in the ETS cache, sends an update to the peer servers, and sets the value in Riak.
--spec set(Bucket::binary(), Key::binary(), Value::json()) ->
-    ok | {error, Msg :: string()}.
-
-set(Bucket, Key, Value) ->
-	case set_cache(Bucket, Key, Value) of
-		ok ->
-			% Set Value in Riak.
-			gen_server:call(?MODULE, {set, Bucket, Key, Value});
-		Resp ->
-			Resp
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Sets the contents of Bucket/Key to Value in the local cache.
-%%
-%% This sets the value in the ETS cache and sends an update to the peer servers, but skips Riak.
--spec set_cache(Bucket::binary(), Key::binary(), Value::json()) ->
-    ok | {error, Msg :: string()}.
-
-set_cache(Bucket, Key, Value) ->
-	set_cache(Bucket, Key, Value, true).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Sets the contents of Bucket/Key to Value in the local cache.
-%%
-%% This sets the value in the ETS cache and sends an update to the peer servers, but skips Riak.
--spec set_cache(Bucket::binary(), Key::binary(), Value::json(), NotifyPeers :: boolean()) ->
-    ok | {error, Msg :: string()}.
-
-set_cache(Bucket, Key, Value, NotifyPeers) ->
-	ets:insert(?MODULE, {{Bucket, Key}, Value}),
-	case NotifyPeers of
-		true ->
-			%TODO: Notify peer servers.
-			ok;
-		_ ->
-			ok
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Sets the contents of Bucket/Key to Value, checking to see whether the write succeeds and whether a sibling was
-%% created.
-%%
-%% This sets the value in Riak, and if no siblings were created, sets the value in the ETS cache and sends an update to
-%% the peer servers.
--spec set_checked(Bucket::binary(), Key::binary(), Value::json()) ->
-	ok | {siblings, SiblingValues :: [json()]} | {error, Msg :: string()}.
-
-set_checked(Bucket, Key, Value) ->
-	% Set the value in Riak, and check the results
-	case gen_server:call(?MODULE, {set, Bucket, Key, Value}) of
-		ok ->
-			set_cache(Bucket, Key, Value);
-		Resp ->
-			Resp
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Deletes the contents of Bucket/Key.
-%%
-%% This deletes the value in the ETS cache, sends a delete to the peer servers, and deletes the value in Riak.
--spec delete(Bucket::binary(), Key::binary()) ->
-    ok | {error, Msg :: string()}.
-
-delete(Bucket, Key) ->
-	case delete_cache(Bucket, Key) of
-		ok ->
-			% Delete from Riak
-			gen_server:call(?MODULE, {delete, Bucket, Key});
-		Resp ->
-			Resp
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Deletes the contents of Bucket/Key from the local cache.
-%%
-%% This deletes the value from the local ETS cache and sends a delete to the peer servers, but skips Riak.
--spec delete_cache(Bucket :: binary(), Key :: binary()) ->
-    ok | {error, Msg :: string()}.
-
-delete_cache(Bucket, Key) ->
-	delete_cache(Bucket, Key, true).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Deletes the contents of Bucket/Key from the local cache.
-%%
-%% This deletes the value from the local ETS cache and sends a delete to the peer servers, but skips Riak.
--spec delete_cache(Bucket :: binary(), Key :: binary(), NotifyPeers :: boolean()) ->
-    ok | {error, Msg :: string()}.
-
-delete_cache(Bucket, Key, NotifyPeers) ->
-	case ets:delete(?MODULE, {Bucket, Key}) of
-		true ->
-			case NotifyPeers of
-				true ->
-					%TODO: Notify peer servers.
-					ok;
-				_ ->
-					ok
-			end;
-		Resp ->
-			?error("Unexpected response while deleting object. Response: ~p", [Resp]),
-			{error, "Failed to delete object from ETS."}
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Deletes the contents of Bucket/Key, checking to see whether the delete succeeds.
-%%
-%% This attempts to delete the value from the ETS cache and from Riak; if it succeeds, it sends a delete to the peer
-%% servers.
--spec delete_checked(Bucket::binary(), Key::binary()) ->
-	ok | {newer_version, NewVersion :: json()} | {error, Msg::list()}.
-
-delete_checked(Bucket, Key) ->
-	gen_server:call(?MODULE, {Bucket, Key}).
+%% @doc Search the data backend for records of the given types with the
+%% given properties. Expected to be called within the context of a
+%% transaction.
+-spec search(Record :: atom(), Params :: [search_parameter()]) -> {'ok', [tuple()]} | {'error', any()}.
+search(Record, Params) ->
+    check_params(Params),
+    need_transaction_api(search, [Record, Params]).
+  
+%% @doc Runs the fun as a transaction. This allows save/1, get_by_id/2,
+%% delete/1,2 to be used such that the underlying data system can rollback
+%% the changes if any later action fails. There is no acutal guarentee the
+%% underlying data system supports transactions.
+-spec transaction(TransFun :: fun()) -> any().
+transaction(Fun) ->
+    gen_server:call(?MODULE, {api, transaction, [Fun]}, infinity).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
 %% --------------------------------------------------------------------------------------------------------------------
 
-init([Host, Port]) ->
-	ets:new(?MODULE, [set, public, named_table]),
-	?info("Host: ~p, Port: ~p", [Host, Port]),
-
-	% Connect to riak
-	{ok, RiakConn} = riakc_pb_socket:start_link(Host, Port),
-	State = #state{
-		host = Host,
-		port = Port,
-		riak_conn = RiakConn
-	},
-	{ok, State};
-
-init([]) ->
-	ets:new(?MODULE, [set, public, named_table]),
-	?info("Here, instead.", []),
-
-	% Pull state variables
-	State = #state{},
-	Host = State#state.host,
-	Port = State#state.port,
-
-	% Connect to riak
-	{ok, RiakConn} = riakc_pb_socket:start_link(Host, Port),
-	NewState = State#state{
-		riak_conn = RiakConn
-	},
-	{ok, NewState}.
-
+init(CallbackModule) ->
+    {ok, #state{callback_mod = CallbackModule}}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Gets the value of Bucket/Key from riak.
-%%
-%% This gets the object specified by Bucket, Key from the riak database.
-handle_call({get, Bucket, Key}, _From, State) ->
-	RiakConn = State#state.riak_conn,
-	Resp = case riakc_pb_socket:get(RiakConn, Bucket, Key) of
-		{ok, RiakObj} ->
-			JSONBin = riakc_obj:get_value(RiakObj),
-			Metadata = riakc_obj:get_metadata(RiakObj),
-			Value = pre_json:to_term(JSONBin),
-			{ok, Value, Metadata};
-		Error ->
-			%TODO: Check for siblings... and do something?
-			?error("Unexpected response from Riak. Response was: ~p", [Error]),
-			{error, "Error querying ETS cache."}
-	end,
-	{reply, Resp, State};
-
-%% @doc Sets Bucket/Key's value to Value in riak.
-%%
-%% This sets the object specified by Bucket, Key to Value in the riak database.
-handle_call({set, Bucket, Key, Value}, _From, State) ->
-	RiakConn = State#state.riak_conn,
-	JSONBin = pre_json:to_json(Value),
-	RiakObj = riakc_obj:new(Bucket, Key, JSONBin, "application/json"),
-	Resp = try riakc_pb_socket:put(RiakConn, RiakObj) of
-		Valid ->
-			Valid
-	catch
-		siblings ->
-			%TODO: Figure out how to retrieve the siblings.
-			{siblings, [RiakObj]}
-	end,
-	{reply, Resp, State};
-
-%% @doc Deletes Bucket/Key from riak.
-%%
-%% This deletes the object specified by Bucket, Key from the riak database.
-handle_call({delete, Bucket, Key}, _From, State) ->
-	RiakConn = State#state.riak_conn,
-	Resp = case riakc_pb_socket:delete(RiakConn, Bucket, Key) of
-		ok ->
-			ok;
-		{error, Error} ->
-			?error("Unexpected response from Riak. Response was: ~p", [Error]),
-			{error, "Error querying ETS cache."}
-	end,
-	{reply, Resp, State};
-
-%% @doc Returns the riak connection object.
-%%
-%% This returns our riak connection, which eis useful for external applications, so they don't have to create their own
-%% connection.
-handle_call(riak_conn, _From, State) ->
-	{reply, State#state.riak_conn, State};
+%% @private
+handle_call({api, Function, Args}, From, State) ->
+    #state{callback_mod = CallbackModule, workers = Workers} = State,
+    PidMon = spawn_monitor(fun() ->
+        % The real reason to do this is to force transaction required
+        % functions to all run within the same pid. Some backends (mnesia)
+        % require transations not cross pid bounderies (it uses the process
+        % dictionary to track transactions). This does the same to keep
+        % track of the callback module. This has the advantage of requiring
+        % fewer trips to the pre_data process, so pragmatism beats the
+        % 'pdict is dirty' purity.
+        put(?callback_key, CallbackModule),
+        Res = erlang:apply(CallbackModule, Function, Args),
+        gen_server:reply(From, Res)
+    end),
+    Workers2 = dict:store(PidMon, From, Workers),
+    {noreply, State#state{workers = Workers2}};
 
 handle_call(_, _From, State) ->
     {reply, invalid, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+handle_cast(stop, State) ->
+    {stop, normal, State};
+
 handle_cast(_, State) ->
     {noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+handle_info({'DOWN', Mon, process, Pid, Why}, State) ->
+    #state{workers = Workers} = State,
+    Workers2 = dict:erase({Mon, Pid}, Workers),
+    case dict:find({Pid, Mon}, Workers) of
+      error ->
+        ?info("Didn't find a ~p in workers (~p)", [{Pid, Mon}, Workers]),
+        ok;
+      {ok, _From} when Why =:= normal; Why =:= shutdown ->
+        ok;
+      {ok, From} ->
+        ?warning("Something went horribly wrong with ~p: ~p", [Pid, Why]),
+        gen_server:reply(From, {error, Why})
+    end,
+    {noreply, State#state{workers = Workers2}};
 
 handle_info(_, State) ->
     {noreply, State}.
@@ -351,8 +166,36 @@ handle_info(_, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 terminate(Reason, _State) ->
-	?info("Terminating due to ~p.", [Reason]),
-	ok.
+    ?info("Terminating due to ~p.", [Reason]),
+    ok.
 
 code_change(_OldVersion, State, _Extra) ->
-	{reply, State}.
+    {reply, State}.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+check_params([]) ->
+    ok;
+
+check_params([{_Key, _Value} | Tail]) ->
+    check_params(Tail);
+
+check_params([{_Key, Op, _Value} | Tail]) ->
+    ValidOps = ['>', '>=', '<', '=<', '==', '=:='],
+    case lists:member(Op, ValidOps) of
+        false ->
+            error({badarg, Op});
+        true ->
+            check_params(Tail)
+    end.
+
+need_transaction_api(Function, Args) ->
+    Callback = get(?callback_key),
+    need_transaction_api(Function, Args, Callback).
+
+need_transaction_api(_Function, _Args, undefined) ->
+    {error, no_transaction};
+
+need_transaction_api(Function, Args, CallbackMod) ->
+    erlang:apply(CallbackMod, Function, Args).
+
