@@ -6,11 +6,11 @@ DEVRELDIR ?= dev
 
 
 # The default target
-all: compile devrel
+all: deps compile devrel
 
 
 # Targets that don't correspond to the name of a file
-.PHONY: all help compile script cert rel
+.PHONY: all help compile script cert rel deps update-deps
 .PHONY: clean-deps clean-cert clean-rel clean-test clean distclean
 
 
@@ -21,15 +21,15 @@ all: compile devrel
 # Help!
 help:
 	@echo "Targets:"
-	@echo "    all            same as 'compile', below"
+	@echo "    all            comple and devrel"
 	@echo "    help           display this help message"
 	@echo
 	@echo "    deps           fetch all dependencies"
 	@echo "    compile        compile the project"
-	@echo "    script         run 'escriptize' to generate an executable script for the project"
 	@echo "    devcert        generate an SSL certificate for development"
 	@echo "    rel            generate a production release"
 	@echo "    devrel         generate a development release, and a ./devrel runner script"
+	@echo "    test           run unit tests"
 	@echo
 	@echo "    clean          clean up after 'compile' and 'test'"
 	@echo "    clean-deps     clean up after 'deps'"
@@ -41,9 +41,11 @@ help:
 
 
 # Building
-deps: rebar.config
-	mkdir -p deps
-	./rebar get-deps update-deps
+deps:
+	./rebar get-deps
+
+update-deps:
+	./rebar update-deps
 
 compile: deps
 	./rebar compile
@@ -91,7 +93,7 @@ devrel: rel/$(DEVRELDIR) $(SSL_CERT)
 
 
 # Testing
-eunit test: clean-test deps compile
+eunit test: clean-test compile
 	./rebar eunit skip_deps=true
 
 
