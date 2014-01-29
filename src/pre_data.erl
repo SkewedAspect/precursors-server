@@ -35,7 +35,8 @@
 
 % API
 -export([start_link/1, stop/0]).
--export([get_by_id/2, save/1, delete/1, delete/2]).
+-export([get_by_id/2, search/2, save/1, delete/1, delete/2]).
+-export([transaction/1]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
