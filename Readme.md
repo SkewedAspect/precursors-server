@@ -1,5 +1,7 @@
 # Precursors Server
 
+[![Build Status](https://travis-ci.org/SkewedAspect/precursors-server.png?branch=master)](https://travis-ci.org/SkewedAspect/precursors-server)
+
 This is the MMO server for the RFI:Precursors project. Written in a hybrid
 of Erlang and C++, it currently supports authentication, chat, physics
 simulation, and high levels of concurrency.
