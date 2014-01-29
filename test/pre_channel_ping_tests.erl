@@ -36,26 +36,5 @@ pre_channel_ping_test_() ->
 				?assertEqual(1, length(History)),
 
 				meck:unload(pre_client_channels)
-			end},
-
-		{"Client Request/5 Test",
-			fun() ->
-				meck:new(pre_client_connection),
-				meck:expect(pre_client_connection, send,
-					fun(Connection, tcp, {response, Id}, <<"ping">>, PingResponse) ->
-						{Mega, Secs, _} = now(),
-						TestTimeStamp = Mega * 1000000 + Secs,
-						InTimeStamp = proplists:get_value(timestamp, PingResponse),
-						?assert(InTimeStamp - TestTimeStamp =< 1),
-						?debug("Stamp difference: ~p", [InTimeStamp - TestTimeStamp]),
-						ok
-					end),
-				TestRecord = #client_info{connection = <<"TestString">>},
-
-				pre_channel_ping:client_request(<<"ping">>, TestRecord, 5, undefined, undefined),
-				History = meck:history(pre_client_connection),
-				?assertEqual(1, length(History)),
-
-				meck:unload(pre_client_connection)
 			end}
 	].
