@@ -12,6 +12,10 @@
 -export([check_setup/0]).
 -export([transaction/1, save/1, get_by_id/2, delete/2, search/2]).
 
+%% -----------------------------------------------------------------------
+%% API
+%% -----------------------------------------------------------------------
+
 %% @doc Ensure the mnesia schema and tables exist. Assumes a schema already
 %% exists.
 -spec check_setup() -> 'ok' | {'error', any()}.
@@ -21,6 +25,10 @@ check_setup() ->
 	Got = lists:sort(Tables),
 	Needed = Expected -- Got,
 	create_tables(Needed).
+
+%% -----------------------------------------------------------------------
+%% Callbacks
+%% -----------------------------------------------------------------------
 
 %% @hidden
 save(Record) ->
@@ -34,6 +42,7 @@ save(Record) ->
 			Else
 	end.
 
+%% @hidden
 get_by_id(Type, Id) ->
 	case mnesia:read(Type, Id) of
 		[Rec] ->
@@ -44,9 +53,11 @@ get_by_id(Type, Id) ->
 			{error, {multiple, MultiRec}}
 	end.
 
+%% @hidden
 delete(Type, Id) ->
 	mnesia:delete({Type, Id}).
 
+%% @hidden
 search(Type, Params) ->
 	Matchspec = make_matchspec(Type, Params),
 	Recs = mnesia:select(Type, Matchspec),
@@ -60,6 +71,10 @@ transaction(Fun) ->
 		{aborted, Wut} ->
 			{error, Wut}
 	end.
+
+%% -----------------------------------------------------------------------
+%% Internal
+%% -----------------------------------------------------------------------
 
 maybe_fix_id(RecName, undefined, Record) ->
 	NewId = mnesia:dirty_update_counter(?COUNTERS_TABLE, RecName, 1),
