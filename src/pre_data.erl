@@ -180,9 +180,6 @@ check_params([]) ->
 check_params([{_Key, _Value} | Tail]) ->
     check_params(Tail);
 
-%check_params([{_Key, member, Value} | Tail]) when is_list(Value) ->
-    %check_params(Tail);
-
 check_params([{_Key, Op, _Value} | Tail]) ->
     ValidOps = ['>', '>=', '<', '=<', '==', '=:='],
     case lists:member(Op, ValidOps) of
