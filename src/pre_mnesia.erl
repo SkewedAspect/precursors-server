@@ -3,6 +3,7 @@
 %% it.
 
 -module(pre_mnesia).
+-behavior(pre_data).
 
 -include("log.hrl").
 
