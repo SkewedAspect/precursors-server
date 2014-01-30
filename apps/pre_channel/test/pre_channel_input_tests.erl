@@ -1,7 +1,6 @@
 -module(pre_channel_input_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include("log.hrl").
 -include("pre_entity.hrl").
 
 
@@ -9,7 +8,7 @@ pre_channel_input_test_() ->
 	[
 		{"Register Hooks Test",
 			fun() ->
-				meck:new(pre_hooks),
+				meck:new(pre_hooks, [non_strict]),
 				meck:expect(pre_hooks, add_hook,
 					fun(client_logged_in, pre_channel_input, client_login_hook, undefined, Nodes) ->
 						TestNodes = [node()],
@@ -25,7 +24,7 @@ pre_channel_input_test_() ->
 
 		{"Client Login Hook Trigger Test",
 			fun() ->
-				meck:new(pre_client_channels),
+				meck:new(pre_client_channels, [non_strict]),
 				TestRecord = #client_info{channel_manager = <<"TestString">>},
 				meck:expect(pre_client_channels, set_channel,
 					fun(<<"TestString">>, <<"input">>, pre_channel_input, []) ->
