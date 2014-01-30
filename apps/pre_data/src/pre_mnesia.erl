@@ -5,8 +5,6 @@
 -module(pre_mnesia).
 -behavior(pre_data).
 
--include("log.hrl").
-
 -define(COUNTERS_TABLE, pre_counters).
 -define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE]).
 

@@ -20,9 +20,6 @@
 -module(pre_data).
 -behaviour(gen_server).
 
--include("log.hrl").
--include("pre_entity.hrl").
-
 -type error_return() :: {'error', any()}.
 -type comparison_op() :: '>' | '>=' | '<' | '=<' | '==' | '=:='.
 -type search_parameter() :: {any(), any()} | {any(), comparison_op(), any()}.
@@ -150,12 +147,12 @@ handle_info({'DOWN', Mon, process, Pid, Why}, State) ->
     Workers2 = dict:erase({Mon, Pid}, Workers),
     case dict:find({Pid, Mon}, Workers) of
       error ->
-        ?info("Didn't find a ~p in workers (~p)", [{Pid, Mon}, Workers]),
+        lager:info("Didn't find a ~p in workers (~p)", [{Pid, Mon}, Workers]),
         ok;
       {ok, _From} when Why =:= normal; Why =:= shutdown ->
         ok;
       {ok, From} ->
-        ?warning("Something went horribly wrong with ~p: ~p", [Pid, Why]),
+        lager:warning("Something went horribly wrong with ~p: ~p", [Pid, Why]),
         gen_server:reply(From, {error, Why})
     end,
     {noreply, State#state{workers = Workers2}};
@@ -166,7 +163,7 @@ handle_info(_, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 terminate(Reason, _State) ->
-    ?info("Terminating due to ~p.", [Reason]),
+    lager:info("Terminating due to ~p.", [Reason]),
     ok.
 
 code_change(_OldVersion, State, _Extra) ->
