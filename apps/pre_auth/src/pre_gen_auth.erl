@@ -60,7 +60,6 @@
 -module(pre_gen_auth).
 -behavior(gen_event).
 
--include("log.hrl").
 -include("internal_auth.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
@@ -111,7 +110,7 @@ start_link(Auths) ->
 	Out = gen_event:start_link({local, ?MODULE}),
 	AddRes = [gen_event:add_handler(?MODULE, {?MODULE, {Priority, Callback}}, {Callback, Args}) ||
 		{Callback, Priority, Args} <- Auths],
-	?info("Adding authentication backends:  ~p", [AddRes]),
+	lager:info("Adding authentication backends:  ~p", [AddRes]),
 	Out.
 
 %% @doc Query authentication backends to see if a user is allowed or not.
@@ -211,7 +210,7 @@ init(?MODULE) ->
 
 %% @hidden
 handle_event(Event, State) ->
-	?debug("Ignoring event:  ~p", [Event]),
+	lager:debug("Ignoring event:  ~p", [Event]),
 	{ok, State}.
 
 %% ------------------------------------------------------------------
@@ -234,12 +233,12 @@ handle_call({authentication, Username, Password}, State) ->
 	end,
 	case ErrCount of
 		3 ->
-			?notice("Backend ~s returned its 3rd and final error ~p", [Callback, Out]),
+			lager:notice("Backend ~s returned its 3rd and final error ~p", [Callback, Out]),
 			remove_handler;
 		Errs ->
 			{ok, Out, State};
 		_ ->
-			?notice("Backend ~s returned an error ~p; this is error ~p", [Callback, Out, ErrCount]),
+			lager:notice("Backend ~s returned an error ~p; this is error ~p", [Callback, Out, ErrCount]),
 			{ok, Out, State#state{error_count = ErrCount}}
 	end;
 
@@ -253,7 +252,7 @@ handle_call({get_user, Username}, State) ->
 	{ok, Out, State};
 
 handle_call(Req, State) ->
-	?info("unhandled call:  ~p", [Req]),
+	lager:info("unhandled call:  ~p", [Req]),
 	{ok, {error, invalid}, State}.
 
 %% ------------------------------------------------------------------
@@ -262,7 +261,7 @@ handle_call(Req, State) ->
 
 %% @hidden
 handle_info(Msg, State) ->
-	?info("unhandled info:  ~p", [Msg]),
+	lager:info("unhandled info:  ~p", [Msg]),
 	{noreply, State}.
 
 %% ------------------------------------------------------------------
@@ -271,7 +270,7 @@ handle_info(Msg, State) ->
 
 %% @hidden
 terminate(Why, State) ->
-	?info("Going down:  ~p", [Why]),
+	lager:info("Going down:  ~p", [Why]),
 	#state{callback = Callback, substate = Substate} = State,
 	Callback:terminate(Why, Substate).
 
@@ -308,7 +307,7 @@ authenticate([Handler | Tail], UserOrNick, Password) ->
 		undefined ->
 			authenticate(Tail, UserOrNick, Password);
 		Else ->
-			?info("Handler ~p returned a bad value ~p", [Handler, Else]),
+			lager:info("Handler ~p returned a bad value ~p", [Handler, Else]),
 			authenticate(Tail, UserOrNick, Password)
 	end.
 
@@ -320,7 +319,7 @@ build_tables() ->
 		{atomic, ok} -> ok;
 		{aborted, already_exits} -> ok;
 		{aborted, Else} ->
-			?warning("Could not build user_auth table.  This will die later."),
+			lager:warning("Could not build user_auth table.  This will die later."),
 			{error, Else}
 	end.
 

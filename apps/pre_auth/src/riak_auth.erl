@@ -29,8 +29,7 @@
 
 % -------------------------------------------------------------------------
 
--include_lib("precursors_server/include/log.hrl").
--include_lib("precursors_server/include/internal_auth.hrl").
+-include("internal_auth.hrl").
 
 -include_lib("riakc/include/riakc.hrl").
 
@@ -56,7 +55,7 @@
 
 start_link(Args) ->
 	Result = gen_server:start_link(?MODULE, {gen_server, Args}, []),
-	?debug("start_link result: ~p", [Result]),
+	lager:debug("start_link result: ~p", [Result]),
 	Result.
 
 
@@ -98,7 +97,7 @@ init({gen_server, _Args}) ->
 	init(connect, State);
 
 init(Args) ->
-	?debug("Starting Riak Auth Plugin"),
+	lager:debug("Starting Riak Auth Plugin"),
 	riak_auth_sup:start_link(),
 
 	% Start our gen_server
@@ -129,25 +128,25 @@ handle_call({auth, {Username, Password}}, _From, State) ->
 	{reply, Auth, State};
 
 handle_call(Invalid, _From, State) ->
-	?warning("Got invalid call: ~p", [Invalid]),
+	lager:warning("Got invalid call: ~p", [Invalid]),
     {reply, invalid, State}.
 
 % -------------------------------------------------------------------------
 
 handle_cast(Invalid, State) ->
-	?warning("Ignoring invalid cast: ~p", [Invalid]),
+	lager:warning("Ignoring invalid cast: ~p", [Invalid]),
     {noreply, State}.
 
 % -------------------------------------------------------------------------
 
 handle_info(Invalid, State) ->
-	?warning("Ignoring invalid info: ~p", [Invalid]),
+	lager:warning("Ignoring invalid info: ~p", [Invalid]),
     {noreply, State}.
 
 % -------------------------------------------------------------------------
 
 terminate(Reason, _State) ->
-	?info("Terminating due to ~p.", [Reason]),
+	lager:info("Terminating due to ~p.", [Reason]),
 	ok.
 
 
@@ -162,11 +161,11 @@ code_change(_OldVersion, State, _Extra) ->
 handle_auth(Username, Password, State) ->
 	case get_account_credentials(Username, State) of
 		{error, not_found} ->
-			?info("No account credentials found for Username ~p.", [Username]),
+			lager:info("No account credentials found for Username ~p.", [Username]),
 			undefined;
 
 		{error, Reason} ->
-			?info("Error getting account credentials for Username ~p: ~p", [Username, Reason]),
+			lager:info("Error getting account credentials for Username ~p: ~p", [Username, Reason]),
 			case is_atom(Reason) of
 				true ->
 					{deny, "Database Error: " ++ atom_to_list(Reason)};
@@ -179,7 +178,7 @@ handle_auth(Username, Password, State) ->
 	end.
 
 handle_auth_credentials(Username, Password, Credentials) ->
-	?info("Got credentials for account '~s': ~p", [Username, Credentials]),
+	lager:info("Got credentials for account '~s': ~p", [Username, Credentials]),
 	case lists:any(
 			fun (CredentialProps) -> check_cred(Username, Password, CredentialProps) end,
 			Credentials) of
@@ -198,7 +197,7 @@ handle_userinfo(Username, State) ->
 			undefined;
 
 		Account ->
-			?info("Got Account Record: ~p", [Account]),
+			lager:info("Got Account Record: ~p", [Account]),
 			Account
 	end.
 
@@ -224,12 +223,12 @@ check_cred(_Username, CheckPassword, Credential) ->
 			%FIXME: Use the PRF!
 			{ok, CheckPasswordHash} = pbkdf2:pbkdf2(sha256, CheckPassword, PasswordSalt, Iterations, DerivedLength),
 			CheckPasswordHashBase64 = base64:encode(CheckPasswordHash),
-			?info("Client-provided hash: ~p; stored hash: ~p", [CheckPasswordHashBase64, StoredPasswordHash]),
+			lager:info("Client-provided hash: ~p; stored hash: ~p", [CheckPasswordHashBase64, StoredPasswordHash]),
 
 			pbkdf2:compare_secure(StoredPasswordHash, CheckPasswordHashBase64);
 
 		_ ->
-			?warning("Incompatible PRF ~p (only ~p is supported)", [PseudoRandomFunction, ?DEFAULT_PBKDF2_PRF]),
+			lager:warning("Incompatible PRF ~p (only ~p is supported)", [PseudoRandomFunction, ?DEFAULT_PBKDF2_PRF]),
 			false
 	end.
 
