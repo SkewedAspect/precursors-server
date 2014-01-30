@@ -5,7 +5,7 @@
 	username :: binary(),
 	show_account :: 'hidden' | 'public',
 	character_id :: binary(),
-	character :: json(),
+	character, %:: json(),
 	entity :: binary(),
 	entity_engine :: pid()
 }).
@@ -27,7 +27,7 @@
 	type :: message_type(),
 	id :: message_id(),
 	channel :: binary(),
-	contents :: json()
+	contents %:: json()
 }).
 
 %%-----------------------------------------------------------------------

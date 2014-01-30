@@ -9,7 +9,7 @@
 -export([start_entity_engine/1, get_full_update/1]).
 
 -include("log.hrl").
--include("pre_entity.hrl").
+-include_lib("pre_channel/include/pre_entity.hrl").
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API

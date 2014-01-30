@@ -1,7 +1,7 @@
 -module(pre_client_hooks).
 
 -include("log.hrl").
--include("pre_client.hrl").
+-include_lib("pre_channel/include/pre_client.hrl").
 
 -export([register_hooks/0, client_login_hook/2]).
 

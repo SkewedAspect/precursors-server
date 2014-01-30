@@ -3,7 +3,6 @@
 
 -module(pre_channel_input).
 
--include("log.hrl").
 -include("pre_client.hrl").
 
 % API
@@ -20,7 +19,7 @@
 %% -------------------------------------------------------------------
 
 register_hooks() ->
-	?debug("Registering client hooks."),
+	lager:debug("Registering client hooks."),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]).
 
 %% -------------------------------------------------------------------
@@ -28,7 +27,7 @@ register_hooks() ->
 %% -------------------------------------------------------------------
 
 client_login_hook(undefined, ClientInfo) ->
-	?debug("Client ~p logged in; registering ~p channel.", [ClientInfo, <<"input">>]),
+	lager:debug("Client ~p logged in; registering ~p channel.", [ClientInfo, <<"input">>]),
 	ChannelManager = ClientInfo#client_info.channel_manager,
 	pre_client_channels:set_channel(ChannelManager, <<"input">>, ?MODULE, []),
 	{ok, undefined}.

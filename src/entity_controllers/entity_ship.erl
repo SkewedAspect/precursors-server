@@ -4,7 +4,7 @@
 -module(entity_ship).
 
 -include("log.hrl").
--include("pre_entity.hrl").
+-include_lib("pre_channel/include/pre_entity.hrl").
 
 -behaviour(entity_controller).
 

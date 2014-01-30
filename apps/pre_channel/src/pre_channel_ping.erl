@@ -3,7 +3,6 @@
 
 -module(pre_channel_ping).
 
--include("log.hrl").
 -include("pre_client.hrl").
 
 % api
@@ -22,7 +21,7 @@
 %% @doc Add a hook to be triggered when a client logs in.  The hook adds
 %% the ping channel to the client.
 register_hooks() ->
-	?debug("Registering client hooks."),
+	lager:debug("Registering client hooks."),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]).
 
 %% -------------------------------------------------------------------
@@ -71,7 +70,7 @@ request_type(_) ->
 
 %% @doc The hook which adds the channel to the client.
 client_login_hook(undefined, ClientRecord) ->
-	?debug("Client ~p logged in; registering ~p channel.", [ClientRecord, <<"ping">>]),
+	lager:debug("Client ~p logged in; registering ~p channel.", [ClientRecord, <<"ping">>]),
 	#client_info{channel_manager = ChannelManager} = ClientRecord,
 	pre_client_channels:set_channel(ChannelManager, <<"ping">>, ?MODULE, []),
 	{ok, undefined}.

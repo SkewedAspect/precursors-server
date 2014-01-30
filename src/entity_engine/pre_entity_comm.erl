@@ -6,7 +6,7 @@
 -module(pre_entity_comm).
 
 -include("log.hrl").
--include("pre_entity.hrl").
+-include_lib("pre_channel/include/pre_entity.hrl").
 
 % API
 -export([client_request/5, client_request/6, client_event/4, client_event/5]).

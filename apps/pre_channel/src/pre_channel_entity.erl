@@ -3,7 +3,6 @@
 
 -module(pre_channel_entity).
 
--include("log.hrl").
 -include("pre_entity.hrl").
 
 % API
@@ -21,15 +20,15 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 register_hooks() ->
-	?debug("Registering client hooks."),
+	lager:debug("Registering client hooks."),
     pre_hooks:add_hook(client_logged_in, ?MODULE, client_logged_in_hook, undefined, [node()]),
     pre_hooks:add_hook(client_disconnected, ?MODULE, client_disconnected_hook, undefined, [node()]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec build_state_event(EventType, StateUpdate, EntityID) -> json() when
+-spec build_state_event(EventType, StateUpdate, EntityID) -> any() when
 	EventType :: binary() | 'undefined',
-	StateUpdate :: json(),
+	StateUpdate :: any(),
 	EntityID :: binary().
 
 build_state_event(undefined, StateUpdate, EntityID) ->
@@ -72,7 +71,7 @@ generate_timestamp({MegaSecs, Secs, MicroSecs}) ->
 
 %% @doc Handle a client login hook call.
 client_logged_in_hook(undefined, ClientInfo) ->
-	?debug("Client ~p logged in; registering 'entity' channel.", [ClientInfo]),
+	lager:debug("Client ~p logged in; registering 'entity' channel.", [ClientInfo]),
 	#client_info{
 		channel_manager = ChannelManager
 	} = ClientInfo,
@@ -83,9 +82,9 @@ client_logged_in_hook(undefined, ClientInfo) ->
 client_disconnected_hook(undefined, Reason, ClientInfo) ->
     case ClientInfo of
         undefined ->
-            ?debug("Connection terminated, never logged in");
+            lager:debug("Connection terminated, never logged in");
         _ ->
-            ?debug("Client connection ~p terminated due to ~p, cleaning up entity", [ClientInfo, Reason]),
+            lager:debug("Client connection ~p terminated due to ~p, cleaning up entity", [ClientInfo, Reason]),
             pre_entity_manager:delete_entity(ClientInfo#client_info.entity)
     end,
     {ok, undefined}.

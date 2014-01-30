@@ -9,7 +9,7 @@
 -behaviour(gen_server).
 
 -include("log.hrl").
--include("pre_entity.hrl").
+-include_lib("pre_channel/include/pre_entity.hrl").
 
 % API
 -export([start_link/0]).

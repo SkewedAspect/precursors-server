@@ -2,7 +2,7 @@
 -behaviour(gen_server).
 
 -include("log.hrl").
--include("pre_entity.hrl").
+-include_lib("pre_channel/include/pre_entity.hrl").
 
 -define(AES_BLOCK_SIZE, 16).
 

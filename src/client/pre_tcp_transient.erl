@@ -6,7 +6,7 @@
 -define(SERVER, ?MODULE).
 
 -include("log.hrl").
--include("pre_client.hrl").
+-include_lib("pre_channel/include/pre_client.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% ------------------------------------------------------------------
