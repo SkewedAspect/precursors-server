@@ -14,7 +14,7 @@
 %%
 %% == client_request/4 ==
 %% <pre>
-%% Module:client_request( Client :: pid(), Id :: any(), Request :: json(),
+%% Module:client_request( Client :: pid(), Id :: any(), Request :: any(),
 %%     Info :: any()) -> callback_return() ).
 %%
 %%     Client :: process of the client connection.  Responses and events
@@ -31,7 +31,7 @@
 %%
 %% == client_response/4 ==
 %% <pre>
-%% Module:client_response( Client :: pid(), Id :: any(), Response :: json(),
+%% Module:client_response( Client :: pid(), Id :: any(), Response :: any(),
 %%     Info :: any() ) -> callback_return() ).
 %%
 %%     Client :: process of the client connection.  New requests can be
@@ -48,7 +48,7 @@
 %%
 %% == client_event/3 ==
 %% <pre>
-%% Module:client_event( Client :: pid(), Event :: json(), Info() ) ->
+%% Module:client_event( Client :: pid(), Event :: any(), Info() ) ->
 %%     callback_return() ).
 %%
 %%     Client :: Process of the client connection.  New requests or events
@@ -84,19 +84,18 @@
 %% Swaps the callback module for a new one.  Behaves the same as the
 %% gen_event return of the same signature.
 %%
-%% === {'reply', Payload :: json()} ===
+%% === {'reply', Payload :: any()} ===
 %%
 %% Only valid when the callback function {@link client_request/4} was used.
 %% Sends a response to the client using the same ID that came in over tcp.
 %%
-%% === {'reply', Socket :: 'tcp' | 'udp' | 'ssl', Payload :: json()} ===
+%% === {'reply', Socket :: 'tcp' | 'udp' | 'ssl', Payload :: any()} ===
 %%
 %% Same as above, but allows one to specific which socket to use.
 
 -module(pre_client_channels).
 -behaviour(gen_event).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_client.hrl").
 
 % gen_event
@@ -138,7 +137,7 @@ drop_channel(Mgr, Channel) ->
 %% @doc Used by the client connection to send requests into the manager.
 %% Requests end up calling into client_request/4 of the callback module.
 -spec(handle_request/5 :: (Mgr :: pid(), ClientInfo :: #client_info{}, Channel :: any(),
-	Id :: any(), Request :: json()) -> 'ok').
+	Id :: any(), Request :: any()) -> 'ok').
 handle_request(Mgr, ClientInfo, Channel, Id, Request) ->
 	%?debug("Handling: Mgr=~p, ClientInfo=~p, Channel=~p, Id=~p, Request=~p",
 	%	[Mgr, ClientInfo, Channel, Id, Request]),
@@ -147,14 +146,14 @@ handle_request(Mgr, ClientInfo, Channel, Id, Request) ->
 %% @doc Used by the client connection to send responses into the manager.
 %% Requests end up calling into client_response/4 of the callback module.
 -spec(handle_response/5 :: (Mgr :: pid(), ClientInfo :: #client_info{},
-	Channel :: any(), Id :: any(), Response :: json()) -> 'ok').
+	Channel :: any(), Id :: any(), Response :: any()) -> 'ok').
 handle_response(Mgr, ClientInfo, Channel, Id, Response) ->
 	gen_event:notify(Mgr, {response, ClientInfo, Channel, Id, Response}).
 
 %% @doc Used by the client connection to send events into the manager.
 %% Events end up calling into the client_event/3 of the callback module.
 -spec(handle_event/4 :: (Mgr :: pid(), ClientInfo :: #client_info{}, Channel :: any(),
-	Event :: json()) -> 'ok').
+	Event :: any()) -> 'ok').
 handle_event(Mgr, ClientInfo, Channel, Event) ->
 	gen_event:notify(Mgr, {event, ClientInfo, Channel, Event}).
 

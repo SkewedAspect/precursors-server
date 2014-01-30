@@ -3,8 +3,6 @@
 -module(pre_tcp_listener).
 -behaviour(gen_server).
 
--include("log.hrl").
-
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,
 	code_change/3]).
 -export([start/0,start/1,start_link/0,start_link/1,spawn_acceptor/1]).
@@ -53,10 +51,10 @@ init(Args) ->
 		{ok, Listen_socket} ->
 			AcceptNum = proplists:get_value(poolsize, Args, 5),
 			Acceptors = spawn_acceptors(Listen_socket, AcceptNum),
-			?info("Started on port ~p", [Port]),
+			lager:info("Started on port ~p", [Port]),
 			{ok, #state{listener = Listen_socket, acceptors = Acceptors}};
 		{error, Reason} ->
-			?warning("Could not start gen_tcp:  ~p", [Reason]),
+			lager:warning("Could not start gen_tcp:  ~p", [Reason]),
 			{stop, Reason}
 	end.
 
@@ -66,7 +64,7 @@ init(Args) ->
 
 %% @hidden
 handle_call(Req, _From, State) ->
-	?debug("Unhandled call:  ~p", [Req]),
+	lager:debug("Unhandled call:  ~p", [Req]),
 	{reply, unknown, State}.
 
 %% =====
@@ -75,7 +73,7 @@ handle_call(Req, _From, State) ->
 
 %% @hidden
 handle_cast(Req, State) ->
-	?debug("Unhandled cast:  ~p", [Req]),
+	lager:debug("Unhandled cast:  ~p", [Req]),
 	{noreply, State}.
 
 %% =====
@@ -84,7 +82,7 @@ handle_cast(Req, State) ->
 
 %% @hidden
 handle_info({'EXIT', Pid, Reason}, State) ->
-	?debug("tcp acceptor died due to ~p", [Reason]),
+	lager:debug("tcp acceptor died due to ~p", [Reason]),
 	#state{acceptors = Acceptors, listener = Sock} = State,
 	Acceptors0 = lists:delete(Pid, Acceptors),
 	NewPid = spawn_link(?MODULE, spawn_acceptor, [Sock]),
@@ -92,7 +90,7 @@ handle_info({'EXIT', Pid, Reason}, State) ->
 	{noreply, State#state{acceptors = Acceptors1}};
 
 handle_info(Req, State) ->
-	?debug("Unhandled info:  ~p", [Req]),
+	lager:debug("Unhandled info:  ~p", [Req]),
 	{noreply, State}.
 
 %% =====
@@ -103,7 +101,7 @@ handle_info(Req, State) ->
 terminate(Cause, _State) when Cause =:= normal; Cause =:= shutdown ->
 	ok;
 terminate(Cause, _State) ->
-	?warning("tcp listener died due to ~p", [Cause]),
+	lager:warning("tcp listener died due to ~p", [Cause]),
 	ok.
 
 %% =====

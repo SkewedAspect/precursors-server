@@ -3,7 +3,6 @@
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_client.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
@@ -81,7 +80,7 @@ handle_call({start_client, Socket}, _From, State) ->
 			ets:insert(Ets, [Client]),
 			{reply, {ok, Pid}, State};
 		Else ->
-			?notice("Could not start new client for socket ~p due to ~p", [Socket, Else]),
+			lager:notice("Could not start new client for socket ~p due to ~p", [Socket, Else]),
 			{reply, Else, State}
 	end;
 
@@ -102,7 +101,7 @@ handle_cast(_Msg, State) ->
 
 %% @hidden
 handle_info({'EXIT', Pid, Cause}, State) ->
-	?info("Handling an exit of ~p due to ~p", [Pid, Cause]),
+	lager:info("Handling an exit of ~p due to ~p", [Pid, Cause]),
 	#state{ets = Ets} = State,
 	ets:delete(Ets, Pid),
 	{noreply, State};

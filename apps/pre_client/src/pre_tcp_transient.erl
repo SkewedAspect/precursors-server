@@ -5,7 +5,6 @@
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_client.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
@@ -41,12 +40,12 @@ start(Socket) ->
 
 %% @hidden
 init(Socket) ->
-	?info("New transient TCP:  ~p", [Socket]),
+	lager:info("New transient TCP:  ~p", [Socket]),
 	{ok, {Socket, 10}, 500}.
 
 %% @hidden
 handle_call(Request, From, State) ->
-	?debug("Unhandled call from ~p:  ~p", [From, Request]),
+	lager:debug("Unhandled call from ~p:  ~p", [From, Request]),
 	{noreply, ok, State}.
 
 %% @hidden
@@ -55,7 +54,7 @@ handle_cast(start_accept, {Socket, _}) ->
 	{noreply, {Socket, 10}, 5000};
 
 handle_cast(Msg, State) ->
-	?debug("Unhandled cast:  ~p", [Msg]),
+	lager:debug("Unhandled cast:  ~p", [Msg]),
 	{noreply, State}.
 
 %% @hidden
@@ -67,7 +66,7 @@ handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 			#envelope{type = request, channel = <<"control">>, contents = Request} = Message,
 			Cookie = proplists:get_value(cookie, Request),
 			% Look up client PID by cookie in ETS
-			?debug("Checking for cookie:  ~p", [Cookie]),
+			lager:debug("Checking for cookie:  ~p", [Cookie]),
 			QH = qlc:q([X || #client_connection{tcp_socket = TestCookie} = X <- ets:table(client_ets), TestCookie =:= Cookie]),
 			[#client_connection{pid = Client}] = qlc:e(QH),
 			% Transfer connection ownership to client
@@ -79,16 +78,16 @@ handle_info({tcp, Socket, Packet}, {Socket, InCont}) ->
 			inet:setopts(Socket, [{active, once}]),
 			{noreply, {Socket, Cont}, 5000};
 		Abuh ->
-			?warning("Netstring decode exploded:  ~p", [Abuh]),
+			lager:warning("Netstring decode exploded:  ~p", [Abuh]),
 			{stop, invalid_cookie, Socket}
 	end;
 
 handle_info(timeout, State) ->
-	?warning("Client (or ancestor) did not respond in time"),
+	lager:warning("Client (or ancestor) did not respond in time"),
 	{stop, timeout, State};
 
 handle_info(Info, State) ->
-	?debug("Unhandled info:  ~p", [Info]),
+	lager:debug("Unhandled info:  ~p", [Info]),
 	{noreply, State}.
 
 %% @hidden

@@ -1,6 +1,5 @@
 -module(pre_client_hooks).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_client.hrl").
 
 -export([register_hooks/0, client_login_hook/2]).
@@ -12,7 +11,7 @@
 %% @doc Registers a hook for when a client logs in.
 -spec(register_hooks/0 :: () -> 'ok').
 register_hooks() ->
-	?debug("Registering client hooks."),
+	lager:debug("Registering client hooks."),
 	pre_hooks:add_hook(client_logged_in, ?MODULE, client_login_hook, undefined, [node()]).
 
 %% ------------------------------------------------------------------
@@ -22,5 +21,5 @@ register_hooks() ->
 -spec client_login_hook('undefined', ClientRecord :: #client_info{}) -> {'ok', 'undefined'}.
 
 client_login_hook(undefined, ClientRecord) ->
-	?debug("Client logged in: ~p", [ClientRecord]),
+	lager:debug("Client logged in: ~p", [ClientRecord]),
 	{ok, undefined}.

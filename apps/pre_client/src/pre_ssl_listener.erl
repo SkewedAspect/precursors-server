@@ -4,8 +4,6 @@
 -module(pre_ssl_listener).
 -behaviour(gen_server).
 
--include("log.hrl").
-
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2,
 	code_change/3]).
 -export([start/0,start/1,start_link/0,start_link/1]).
@@ -72,10 +70,10 @@ init(Args) ->
 			Acceptors = spawn_acceptors(Listen_socket, Poolsize),
 			%%Create first accepting process
 			%Acceptor = spawn_link(?MODULE, spawn_acceptor, [Listen_socket]),
-			?info("Started on port ~p", [Port]),
+			lager:info("Started on port ~p", [Port]),
 			{ok, #state{poolsize = Poolsize, listener = Listen_socket, acceptors= Acceptors}};
 		{error, Reason} ->
-			?warning("Could not start SSL:  ~p", [Reason]),
+			lager:warning("Could not start SSL:  ~p", [Reason]),
 			{stop, Reason}
 	end.
 
@@ -85,7 +83,7 @@ init(Args) ->
 
 %% @hidden
 handle_call(Req, _From, State) ->
-	?debug("Unhandled call:  ~p", [Req]),
+	lager:debug("Unhandled call:  ~p", [Req]),
 	{reply, unknown, State}.
 
 %% =====
@@ -94,7 +92,7 @@ handle_call(Req, _From, State) ->
 
 %% @hidden
 handle_cast(Req, State) ->
-	?debug("Unhandled cast:  ~p", [Req]),
+	lager:debug("Unhandled cast:  ~p", [Req]),
 	{noreply, State}.
 
 %% =====
@@ -105,14 +103,14 @@ handle_cast(Req, State) ->
 handle_info({'EXIT', Pid, Cause}, #state{acceptors = Acceptors} = State) ->
 	case Cause of
 		Normies when Normies =:= normal; Normies =:= shutdown -> ok;
-		_ -> ?info("Acceptor ~p died due to ~p", [Pid, Cause])
+		_ -> lager:info("Acceptor ~p died due to ~p", [Pid, Cause])
 	end,
 	CleanAcceptors = lists:delete(Pid, Acceptors),
 	NewAcceptors = spawn_acceptors(State#state.listener, State#state.poolsize, CleanAcceptors),
 	{noreply, State#state{acceptors = NewAcceptors}};
 
 handle_info(Req, State) ->
-	?debug("Unhandled info:  ~p", [Req]),
+	lager:debug("Unhandled info:  ~p", [Req]),
 	{noreply, State}.
 
 %% =====
@@ -123,7 +121,7 @@ handle_info(Req, State) ->
 terminate(Cause, _State) when Cause =:= normal; Cause =:= shutdown ->
 	ok;
 terminate(Cause, _State) ->
-	?warning("SSL listener died due to ~p", [Cause]),
+	lager:warning("SSL listener died due to ~p", [Cause]),
 	ok.
 
 %% =====
@@ -158,10 +156,10 @@ spawn_acceptor(Socket) ->
 					ssl:controlling_process(NewSocket, Pid),
 					exit(normal);
 				{error, Reason} ->
-					?notice("SSL connect did not complete:  ~p", [Reason]),
+					lager:notice("SSL connect did not complete:  ~p", [Reason]),
 					exit(Reason)
 			end;
 		{error, Reason} ->
-			?notice("SSL transport accept errored:  ~p", [Reason]),
+			lager:notice("SSL transport accept errored:  ~p", [Reason]),
 			exit(Reason)
 	end.

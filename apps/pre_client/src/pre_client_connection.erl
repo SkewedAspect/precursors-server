@@ -1,8 +1,10 @@
 -module(pre_client_connection).
 -behaviour(gen_server).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
+-ifdef(TEST).
+-include_lib("eunit/include/eunit.hrl").
+-endif.
 
 -define(AES_BLOCK_SIZE, 16).
 
@@ -66,7 +68,7 @@ start(Socket, Cookie) ->
 -spec set_tcp(Pid, Socket, Message, Bins, Cont) -> 'ok' when
 	Pid :: pid(),
 	Socket :: any(),
-	Message :: json(),
+	Message :: any(),
 	Bins :: [binary()],
 	Cont :: any().
 
@@ -83,7 +85,7 @@ set_tcp(Pid, Socket, Message, Bins, Cont) ->
 	Socket :: 'udp' | 'ssl' | 'tcp',
 	Type :: 'request' | {'response', message_id()} | 'event' | {'request', message_id()},
 	Channel :: binary(),
-	Json :: json().
+	Json :: any().
 
 send(ClientInfo, Socket, Type, Channel, Json) when is_record(ClientInfo, client_info) ->
 	Pid = ClientInfo#client_info.connection,
@@ -106,7 +108,7 @@ send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket
 	Socket :: 'udp' | 'ssl' | 'tcp',
 	MessageID :: message_id(),
 	Channel :: binary(),
-	Json :: json().
+	Json :: any().
 
 respond(Pid, Socket, MessageID, Channel, Json) ->
 	send(Pid, Socket, {'response', MessageID}, Channel, Json).
@@ -129,7 +131,7 @@ set_inhabited_entity(Pid, Entity, EntityEngine) ->
 
 %% @hidden
 init({Socket, Cookie}) ->
-	?info("New client connection"),
+	lager:info("New client connection"),
 	ssl:setopts(Socket, [{active, once}]),
 	{ok, Udp} = gen_udp:open(0, [{active, once}, binary, {ip, {0, 0, 0, 0}}]),
 	ClientInfo = #client_info{
@@ -158,7 +160,7 @@ handle_call(_Request, _From, State) ->
 
 %% @hidden
 handle_cast({send, tcp, Type, Channel, Json}, #state{tcp_socket = undefined} = State) ->
-	?warning("Tried to send ~p message for channel ~p over TCP before getting TCP sync info: ~p", [Type, Channel, Json]),
+	lager:warning("Tried to send ~p message for channel ~p over TCP before getting TCP sync info: ~p", [Type, Channel, Json]),
 	{noreply, State};
 
 handle_cast({send, tcp, Type, Channel, Json}, State) ->
@@ -173,7 +175,7 @@ handle_cast({send, ssl, Type, Channel, Json}, State) ->
 	{noreply, State};
 
 handle_cast({send, udp, Type, Channel, Json}, #state{udp_remote_info = undefined} = State) ->
-	?warning("Tried to send ~p message for channel ~p over UDP before getting UDP sync info: ~p", [Type, Channel, Json]),
+	lager:warning("Tried to send ~p message for channel ~p over UDP before getting UDP sync info: ~p", [Type, Channel, Json]),
 	{noreply, State};
 
 handle_cast({send, udp, Type, Channel, Json}, State) ->
@@ -204,7 +206,7 @@ handle_cast(start_accept_tcp, State) ->
 		end
 	},
 	ets:insert(client_ets, ClientRec),
-	?info("TCP socket set:  ~p", [Socket]),
+	lager:info("TCP socket set:  ~p", [Socket]),
 	{noreply, State};
 
 handle_cast({inhabit_entity, Entity, EntityEngine}, State) ->
@@ -240,7 +242,7 @@ handle_info({ssl, Socket, Packet}, #state{ssl_socket = Socket, ssl_netstring = C
 	{noreply, NewState};
 
 handle_info({ssl_closed, Socket}, #state{ssl_socket = Socket} = State) ->
-	?info("Got SSL socket closed; Imma die"),
+	lager:info("Got SSL socket closed; Imma die"),
 	{stop, normal, State};
 
 handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket, tcp_netstring = Cont} = State) ->
@@ -269,14 +271,14 @@ handle_info({udp, Socket, Ip, InPortNo, Packet},
 					udp_socket = {Ip, InPortNo}
 				},
 				ets:insert(client_ets, ClientRec),
-				?info("UDP port sync up:  ~p:~p", [Ip, InPortNo]),
+				lager:info("UDP port sync up:  ~p:~p", [Ip, InPortNo]),
 				% Record the UDP information in the state
 				State2 = State1#state{udp_remote_info = {Ip, InPortNo}},
 				% See if we've completed the connection process
 				{ok, State3} = confirm_connect_message(Message, State2),
 				State3;
 			Else ->
-				?info("UDP not confirmed:  ~p", [Else]),
+				lager:info("UDP not confirmed:  ~p", [Else]),
 				State
 		end,
 		inet:setopts(Socket, [{active, once}]),
@@ -294,16 +296,16 @@ handle_info({udp, Socket, _Ip, _InPortNo, Packet}, #state{udp_socket = Socket} =
 %		udp_remote_info = {Ip, InPortNo}
 %	} = State,
 %	Message = aes_decrypt_envelope(Packet, State),
-%	?warning("Client got unhandled UDP message:  ~p", [Message]),
+%	lager:warning("Client got unhandled UDP message:  ~p", [Message]),
 %	inet:setopts(Socket, [{active, once}]),
 %	{noreply, State};
 
 handle_info(timeout, State) ->
-	?warning("Client did not respond in time; disconnecting."),
+	lager:warning("Client did not respond in time; disconnecting."),
 	{stop, timeout, State};
 
 handle_info(Info, State) ->
-	?debug("Unhandled info:  ~p (~p)", [Info, State]),
+	lager:debug("Unhandled info:  ~p (~p)", [Info, State]),
 	{noreply, State}.
 
 %% ------------------------------------------------------------------
@@ -343,7 +345,7 @@ service_message(#envelope{channel = <<"control">>} = Envelope, State) ->
 	service_control_channel(Envelope, State);
 
 service_message(Envelope, #state{channel_mgr = undefined} = State) when is_record(Envelope, envelope) ->
-	?warning("service_message: Got message ~p while channel_mgr=undefined! Ignoring message.", [Envelope]),
+	lager:warning("service_message: Got message ~p while channel_mgr=undefined! Ignoring message.", [Envelope]),
 	State;
 
 service_message(Envelope, State) when is_record(Envelope, envelope) ->
@@ -360,7 +362,7 @@ service_message(Envelope, State) when is_record(Envelope, envelope) ->
 	State;
 
 service_message(Request, State) ->
-	?warning("Unhandled request with invalid envelope:  ~p", [Request]),
+	lager:warning("Unhandled request with invalid envelope:  ~p", [Request]),
 	State.
 
 %% ------------------------------------------------------------------
@@ -369,7 +371,7 @@ service_control_channel(#envelope{type = Type, id = MessageID, contents = Reques
 	service_control_message(Type, MessageID, Request, State);
 
 service_control_channel(Thing, State) ->
-	?warning("Unhandled input:  ~p", [Thing]),
+	lager:warning("Unhandled input:  ~p", [Thing]),
 	State.
 
 %% ------------------------------------------------------------------
@@ -379,25 +381,25 @@ service_control_message(Type, MessageID, Request, State) when Type =:= request; 
 	service_control_message(Type, ReqType, MessageID, Request, State);
 
 service_control_message(Type, _, Request, State) ->
-	?warning("Unhandled ~p message:  ~p", [Type, Request]),
+	lager:warning("Unhandled ~p message:  ~p", [Type, Request]),
 	State.
 
 %% ------------------------------------------------------------------
 
 service_control_message(request, <<"login">>, MessageID, Request, State) ->
-	?info("starting authentication"),
-	?info("Request: ~p", [Request]),
+	lager:info("starting authentication"),
+	lager:info("Request: ~p", [Request]),
 	% Check with authentication backends
 	UserOrNick = proplists:get_value(user, Request),
 	Password= proplists:get_value(password, Request),
-	?info("Authenticating user: ~p", [UserOrNick]),
+	lager:info("Authenticating user: ~p", [UserOrNick]),
 	{Confirm, ReasonOrUsername} = case pre_gen_auth:authenticate(UserOrNick, Password) of
 		{allow, Username} ->
 			{true, Username};
 		{deny, Msg} ->
 			{false, list_to_binary(Msg)};
 		_ ->
-			?warning("Authentication failed for unkown reason."),
+			lager:warning("Authentication failed for unkown reason."),
 			{false, <<"An unkown error has occured.">>}
 	end,
 
@@ -415,7 +417,7 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 		channel = <<"control">>},
 	OutBin = wrap_for_send(Response),
 	SendRes = ssl:send(State#state.ssl_socket, OutBin),
-	?debug("Login response ssl:send result:  ~p", [SendRes]),
+	lager:debug("Login response ssl:send result:  ~p", [SendRes]),
 
 	% Record login information in state
 	AESKey = base64:decode(proplists:get_value(key, Request)),
@@ -435,7 +437,7 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	};
 
 service_control_message(request, <<"getCharacters">>, MessageID, _Request, State) ->
-	?info("Retrieving character list for client ~p.", [State#state.client_info]),
+	lager:info("Retrieving character list for client ~p.", [State#state.client_info]),
 
 	%TODO: Make sure that Username is the Key for account, and not a secondary index, like nick name.
 	ClientInfo = State#state.client_info,
@@ -458,7 +460,7 @@ service_control_message(request, <<"getCharacters">>, MessageID, _Request, State
 
 service_control_message(request, <<"selectCharacter">>, MessageID, Request, State) ->
 	CharId = proplists:get_value(character, Request),
-	?info("Character selected: ~p", [CharId]),
+	lager:info("Character selected: ~p", [CharId]),
 
 	% Get the character.
 	Character = pre_data:get(<<"character">>, CharId),
@@ -483,7 +485,7 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	%TODO: Look up existing entity, if possible.
 	EntityID = undefined,
 
-	?info("Creating entity for client ~p.", [State#state.client_info]),
+	lager:info("Creating entity for client ~p.", [State#state.client_info]),
 	{ok, _Entity} = pre_entity_manager:create_entity(EntityID, entity_ship, [{}], State#state.client_info),
 
 	CharSelRep = [
@@ -493,7 +495,7 @@ service_control_message(request, <<"selectCharacter">>, MessageID, Request, Stat
 	NewState;
 
 service_control_message(event, <<"logout">>, _, _, _) ->
-	?info("Got logout event from client."),
+	lager:info("Got logout event from client."),
 	exit(normal).
 
 %% ------------------------------------------------------------------
@@ -642,11 +644,11 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 	],
 	OutBin = build_message({response, Message#envelope.id}, <<"control">>, ConnectRep),
 	SendRes = ssl:send(SSLSocket, OutBin),
-	?debug("Connect response ssl:send result:  ~p", [SendRes]),
+	lager:debug("Connect response ssl:send result:  ~p", [SendRes]),
 
 	case ChannelMgr of
 		undefined ->
-			?info("TCPSocket, UDPRemoteInfo: ~p, ~p", [TCPSocket, UDPRemoteInfo]),
+			lager:info("TCPSocket, UDPRemoteInfo: ~p, ~p", [TCPSocket, UDPRemoteInfo]),
 			case {TCPSocket, UDPRemoteInfo} of
 				{undefined, _} ->
 					{ok, State};
@@ -661,12 +663,12 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 						channel_mgr = NewChannelMgr,
 						client_info = NewClientInfo
 					},
-					?info("Started pre_client_channels at ~p", [NewChannelMgr]),
+					lager:info("Started pre_client_channels at ~p", [NewChannelMgr]),
 					pre_hooks:async_trigger_hooks(client_logged_in, [NewClientInfo], all),
 					{ok, NewState}
 			end;
 		_ ->
-			?error("ChannelMgr already set for client ~p! Skipping instantiation.", [ClientInfo]),
+			lager:error("ChannelMgr already set for client ~p! Skipping instantiation.", [ClientInfo]),
 			{ok, State}
 	end.
 
