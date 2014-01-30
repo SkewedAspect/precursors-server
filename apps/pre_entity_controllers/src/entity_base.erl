@@ -3,7 +3,6 @@
 
 -module(entity_base).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 -behaviour(entity_controller).
@@ -65,7 +64,7 @@ client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
 	{Response, undefined, Entity};
 
 client_request(Entity, Channel, RequestType, _RequestID, Request) ->
-	?debug("~p received unhandled request ~p on channel ~p! (full request: ~p)",
+	lager:debug("~p received unhandled request ~p on channel ~p! (full request: ~p)",
 		[Entity#entity.id, RequestType, Channel, Request]),
 
 	% Respond humorously.
@@ -80,7 +79,7 @@ client_request(Entity, Channel, RequestType, _RequestID, Request) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 client_event(Entity, Channel, EventType, Event) ->
-	?debug("~p received unhandled event ~p on channel ~p! (full event: ~p)",
+	lager:debug("~p received unhandled event ~p on channel ~p! (full event: ~p)",
 		[Entity#entity.id, EventType, Channel, Event]),
 
 	{undefined, Entity}.
@@ -88,7 +87,7 @@ client_event(Entity, Channel, EventType, Event) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 entity_event(Event, From, Entity) ->
-	?debug("~p received unhandled entity event from ~p! (full event: ~p)",
+	lager:debug("~p received unhandled entity event from ~p! (full event: ~p)",
 		[Entity#entity.id, From, Event]),
 
 	{undefined, Entity}.
@@ -105,7 +104,7 @@ apply_update(base, [], Entity) ->
 	{undefined, Entity};
 
 apply_update(Key, Value, Entity) ->
-	?warn("Ignoring unrecognized update key ~p! (value: ~p)", [Key, Value]),
+	lager:warning("Ignoring unrecognized update key ~p! (value: ~p)", [Key, Value]),
 	{undefined, Entity}.
 
 %% --------------------------------------------------------------------------------------------------------------------

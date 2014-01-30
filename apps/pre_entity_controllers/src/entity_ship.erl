@@ -3,7 +3,6 @@
 
 -module(entity_ship).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 -behaviour(entity_controller).
@@ -230,7 +229,7 @@ handle_input_command(Entity, <<"roll">>, [TargetVel], _KWArgs) ->
 
 % Catch-all
 handle_input_command(Entity, Command, Args, KWArgs) ->
-	?info("Got unrecognized input command: ~p, ~p, ~p", [Command, Args, KWArgs]),
+	lager:info("Got unrecognized input command: ~p, ~p, ~p", [Command, Args, KWArgs]),
 	Response = [
 		{confirm, false},
 		{reason, <<"Unrecognized input command \"", Command/binary, "\"!">>}

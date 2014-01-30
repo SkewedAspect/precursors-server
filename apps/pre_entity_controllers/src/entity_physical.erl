@@ -3,7 +3,6 @@
 
 -module(entity_physical).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 -behaviour(entity_controller).

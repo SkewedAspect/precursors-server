@@ -30,7 +30,6 @@
 
 -module(entity_controller).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 -export([behaviour_info/1]).
@@ -68,7 +67,7 @@ call(Entity, Func, Args, HandleResult) ->
 			HandleResult(Result, {Entity, Func, Args})
 	catch
 		Wut:Why->
-			?error("Exception while calling controller function ~p:~p(~p) for entity ~p: ~p",
+			lager:error("Exception while calling controller function ~p:~p(~p) for entity ~p: ~p",
 				[Controller, Func, Args, EntityID, {Wut, Why}]),
 			{noreply, Entity}
 	end.
@@ -93,7 +92,7 @@ apply_updates([{Key, Value} | Rest], Entity) ->
 		Func :: atom(),
 		Args :: list(),
 	GenServerResponse :: {reply, Reply, NewEntity} | {noreply, NewEntity},
-		Reply :: json(),
+		Reply :: any(),
 		NewEntity :: #entity{}.
 
 % 3-tuples
@@ -103,7 +102,7 @@ handle_result({Reply, Update, #entity{} = NewEntity}, Ctx) ->
 
 handle_result({_, _, UnrecognizedEnt}, {OriginalEntity, Func, Args}) ->
 	Controller = OriginalEntity#entity.controller,
-	?error("Unrecognized entity record in 3-tuple result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedEnt]),
+	lager:error("Unrecognized entity record in 3-tuple result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedEnt]),
 	{noreply, OriginalEntity};
 
 % 2-tuples
@@ -114,13 +113,13 @@ handle_result({Update, #entity{} = NewEntity}, Ctx) ->
 
 handle_result({_, UnrecognizedEnt}, {OriginalEntity, Func, Args}) ->
 	Controller = OriginalEntity#entity.controller,
-	?error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedEnt]),
+	lager:error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedEnt]),
 	{noreply, OriginalEntity};
 
 % Other
 handle_result(Unrecognized, {OriginalEntity, Func, Args}) ->
 	Controller = OriginalEntity#entity.controller,
-	?error("Unrecognized result from ~p:~p(~p): ~p", [Controller, Func, Args, Unrecognized]),
+	lager:error("Unrecognized result from ~p:~p(~p): ~p", [Controller, Func, Args, Unrecognized]),
 	{noreply, OriginalEntity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -138,7 +137,7 @@ handle_update([], {_OriginalEntity, _Func, _Args}) -> ok;
 
 handle_update(UnrecognizedUpdate, {OriginalEntity, Func, Args}) ->
 	Controller = OriginalEntity#entity.controller,
-	?error("Unrecognized update in result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedUpdate]).
+	lager:error("Unrecognized update in result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedUpdate]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -150,7 +149,7 @@ handle_reply([{_K, _V} | _] = Reply, NewEntity, _Ctx) ->
 
 handle_reply(UnrecognizedReply, NewEntity, {OriginalEntity, Func, Args}) ->
 	Controller = OriginalEntity#entity.controller,
-	?error("Unrecognized reply in result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedReply]),
+	lager:error("Unrecognized reply in result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedReply]),
 	{noreply, NewEntity}.
 
 %% --------------------------------------------------------------------------------------------------------------------
