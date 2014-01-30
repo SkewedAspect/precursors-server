@@ -5,7 +5,6 @@
 -module(pre_entity_engine_sup).
 -behaviour(gen_server).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 -include("supervisor.hrl").
 
@@ -78,7 +77,7 @@ send_all(Message, ProcessGroup) ->
 %% Convience function for sending the given update message to all listening entity engines with `send_all`.
 %% The message is a JSON structure indicating the portions of state that have changed.
 
--spec broadcast_update(EntityID::binary(), Update :: json()) ->
+-spec broadcast_update(EntityID::binary(), Update :: any()) ->
 	ok.
 
 broadcast_update(EntityID, Update) ->
@@ -92,7 +91,7 @@ broadcast_update(EntityID, Update) ->
 %% Convience function for sending the given updates message to all listening entity engines with `send_all`.
 %% The message is a JSON structure indicating the portions of state that have changed.
 
--spec broadcast_updates(Updates :: [{binary(), json()}]) ->
+-spec broadcast_updates(Updates :: [{binary(), any()}]) ->
 	ok.
 
 broadcast_updates([]) ->
@@ -192,7 +191,7 @@ handle_info(_, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 terminate(Reason, _State) ->
-	?info("Terminating due to ~p.", [Reason]),
+	lager:info("Terminating due to ~p.", [Reason]),
 	ok.
 
 code_change(_OldVersion, State, _Extra) ->
@@ -213,7 +212,7 @@ start_engine(State) ->
 		{ok, _Pid} ->
 			ok;
 		Error ->
-			?error("Invalid response from supervisor:start_child while starting entity engine: ~p", [Error])
+			lager:error("Invalid response from supervisor:start_child while starting entity engine: ~p", [Error])
 	end.
 
 %% --------------------------------------------------------------------------------------------------------------------

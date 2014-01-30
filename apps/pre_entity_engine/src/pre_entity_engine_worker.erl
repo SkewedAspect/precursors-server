@@ -13,7 +13,6 @@
 
 -module(pre_entity_engine_worker).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 % API
@@ -46,7 +45,7 @@ start_worker(InitialEntities) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(InitialEntities) ->
-	?info("pre_entity_engine_worker:init(~p)", [InitialEntities]),
+	lager:info("pre_entity_engine_worker:init(~p)", [InitialEntities]),
 
 	% Set our priority to high.
 	process_flag(priority, high),
@@ -73,7 +72,7 @@ do_receive(State) ->
 			{Reply1, NewState1} = handle_msg(Msg, From1, State),
 			{Reply1, NewState1, From1};
 		Other ->
-			?error("pre_entity_engine_worker:do_receive: Received invalid message: ~p", [Other]),
+			lager:error("pre_entity_engine_worker:do_receive: Received invalid message: ~p", [Other]),
 			{noreply, State, undefined}
 	end,
 
@@ -102,10 +101,10 @@ handle_msg(simulate, _From, State) ->
 
 	if
 		SimGap >= (?INTERVAL + (?INTERVAL * 0.25)) ->
-			?error("Extremely long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
+			lager:error("Extremely long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
 
 		SimGap >= (?INTERVAL + (?INTERVAL * 0.1)) ->
-			?warn("Overly long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
+			lager:warning("Overly long time between simulate calls: Entity Engine: ~p, time: ~p", [self(), SimGap]);
 
 		true -> ok
 	end,
@@ -119,10 +118,10 @@ handle_msg(simulate, _From, State) ->
 	% Report if there's issues.
 	NextInterval = if
 		SimTime >= ?INTERVAL ->
-			?error("Overloaded Entity Engine ~p (~p ms).", [self(), SimTime]),
+			lager:error("Overloaded Entity Engine ~p (~p ms).", [self(), SimTime]),
 			0;
 		SimTime >= ?WARN_INTERVAL ->
-			?warn("High Load on Entity Engine ~p (~p ms).", [self(), SimTime]),
+			lager:warning("High Load on Entity Engine ~p (~p ms).", [self(), SimTime]),
 			round(?INTERVAL - SimTime);
 		true ->
 			round(?INTERVAL - SimTime)
@@ -138,7 +137,7 @@ handle_msg(simulate, _From, State) ->
     {noreply, State2};
 
 handle_msg({add_entity, NewEntity}, _From, State) ->
-	?info("pre_entity_engine_worker[~p]: adding entity ~p", [self(), NewEntity]),
+	lager:info("pre_entity_engine_worker[~p]: adding entity ~p", [self(), NewEntity]),
 	Entities = State#state.entities,
 	State1 = State#state {
 		entities = [NewEntity | Entities]
@@ -167,7 +166,7 @@ handle_msg({updates, NewUpdates}, _From, State) ->
 	{noreply, State1};
 
 handle_msg(Msg, From, State) ->
-	?warn("pre_entity_engine_worker:handle_msg(~p, ~p, ~p): Unrecognized message!", [Msg, From, State]),
+	lager:warning("pre_entity_engine_worker:handle_msg(~p, ~p, ~p): Unrecognized message!", [Msg, From, State]),
 	{noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -218,7 +217,7 @@ simulate_entities(State) ->
 		Args :: list(),
 	SimulateEntityResponse :: {NewEntities, OutgoingUpdates},
 		NewEntities :: [#entity{}],
-		OutgoingUpdates :: [json()].
+		OutgoingUpdates :: [any()].
 
 % 2-tuples
 return_result({undefined, #entity{} = NewEntity}, _Ctx, {NewEntities, OutgoingUpdates}) ->
@@ -230,11 +229,11 @@ return_result({Update, #entity{} = NewEntity}, _Ctx, {NewEntities, OutgoingUpdat
 
 return_result({_, UnrecognizedEnt}, {OriginalEntity, Func, Args}, {NewEntities, OutgoingUpdates}) ->
 	Controller = OriginalEntity#entity.controller,
-	?error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedEnt]),
+	lager:error("Unrecognized entity record in 2-tuple result from ~p:~p(~p): ~p", [Controller, Func, Args, UnrecognizedEnt]),
 	{[OriginalEntity | NewEntities], OutgoingUpdates};
 
 % Other
 return_result(Unrecognized, {OriginalEntity, Func, Args}, {NewEntities, OutgoingUpdates}) ->
 	Controller = OriginalEntity#entity.controller,
-	?error("Unrecognized result from ~p:~p(~p): ~p", [Controller, Func, Args, Unrecognized]),
+	lager:error("Unrecognized result from ~p:~p(~p): ~p", [Controller, Func, Args, Unrecognized]),
 	{[OriginalEntity | NewEntities], OutgoingUpdates}.

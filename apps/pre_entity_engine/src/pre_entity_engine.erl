@@ -8,7 +8,6 @@
 -module(pre_entity_engine).
 -behaviour(gen_server).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 % API
@@ -90,8 +89,8 @@ get_entity(Pid, EntityID) ->
 %%
 %% This passes a request from the client to the controller of the entity the client is currently controlling. A response
 %% is always expected.
--spec client_request(Pid::pid(), EntityID::binary(), Channel::atom(), RequestType::binary(), RequestID::integer(), Request::json()) ->
-	Response::json().
+-spec client_request(Pid::pid(), EntityID::binary(), Channel::atom(), RequestType::binary(), RequestID::integer(), Request::any()) ->
+	Response::any().
 
 client_request(Pid, EntityID, Channel, RequestType, RequestID, Request) ->
 	gen_server:call(Pid, {request, EntityID, Channel, RequestType, RequestID, Request}).
@@ -102,8 +101,8 @@ client_request(Pid, EntityID, Channel, RequestType, RequestID, Request) ->
 %%
 %% This passes an event from the client to the controller of the entity the client is currently controlling. No response
 %% is expected.
--spec client_event(Pid::pid(), EntityID::binary(), Channel::atom(), EventType::binary(), Event::json()) ->
-	Response::json().
+-spec client_event(Pid::pid(), EntityID::binary(), Channel::atom(), EventType::binary(), Event::any()) ->
+	Response::any().
 
 client_event(Pid, EntityID, Channel, EventType, Event) ->
 	gen_server:cast(Pid, {client_event, EntityID, Channel, EventType, Event}).
@@ -201,14 +200,14 @@ handle_info({_From, {updates, Updates}}, State) ->
 			ok;
 		(_TargetEntityID, TargetEntity, _Acc) ->
 			%TODO: Filter outgoing updates according to distance from TargetEntity or something.
-			%?warn("Sending entity updates for entities ~p to client ~p (entity ~p):~n~p",
+			%lager:warning("Sending entity updates for entities ~p to client ~p (entity ~p):~n~p",
 			%	[EntityIDs, ClientInfo, TargetEntityID, Updates]),
 			pre_entity_comm:send_updates(TargetEntity#entity.client, Updates)
 	end, ok, State1#state.entities),
 	{noreply, State1};
 
 handle_info(Message, State) ->
-	?warn("handle_info: Unrecognized message: ~p", [Message]),
+	lager:warning("handle_info: Unrecognized message: ~p", [Message]),
     {noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -230,7 +229,7 @@ handle_entity_updates([{EntityID, Update} | Rest], Entities) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 terminate(Reason, _State) ->
-	?info("Terminating due to ~p.", [Reason]),
+	lager:info("Terminating due to ~p.", [Reason]),
 	ok.
 
 code_change(_OldVersion, State, _Extra) ->

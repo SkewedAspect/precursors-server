@@ -5,7 +5,6 @@
 
 -module(pre_entity_comm).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 % API
@@ -28,8 +27,8 @@
 	Channel :: atom(),
 	RequestType :: binary(),
 	RequestID :: integer(),
-	Request :: json(),
-	Response :: json().
+	Request :: any(),
+	Response :: any().
 
 client_request(#client_info{} = ClientInfo, Channel, RequestType, RequestID, Request) ->
 	#client_info{
@@ -58,8 +57,8 @@ client_request(EntityID, Channel, RequestType, RequestID, Request) ->
 	Channel :: atom(),
 	RequestType :: binary(),
 	RequestID :: integer(),
-	Request :: json(),
-	Response :: json().
+	Request :: any(),
+	Response :: any().
 
 client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request) ->
 	% Call the entity engine
@@ -75,8 +74,8 @@ client_request(EntityEngine, EntityID, Channel, RequestType, RequestID, Request)
 	ClientInfo :: #client_info{},
 	Channel :: atom(),
 	EventType :: binary(),
-	Event :: json(),
-	Response :: json().
+	Event :: any(),
+	Response :: any().
 
 client_event(ClientInfo, Channel, EventType, Event) ->
 	#client_info {
@@ -98,8 +97,8 @@ client_event(ClientInfo, Channel, EventType, Event) ->
 	EntityID :: binary(),
 	Channel :: atom(),
 	EventType :: binary(),
-	Event :: json(),
-	Response :: json().
+	Event :: any(),
+	Response :: any().
 
 client_event(EntityEngine, EntityID, Channel, EventType, Event) ->
 	% Call the entity engine
@@ -108,7 +107,7 @@ client_event(EntityEngine, EntityID, Channel, EventType, Event) ->
 %% --------------------------------------------------------------------------------------------------------------------
 %% @doc Sends a delta update to the given client.
 
--spec send_update(ClientInfo :: #client_info{}, EntityID :: binary(), Update :: json()) -> ok.
+-spec send_update(ClientInfo :: #client_info{}, EntityID :: binary(), Update :: any()) -> ok.
 
 send_update(ClientInfo, EntityID, Update) ->
 	ConnectionPid = ClientInfo#client_info.connection,
@@ -119,7 +118,7 @@ send_update(ClientInfo, EntityID, Update) ->
 %% --------------------------------------------------------------------------------------------------------------------
 %% @doc Sends a list of delta updates to the given client.
 
--spec send_updates(ClientInfo :: #client_info{}, Updates :: [{binary(), json()}]) -> ok.
+-spec send_updates(ClientInfo :: #client_info{}, Updates :: [{binary(), any()}]) -> ok.
 
 send_updates(ClientInfo, Updates) ->
 	ConnectionPid = ClientInfo#client_info.connection,

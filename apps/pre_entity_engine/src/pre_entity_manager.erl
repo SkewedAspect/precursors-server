@@ -8,7 +8,6 @@
 -export([get_entity/1, create_entity/2, create_entity/3, create_entity/4, load_entity/1]).
 -export([start_entity_engine/1, get_full_update/1]).
 
--include("log.hrl").
 -include_lib("pre_channel/include/pre_entity.hrl").
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -31,7 +30,7 @@ get_entity(EntityID) ->
 %%
 %% This creates a new entity, using the provided controller and definition. This does not attempt to load the entity from
 %% the database.
--spec create_entity(Controller::atom(), Definition::json_object()) ->
+-spec create_entity(Controller::atom(), Definition::any()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(Controller, Definition) ->
@@ -55,10 +54,10 @@ create_entity(Controller, Definition) ->
 %%
 %% This creates a new entity, using the provided controller and definition, as well as setting the entity's client_info
 %% field. This does not attempt to load the entity from the database.
--spec create_entity(Controller::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
+-spec create_entity(Controller::atom(), Definition::any(), ClientInfo::#client_info{}) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()};
 
-	(EntityID::binary(), Controller::atom(), Definition::json_object()) ->
+	(EntityID::binary(), Controller::atom(), Definition::any()) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(Controller, Definition, ClientInfo=#client_info{}) ->
@@ -93,7 +92,7 @@ create_entity(EntityID, Controller, Definition) ->
 		notfound ->
 			#entity{};
 		{error, Error} ->
-			?error("Error looking up entity ~p during creation. Error was: ~p",
+			lager:error("Error looking up entity ~p during creation. Error was: ~p",
 				[EntityID, Error]),
 			#entity{}
 	end,
@@ -119,7 +118,7 @@ create_entity(EntityID, Controller, Definition) ->
 %%
 %% This creates a new entity, attempting to load it from the database. If it is not found, it will create a new one
 %% using the provided controller and definition.
--spec create_entity(EntityID::binary(), Controller::atom(), Definition::json_object(), ClientInfo::#client_info{}) ->
+-spec create_entity(EntityID::binary(), Controller::atom(), Definition::any(), ClientInfo::#client_info{}) ->
 	{ok, Entity::#entity{}} | {failed, Reason :: string()} | {error, Msg :: string()}.
 
 create_entity(undefined, Controller, Definition, ClientInfo) ->
@@ -133,7 +132,7 @@ create_entity(EntityID, Controller, Definition, ClientInfo) ->
 		notfound ->
 			#entity{};
 		{error, Error} ->
-			?error("Error looking up entity ~p during creation. Error was: ~p",
+			lager:error("Error looking up entity ~p during creation. Error was: ~p",
 				[EntityID, Error]),
 			#entity{}
 	end,
@@ -172,7 +171,7 @@ load_entity(EntityID) ->
 			notfound;
 
 		{error, Error} ->
-			?error("Error looking up entity ~p during creation. Error was: ~p",
+			lager:error("Error looking up entity ~p during creation. Error was: ~p",
 				[EntityID, Error]),
 			{error, Error}
 	end,
@@ -212,7 +211,7 @@ start_entity_engine(Args) ->
 %%
 %% This starts a new (supervised) entity engine, and adds it to our list of tracked entity engines.
 -spec get_full_update(Entity :: #entity{}) ->
-	FullUpdate :: json().
+	FullUpdate :: any().
 
 get_full_update(Entity) ->
 	#entity{
