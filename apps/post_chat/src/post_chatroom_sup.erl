@@ -3,7 +3,6 @@
 -behaviour(supervisor).
 
 -include_lib("stdlib/include/qlc.hrl").
--include_lib("precursors_server/include/log.hrl").
 
 %% API
 -export([start_link/1,get_room/2]).
@@ -38,9 +37,9 @@ start_rooms(_Pid, []) ->
 	ok;
 start_rooms(Pid, [Room | Tail]) ->
 	Args = tuple_to_list(Room),
-	?info("Supervisor: ~p starting Room: ~p", [Pid, Args]),
+	lager:info("Supervisor: ~p starting Room: ~p", [Pid, Args]),
 	ChildPid = supervisor:start_child(Pid, Args),
-	?info("Room started: ~p", [ChildPid]),
+	lager:info("Room started: ~p", [ChildPid]),
 	start_rooms(Pid, Tail).
 	
 -spec get_room(Key :: 'id' | 'name', Id :: string()) -> 'undefined' | pid().

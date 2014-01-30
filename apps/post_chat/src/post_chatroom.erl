@@ -41,7 +41,6 @@
 -define(timeout, 1000).
 -define(ets, post_chatrooms).
 
--include_lib("precursors_server/include/log.hrl").
 -include_lib("pre_channel/include/pre_client.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
@@ -87,26 +86,26 @@
 %% given to users.  Mode is the type of chat room.  ModeMeta depends on
 %% the mode.
 start_link(Name, Mode, ModeMeta) ->
-	?info("Chatroom start_link called: ~p ~p ~p", [Name, Mode, ModeMeta]),
+	lager:info("Chatroom start_link called: ~p ~p ~p", [Name, Mode, ModeMeta]),
 	start_link(Name, Mode, ModeMeta, undefined).
 
 start_link(Name, Mode, ModeMeta, Password) ->
-	?info("Chatroom starting: ~p ~p ~p ~p", [Name, Mode, ModeMeta, Password]),
+	lager:info("Chatroom starting: ~p ~p ~p ~p", [Name, Mode, ModeMeta, Password]),
 	Res = qlc:e(qlc:q([
 		E || {_ListPid, _Pid, RoomName, RoomMode} = E <- ets:table(post_chatrooms),
 		RoomName =:= Name, RoomMode =:= Mode
 	])),
-    ?info("Matching: ~p ~p", [Res, Mode]),
+    lager:info("Matching: ~p ~p", [Res, Mode]),
 	case {Res, Mode} of
 		{[], player} ->
   		PlayPID = gen_server:start_link({global, Name}, ?MODULE, [{Name, Mode, ModeMeta, Password}], []),
-		?info("Player Room started: ~p", [PlayPID]);
+		lager:info("Player Room started: ~p", [PlayPID]);
 		{[{_Lpid, RPid, _} | _], player} ->
-		?info("Other Room started: ~p", [RPid]),
+		lager:info("Other Room started: ~p", [RPid]),
 			{ok, RPid};
 		{_, system} ->
   		NewPID = gen_server:start_link({global, Name}, ?MODULE, {Name, Mode, ModeMeta, Password}, []),
-		?info("System Room started: ~p", [NewPID]),
+		lager:info("System Room started: ~p", [NewPID]),
         NewPID
 	end.
 
@@ -136,7 +135,7 @@ unmute(Room, Client, Target) ->
 	gen_server:call({global, Room}, {unmute, Client, Target}, ?timeout).
 
 message(Room, Client, Message) ->
-	?info("Message to send: ~p ~p ~p", [Room, Client, Message]),
+	lager:info("Message to send: ~p ~p ~p", [Room, Client, Message]),
 	gen_server:call({global, Room}, {message, Client, Message}, ?timeout).
 
 
@@ -349,14 +348,14 @@ handle_call({message, Client, Message}, _From, State) ->
 				{user, Username}
 			],
 			Pid = proc_lib:spawn(fun() ->
-				?info("Entered spawn with ~p", [Chatters]),
+				lager:info("Entered spawn with ~p", [Chatters]),
 				[begin
-					?info("Sending: ~p tp ~p", [Json, Pid]),
+					lager:info("Sending: ~p tp ~p", [Json, Pid]),
 					pre_client_connection:send(Pid, tcp, event, <<"chat">>, Json)
 				end
 				|| {Pid, _} <- Chatters]
 			end),
-			?info("Handled message ~p ~p ~p", [Client, Message, Pid]),
+			lager:info("Handled message ~p ~p ~p", [Client, Message, Pid]),
 			{reply, ok, State}
 	end;
 

@@ -1,6 +1,5 @@
 -module(post_chat_channeler).
 
--include_lib("precursors_server/include/log.hrl").
 -include_lib("pre_channel/include/pre_client.hrl").
 % api
 -export([start_link/0, client_login_hook/2]).
@@ -14,10 +13,10 @@ start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, [supervisor]).
 
 client_login_hook(undefined, Client) ->
-	?info("Client logged in, registering chat channel"),
+	lager:info("Client logged in, registering chat channel"),
 	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]),
 	Join = post_chatroom:join(<<"global">>, Client),
-	?info("Join: ~p", [Join]),
+	lager:info("Join: ~p", [Join]),
 	{ok, undefined}.
 
 %% supervisor
@@ -31,7 +30,7 @@ init([supervisor]) ->
 client_event(Client, Event, undefined) ->
 	RoomId = proplists:get_value(room, Event, <<>>),
 	Command = proplists:get_value(action, Event),
-	?info("Chat Message: ~p", [Event]),
+	lager:info("Chat Message: ~p", [Event]),
 	case Command of
 		<<"leave">> ->
 			room_call(leave, RoomId, Client, []);
@@ -85,7 +84,7 @@ client_event(Client, Event, undefined) ->
 client_request(Client, _Id, Request, undefined) ->
 	RoomId = proplists:get_value(room, Request, <<>>),
 	Command = proplists:get_value(action, Request),
-	?info("Chat Message: ~p", [Request]),
+	lager:info("Chat Message: ~p", [Request]),
 	case Command of
 		<<"leave">> ->
 			room_call(leave, RoomId, Client, []);
@@ -136,7 +135,7 @@ client_request(Client, _Id, Request, undefined) ->
 	end.
 
 room_call(message, RoomID, Client, Message) ->
-	?info("Msg: ~p, ~p, ~p", [RoomID, Client, Message]),
+	lager:info("Msg: ~p, ~p, ~p", [RoomID, Client, Message]),
 	post_chatroom:message(RoomID, Client, Message),
 	{ok, undefined};
 %	{reply, [{success, true}, {message, Message}]};

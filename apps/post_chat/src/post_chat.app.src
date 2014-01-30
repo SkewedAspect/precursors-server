@@ -1,0 +1,12 @@
+{application, post_chat,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { post_chat_app, []}},
+  {env, []}
+ ]}.
