@@ -1,9 +1,7 @@
 -module(pre_gen_auth_tests).
 
 -include_lib("eunit/include/eunit.hrl").
--include_lib("precursors_server/include/internal_auth.hrl").
--include("log.hrl").
-%-include("internal_auth.hrl").
+-include("internal_auth.hrl").
 
 acting_as_manager_test_() ->
 	{setup,
