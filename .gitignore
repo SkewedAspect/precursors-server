@@ -1,8 +1,9 @@
 # local config
 single.config
 
-# pycharm artifacts
+# IDE artifacts
 .idea
+**/*.iml
 
 # mac artifacts
 **/.DS_Store
