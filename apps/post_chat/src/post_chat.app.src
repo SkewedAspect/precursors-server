@@ -5,8 +5,7 @@
   {registered, []},
   {applications, [
                   kernel,
-                  stdlib,
-				  post_chat_channeler
+                  stdlib
                  ]},
   {mod, { post_chat_app, []}},
   {env, []}
