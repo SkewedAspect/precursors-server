@@ -1,6 +1,6 @@
 -module(post_chat_channeler).
 
--include_lib("pre_channel/include/pre_client.hrl").
+-include_lib("pre_communication_layer/include/pre_client.hrl").
 % api
 -export([start_link/0, client_login_hook/2]).
 % channel stuf

@@ -3,7 +3,7 @@
 
 -module(entity_base).
 
--include_lib("pre_channel/include/pre_entity.hrl").
+-include_lib("pre_entity_engine/include/pre_entity.hrl").
 
 -behaviour(entity_controller).
 

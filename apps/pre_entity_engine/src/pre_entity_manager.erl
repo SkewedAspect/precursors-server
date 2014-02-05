@@ -8,7 +8,7 @@
 -export([get_entity/1, create_entity/2, create_entity/3, create_entity/4, load_entity/1]).
 -export([start_entity_engine/1, get_full_update/1]).
 
--include_lib("pre_channel/include/pre_entity.hrl").
+-include("pre_entity.hrl").
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API

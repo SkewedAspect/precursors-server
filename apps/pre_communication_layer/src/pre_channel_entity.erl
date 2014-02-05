@@ -3,7 +3,7 @@
 
 -module(pre_channel_entity).
 
--include("pre_entity.hrl").
+-include_lib("pre_entity_engine/include/pre_entity.hrl").
 
 % API
 -export([register_hooks/0, build_state_event/3, generate_timestamp/0, generate_timestamp/1]).

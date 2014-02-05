@@ -30,7 +30,7 @@
 
 -module(entity_controller).
 
--include_lib("pre_channel/include/pre_entity.hrl").
+-include_lib("pre_entity_engine/include/pre_entity.hrl").
 
 -export([behaviour_info/1]).
 
