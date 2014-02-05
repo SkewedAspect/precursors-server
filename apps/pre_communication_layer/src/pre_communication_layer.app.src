@@ -1,0 +1,12 @@
+{application, pre_communication_layer, [
+	{description, ""},
+	{vsn, "1"},
+	{registered, []},
+	{applications, [
+		kernel,
+		stdlib,
+		pre_entity_engine
+	]},
+	{mod, {pre_communication_layer_app, []}},
+	{env, []}
+]}.
