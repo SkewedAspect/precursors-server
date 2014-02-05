@@ -5,7 +5,7 @@
 -module(pre_entity_engine_sup).
 -behaviour(gen_server).
 
--include_lib("pre_channel/include/pre_entity.hrl").
+-include("pre_entity.hrl").
 -include("supervisor.hrl").
 
 % External API

@@ -5,7 +5,7 @@
 -behaviour(gen_server).
 -define(SERVER, ?MODULE).
 
--include_lib("pre_channel/include/pre_client.hrl").
+-include("pre_client.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% ------------------------------------------------------------------

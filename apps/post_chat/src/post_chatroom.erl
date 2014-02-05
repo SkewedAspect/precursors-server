@@ -41,7 +41,7 @@
 -define(timeout, 1000).
 -define(ets, post_chatrooms).
 
--include_lib("pre_channel/include/pre_client.hrl").
+-include_lib("pre_communication_layer/include/pre_client.hrl").
 -include_lib("stdlib/include/qlc.hrl").
 
 %% API

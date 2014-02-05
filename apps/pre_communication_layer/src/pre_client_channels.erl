@@ -96,7 +96,7 @@
 -module(pre_client_channels).
 -behaviour(gen_event).
 
--include_lib("pre_channel/include/pre_client.hrl").
+-include("pre_client.hrl").
 
 % gen_event
 -export([init/1, handle_event/2, handle_call/2, handle_info/2, terminate/2,

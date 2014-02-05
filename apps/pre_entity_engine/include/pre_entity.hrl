@@ -1,4 +1,4 @@
--include("pre_client.hrl").
+-include_lib("pre_communication_layer/include/pre_client.hrl").
 
 -record(entity, {
 	id :: binary(),
