@@ -1,0 +1,12 @@
+{application, pre_entity_engine,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { pre_entity_engine_app, []}},
+  {env, []}
+ ]}.

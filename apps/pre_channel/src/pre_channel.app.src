@@ -1,0 +1,13 @@
+{application, pre_channel,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+									pre_entity_engine
+                 ]},
+  {mod, { pre_channel_app, []}},
+  {env, []}
+ ]}.

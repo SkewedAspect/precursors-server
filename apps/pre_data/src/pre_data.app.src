@@ -1,0 +1,13 @@
+{application, pre_data,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib,
+									lager
+                 ]},
+  {mod, { pre_data_app, []}},
+  {env, []}
+ ]}.

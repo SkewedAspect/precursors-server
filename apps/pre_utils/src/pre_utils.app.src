@@ -1,0 +1,12 @@
+{application, pre_utils,
+ [
+  {description, ""},
+  {vsn, "1"},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {mod, { pre_utils_app, []}},
+  {env, []}
+ ]}.
