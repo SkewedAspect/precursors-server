@@ -7,6 +7,5 @@
                   kernel,
                   stdlib
                  ]},
-  {mod, { pre_geometry_app, []}},
   {env, []}
  ]}.
