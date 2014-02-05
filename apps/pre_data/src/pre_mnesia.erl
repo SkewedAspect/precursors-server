@@ -6,7 +6,7 @@
 -behavior(pre_data).
 
 -define(COUNTERS_TABLE, pre_counters).
--define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE]).
+-define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE, pre_rec_account]).
 
 -export([check_setup/0]).
 -export([transaction/1, save/1, get_by_id/2, delete/2, search/2]).
@@ -82,12 +82,18 @@ maybe_fix_id(RecName, undefined, Record) ->
 maybe_fix_id(_RecName, _Id, Record) ->
 	Record.
 
-create_tables([]) ->
-	ok;
+create_tables(TableNames) ->
+	lists:foreach(fun(TableName) ->
+		{atomic, ok} = create_table(TableName)
+	end, TableNames).
 
-create_tables([?COUNTERS_TABLE | Tail]) ->
-	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, []),
-	create_tables(Tail).
+create_table(?COUNTERS_TABLE) ->
+	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, []);
+
+create_table(pre_rec_account) ->
+	{atomic, ok} = mnesia:create_table(pre_rec_account, [
+		{attributes, pre_rec_account:field_names()}
+	]).
 
 make_matchspec(Table, Params) ->
 	Attributes = mnesia:table_info(Table, attributes),

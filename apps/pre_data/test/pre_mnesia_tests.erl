@@ -6,14 +6,30 @@
 	id, val, created = os:timestamp(), updated = os:timestamp()
 }).
 
-setup_test() ->
-	mnesia:start(),
-	Got = pre_mnesia:check_setup(),
-	?assertEqual(ok, Got),
-	Got2 = mnesia:dirty_update_counter(pre_counters, goober, 1),
-	?assertEqual(1, Got2),
-	mnesia:stop(),
-	mnesia:delete_schema([node()]).
+setup_test_() -> [
+	{"able to start", fun() ->
+		mnesia:start(),
+		Got = pre_mnesia:check_setup(),
+		?assertEqual(ok, Got)
+	end},
+
+	{"counter update", fun() ->
+		Got2 = mnesia:dirty_update_counter(pre_counters, goober, 1),
+		?assertEqual(1, Got2)
+	end},
+
+	{"has pre_rec_account table", fun() ->
+		Fields = pre_rec_account:field_names(),
+		GotFields = mnesia:table_info(pre_rec_account, attributes),
+		?assertEqual(Fields, GotFields)
+	end},
+
+	{"teardown", fun() ->
+		mnesia:stop(),
+		mnesia:delete_schema([node()])
+	end}
+
+	].
 
 data_access_test_() ->
 	% yes I know all these tests are order dependant. I don't care right now.
