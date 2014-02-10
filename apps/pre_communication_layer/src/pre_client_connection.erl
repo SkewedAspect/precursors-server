@@ -14,8 +14,6 @@
 	ssl_netstring,
 	tcp_socket,
 	tcp_netstring,
-	udp_socket,
-	udp_remote_info :: binary() | {string(), integer()} | 'undefined',
 	aes_key :: binary(),
 	aes_vector :: binary(),
 	channel_mgr :: pid(),
@@ -82,7 +80,7 @@ set_tcp(Pid, Socket, Message, Bins, Cont) ->
 
 -spec send(Pid, Socket, Type, Channel, Json) -> 'ok' | message_id() when
 	Pid :: pid() | #client_info{},
-	Socket :: 'udp' | 'ssl' | 'tcp',
+	Socket :: 'ssl' | 'tcp',
 	Type :: 'request' | {'response', message_id()} | 'event' | {'request', message_id()},
 	Channel :: binary(),
 	Json :: any().
@@ -91,12 +89,12 @@ send(ClientInfo, Socket, Type, Channel, Json) when is_record(ClientInfo, client_
 	Pid = ClientInfo#client_info.connection,
 	send(Pid, Socket, Type, Channel, Json);
 
-send(Pid, Socket, request, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
+send(Pid, Socket, request, Channel, Json) when Socket == ssl; Socket == tcp ->
 	RequestID = generate_id(),
 	send(Pid, Socket, {request, RequestID}, Channel, Json),
 	RequestID;
 
-send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket == tcp ->
+send(Pid, Socket, Type, Channel, Json) when Socket == ssl; Socket == tcp ->
 	gen_server:cast(Pid, {send, Socket, Type, Channel, Json}).
 
 %% ------------------------------------------------------------------
@@ -105,7 +103,7 @@ send(Pid, Socket, Type, Channel, Json) when Socket == udp; Socket == ssl; Socket
 
 -spec respond(Pid, Socket, MessageID, Channel, Json) -> 'ok' when
 	Pid :: pid() | #client_info{},
-	Socket :: 'udp' | 'ssl' | 'tcp',
+	Socket :: 'ssl' | 'tcp',
 	MessageID :: message_id(),
 	Channel :: binary(),
 	Json :: any().
@@ -133,14 +131,12 @@ set_inhabited_entity(Pid, Entity, EntityEngine) ->
 init({Socket, Cookie}) ->
 	lager:info("New client connection"),
 	ssl:setopts(Socket, [{active, once}]),
-	{ok, Udp} = gen_udp:open(0, [{active, once}, binary, {ip, {0, 0, 0, 0}}]),
 	ClientInfo = #client_info{
 		connection = self()
 	},
 	State = #state{
 		ssl_socket = Socket,
 		cookie = Cookie,
-		udp_socket = Udp,
 		client_info = ClientInfo
 	},
 	pre_hooks:async_trigger_hooks(client_connected, [ClientInfo], all),
@@ -174,16 +170,6 @@ handle_cast({send, ssl, Type, Channel, Json}, State) ->
 	ssl:send(State#state.ssl_socket, Bin),
 	{noreply, State};
 
-handle_cast({send, udp, Type, Channel, Json}, #state{udp_remote_info = undefined} = State) ->
-	lager:warning("Tried to send ~p message for channel ~p over UDP before getting UDP sync info: ~p", [Type, Channel, Json]),
-	{noreply, State};
-
-handle_cast({send, udp, Type, Channel, Json}, State) ->
-	#state{udp_socket = Socket, udp_remote_info = {Ip, Port}, aes_key = AESKey, aes_vector = AESVector} = State,
-	Bin = build_message(Type, Channel, Json, AESKey, AESVector, no_netstring),
-	gen_udp:send(Socket, Ip, Port, Bin),
-	{noreply, State};
-
 handle_cast({set_tcp, Socket, Message, Bins, Cont}, State) ->
 	% Update state
 	State1 = State#state{tcp_socket = Socket, tcp_netstring = Cont},
@@ -199,11 +185,7 @@ handle_cast(start_accept_tcp, State) ->
 	ClientRec = #client_connection{
 		pid = self(),
 		ssl_socket = State#state.ssl_socket,
-		tcp_socket = Socket,
-		udp_socket = case State#state.udp_remote_info of
-			undefined -> State#state.cookie;
-			_ -> State#state.udp_socket
-		end
+		tcp_socket = Socket
 	},
 	ets:insert(client_ets, ClientRec),
 	lager:info("TCP socket set:  ~p", [Socket]),
@@ -215,7 +197,7 @@ handle_cast({inhabit_entity, Entity, EntityEngine}, State) ->
 
 	FullUpdate = pre_entity_manager:get_full_update(Entity),
 	FullMessage = pre_channel_entity:build_state_event(inhabit, FullUpdate, EntityID),
-	send(ClientInfo#client_info.connection, udp, event, entity, FullMessage),
+	send(ClientInfo#client_info.connection, tcp, event, entity, FullMessage),
 
 	pre_hooks:async_trigger_hooks(client_inhabited_entity, [self(), EntityID], all),
 	NewState = State#state {
@@ -252,53 +234,6 @@ handle_info({tcp, Socket, Packet}, #state{tcp_socket = Socket, tcp_netstring = C
 	NewState = service_messages(Messages, State1),
 	inet:setopts(Socket, [{active, once}]),
 	{noreply, NewState};
-
-handle_info({udp, Socket, Ip, InPortNo, Packet},
-	#state{udp_socket = Socket, udp_remote_info = undefined} = State) ->
-		% Decrypt message envelope
-		Message = aes_decrypt_envelope(Packet, State),
-		Success = handle_udp_connect_message(Message, State),
-		State4 = case Success of
-			{ok, State1} ->
-				% Record this client's information in ETS
-				ClientRec = #client_connection{
-					pid = self(),
-					ssl_socket = State#state.ssl_socket,
-					tcp_socket = case State#state.tcp_socket of
-						undefined -> State#state.cookie;
-						TcpElse -> TcpElse
-					end,
-					udp_socket = {Ip, InPortNo}
-				},
-				ets:insert(client_ets, ClientRec),
-				lager:info("UDP port sync up:  ~p:~p", [Ip, InPortNo]),
-				% Record the UDP information in the state
-				State2 = State1#state{udp_remote_info = {Ip, InPortNo}},
-				% See if we've completed the connection process
-				{ok, State3} = confirm_connect_message(Message, State2),
-				State3;
-			Else ->
-				lager:info("UDP not confirmed:  ~p", [Else]),
-				State
-		end,
-		inet:setopts(Socket, [{active, once}]),
-		{noreply, State4};
-
-handle_info({udp, Socket, _Ip, _InPortNo, Packet}, #state{udp_socket = Socket} = State) ->
-	Message = aes_decrypt_envelope(Packet, State),
-	NewState = service_message(Message, State),
-	inet:setopts(Socket, [{active, once}]),
-	{noreply, NewState};
-
-%handle_info({udp, Socket, Ip, InPortNo, Packet}, State) ->
-%	#state{
-%		udp_socket = Socket,
-%		udp_remote_info = {Ip, InPortNo}
-%	} = State,
-%	Message = aes_decrypt_envelope(Packet, State),
-%	lager:warning("Client got unhandled UDP message:  ~p", [Message]),
-%	inet:setopts(Socket, [{active, once}]),
-%	{noreply, State};
 
 handle_info(timeout, State) ->
 	lager:warning("Client did not respond in time; disconnecting."),
@@ -404,13 +339,11 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	end,
 
 	% Send login response
-	#state{cookie = Cookie, udp_socket = UdpSocket, client_info = ClientInfo} = State,
-	{ok, UdpPort} = inet:port(UdpSocket),
+	#state{cookie = Cookie, client_info = ClientInfo} = State,
 	LoginRep = [
 		{confirm, Confirm},
 		{reason, ReasonOrUsername},
 		{cookie, Cookie},
-		{udpPort, UdpPort},
 		{tcpPort, 6007}
 	],
 	Response = #envelope{id = MessageID, type = response, contents = LoginRep,
@@ -424,7 +357,6 @@ service_control_message(request, <<"login">>, MessageID, Request, State) ->
 	AESVector = base64:decode(proplists:get_value(vector, Request)),
 	State#state{
 		cookie = Cookie,
-		udp_remote_info = undefined,
 		aes_key = AESKey,
 		aes_vector = AESVector,
 		client_info = case Confirm of
@@ -610,31 +542,11 @@ aes_decrypt_envelope(Packet, State) ->
 
 %% ------------------------------------------------------------------
 
-handle_udp_connect_message(Message, State) ->
-	#state{cookie = Cookie} = State,
-	try begin
-		#envelope{type = request, channel = <<"control">>, contents = Request} = Message,
-		case proplists:get_value(type, Request) of
-			<<"connect">> ->
-				case proplists:get_value(cookie, Request) of
-					Cookie ->
-						{ok, State};
-					_ -> badcookie
-				end;
-			_ -> badrequest
-		end
-		end
-	catch
-		What:Why ->
-			{What, Why}
-	end.
-
 confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Message, State) ->
 	#state{
 		channel_mgr = ChannelMgr,
 		ssl_socket = SSLSocket,
 		tcp_socket = TCPSocket,
-		udp_remote_info = UDPRemoteInfo,
 		client_info = ClientInfo
 	} = State,
 
@@ -648,8 +560,8 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 
 	case ChannelMgr of
 		undefined ->
-			lager:info("TCPSocket, UDPRemoteInfo: ~p, ~p", [TCPSocket, UDPRemoteInfo]),
-			case {TCPSocket, UDPRemoteInfo} of
+			lager:info("TCPSocket: ~p", [TCPSocket]),
+			case {TCPSocket} of
 				{undefined, _} ->
 					{ok, State};
 				{_, undefined} ->
