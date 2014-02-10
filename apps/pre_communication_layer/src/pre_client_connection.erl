@@ -1,7 +1,7 @@
 -module(pre_client_connection).
 -behaviour(gen_server).
 
--include_lib("pre_entity_engine/include/pre_entity.hrl").
+-include_lib("pre_entity_layer/include/pre_entity.hrl").
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
