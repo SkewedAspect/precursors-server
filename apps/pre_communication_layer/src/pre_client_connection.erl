@@ -561,10 +561,8 @@ confirm_connect_message(#envelope{type = request, channel = <<"control">>} = Mes
 	case ChannelMgr of
 		undefined ->
 			lager:info("TCPSocket: ~p", [TCPSocket]),
-			case {TCPSocket} of
-				{undefined, _} ->
-					{ok, State};
-				{_, undefined} ->
+			case TCPSocket of
+				undefined ->
 					{ok, State};
 				_ ->
 					{ok, NewChannelMgr} = pre_client_channels:start_link(),
