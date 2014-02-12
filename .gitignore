@@ -20,7 +20,7 @@ priv/key.pub
 priv/precursors.crt
 priv/precursors.csr
 *.o
-*.beam
+ebin
 *.plt
 
 
