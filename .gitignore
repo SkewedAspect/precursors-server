@@ -3,7 +3,7 @@ single.config
 
 # IDE artifacts
 .idea
-**/*.iml
+*.iml
 
 # mac artifacts
 **/.DS_Store
@@ -22,7 +22,6 @@ priv/precursors.csr
 *.o
 *.beam
 *.plt
-erl_crash.dump
 
 
 # test/eunit artifacts
@@ -32,18 +31,18 @@ erl_crash.dump
 doc
 
 # debug artifacts
-**/*.dump
+*.dump
 
 # vim artifacts
-**/*.swp
-**/*.swo
+*.swp
+*.swo
 
 # run artifacts
-**/*.log*
+*.log*
 
 # python bytecode artifacts
-**/*.pyc
-**/*.pyo
+*.pyc
+*.pyo
 
 # local Riak install
 riak
