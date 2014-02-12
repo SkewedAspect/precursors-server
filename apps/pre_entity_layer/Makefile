@@ -1,5 +1,5 @@
 # Variables
-REBAR ?= "../../rebar"
+REBAR ?= ../../rebar
 REPO ?= pre_entity_layer
 PRIVDIR ?= priv
 RELDIR ?= $(REPO)
