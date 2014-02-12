@@ -7,7 +7,8 @@
 
 % api
 -export([
-	add_entity/4
+	add_entity/4,
+	notify/5
 ]).
 
 % gen_event
@@ -29,6 +30,9 @@
 add_entity(GenEventPid, EntityId, CallbackMod, Args) ->
 	gen_event:add_handler(GenEventPid, {?MODULE, EntityId}, {EntityId, CallbackMod, Args}).
 
+notify(GenEventRef, EventName, FromId, ToId, Data) ->
+	gen_event:notify(GenEventRef, {'$pre_gen_entity_event', EventName, FromId, ToId, Data}).
+
 % gen_event callbacks
 
 init({EntityId, Module, Args}) ->
@@ -40,7 +44,16 @@ init({EntityId, Module, Args}) ->
 			Else
 	end.
 
-handle_event(_,_) -> ok.
+handle_event({'$pre_gen_entity_event', EventName, FromId, ToId, Data}, State) ->
+	#state{module = Module, state = SubState} = State,
+	case Module:handle_event(EventName, FromId, ToId, Data, SubState) of
+		{ok, NewSubState} ->
+			{ok, State#state{state = NewSubState}}
+	end;
+
+handle_event(Event, State) ->
+	lager:info("Some unhandled event: ~p", [Event]),
+	{ok, State}.
 
 handle_call(_,_) -> ok.
 
