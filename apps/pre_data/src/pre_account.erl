@@ -14,20 +14,25 @@
 
 %% @doc Gets an account by email address. Returns an account.
 -spec get_by_email(EmailAddress :: binary()) -> {'ok', tuple()}.
-get_by_email(_EmailAddress) ->
-  {ok, {}}.
+get_by_email(EmailAddress) ->
+	{ok, Rec} = pre_mnesia:search([{account, EmailAddress}]),
+	case Rec of
+		[] -> account_not_found;
+		_ -> {ok, Rec}
+	end.
+
 
 %% @doc Gets an account by id. Returns an account.
--spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
+	-spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
 get_by_id(_AccountID) ->
-  {ok, {}}.
+	{ok, {}}.
 
 %% @doc Creates a new account. Returns the newly created account.
 -spec create(AccountRecord :: tuple()) -> {'ok', tuple()}.
 create(_AccountRecord) ->
-  {ok, {}}.
+	{ok, {}}.
 
 %% @doc Removed an account.
 -spec delete(AccountID :: binary()) -> {'ok', tuple()}.
 delete(_AccountID) ->
-  {ok, {}}.
+	{ok, {}}.
