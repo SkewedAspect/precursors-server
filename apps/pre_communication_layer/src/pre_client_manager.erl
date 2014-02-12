@@ -73,8 +73,7 @@ handle_call({start_client, Socket}, _From, State) ->
 			Client = #client_connection{
 				pid = Pid,
 				ssl_socket = Socket,
-				tcp_socket = Cookie,
-				udp_socket = Cookie
+				tcp_socket = Cookie
 			},
 			#state{ets = Ets} = State,
 			ets:insert(Ets, [Client]),

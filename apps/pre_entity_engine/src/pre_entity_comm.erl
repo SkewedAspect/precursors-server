@@ -113,7 +113,7 @@ send_update(ClientInfo, EntityID, Update) ->
 	ConnectionPid = ClientInfo#client_info.connection,
 
 	Update1 = pre_channel_entity:build_state_event(update, Update, EntityID),
-	pre_client_connection:send(ConnectionPid, udp, event, entity, Update1).
+	pre_client_connection:send(ConnectionPid, tcp, event, entity, Update1).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% @doc Sends a list of delta updates to the given client.
@@ -127,4 +127,4 @@ send_updates(ClientInfo, Updates) ->
 		pre_channel_entity:build_state_event(update, Update, EntityID)
 		|| {EntityID, Update} <- Updates
 	],
-	pre_client_connection:send(ConnectionPid, udp, event, entity, Updates1).
+	pre_client_connection:send(ConnectionPid, tcp, event, entity, Updates1).

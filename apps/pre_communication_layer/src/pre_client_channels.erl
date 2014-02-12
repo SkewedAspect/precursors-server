@@ -89,7 +89,7 @@
 %% Only valid when the callback function {@link client_request/4} was used.
 %% Sends a response to the client using the same ID that came in over tcp.
 %%
-%% === {'reply', Socket :: 'tcp' | 'udp' | 'ssl', Payload :: any()} ===
+%% === {'reply', Socket :: 'tcp' | 'ssl', Payload :: any()} ===
 %%
 %% Same as above, but allows one to specific which socket to use.
 
