@@ -1,4 +1,4 @@
-{application, pre_entity_engine,
+{application, pre_entity_layer,
  [
   {description, ""},
   {vsn, "1"},
@@ -7,6 +7,6 @@
                   kernel,
                   stdlib
                  ]},
-  {mod, { pre_entity_engine_app, []}},
+  {mod, { pre_entity_layer, []}},
   {env, []}
  ]}.
