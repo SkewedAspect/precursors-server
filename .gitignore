@@ -9,7 +9,6 @@ single.config
 **/.DS_Store
 
 # build artifacts
-ebin
 deps
 include/commit_ver.hrl
 precursors_server/*
@@ -20,7 +19,11 @@ priv/key
 priv/key.pub
 priv/precursors.crt
 priv/precursors.csr
-**/*.o
+*.o
+*.beam
+*.plt
+erl_crash.dump
+
 
 # test/eunit artifacts
 .eunit
