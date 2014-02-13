@@ -12,6 +12,7 @@ behavior_test_() ->
 		GE
 	end,
 	fun(GE) ->
+		meck:unload(callback),
 		gen_event:stop(GE)
 	end,
 	fun(GE) -> [
