@@ -58,7 +58,9 @@ handle_event({'$pre_gen_entity_event', EventName, FromId, ToId, Data}, State) ->
 	case Module:handle_event(EventName, FromId, ToId, Data, SubState) of
 		{ok, NewSubState} ->
 			backend_store({Module, State#state.id}, NewSubState),
-			{ok, State#state{state = NewSubState}}
+			{ok, State#state{state = NewSubState}};
+		remove_entity ->
+			remove_handler
 	end;
 
 handle_event(Event, State) ->
@@ -68,6 +70,11 @@ handle_event(Event, State) ->
 handle_call(_,_) -> ok.
 
 handle_info(_,_) -> ok.
+
+terminate(remove_handler, State) ->
+	#state{module = Module, id = Id, state = SubState} = State,
+	_ = Module:removed(remove_entity, SubState),
+	mnesia:dirty_delete(?MODULE, {Module, Id});
 
 terminate(_,_) -> ok.
 

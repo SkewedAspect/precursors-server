@@ -59,6 +59,23 @@ behavior_test_() ->
 			?assertEqual(1, length(Gots)),
 			Got = hd(Gots),
 			?assertEqual({pre_gen_entity, {callback, 1}, newstate}, Got)
+		end},
+
+		{"removal of the entity by the callback", fun() ->
+			Self = self(),
+			meck:expect(callback, handle_event, fun(some_event, some_id, undefined, data, newstate) ->
+				remove_entity
+			end),
+			meck:expect(callback, removed, fun(remove_entity, newstate) ->
+				Self ! continue,
+				ok
+			end),
+			pre_gen_entity:notify(GE, some_event, some_id, undefined, data),
+			receive contue -> ok after 100 -> ?debugMsg("didn't get continue") end,
+			?assert(meck:called(callback, handle_event, [some_event, some_id, undefined, data, newstate], '_')),
+			?assert(meck:called(callback, removed, [remove_entity, newstate], '_')),
+			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 1}),
+			?assertEqual([], Gots)
 		end}
 
 	] end}.
