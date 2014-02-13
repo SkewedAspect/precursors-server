@@ -9,6 +9,7 @@
 -export([
 	ensure_mnesia_table/0,
 	add_entity/4,
+	recover_entity/3,
 	notify/5
 ]).
 
@@ -38,10 +39,23 @@ ensure_mnesia_table() ->
 add_entity(GenEventPid, EntityId, CallbackMod, Args) ->
 	gen_event:add_handler(GenEventPid, {?MODULE, {CallbackMod, EntityId}}, {EntityId, CallbackMod, Args}).
 
+recover_entity(GenEventRef, EntityId, CallbackMod) ->
+	case mnesia:dirty_read(?MODULE, {CallbackMod, EntityId}) of
+		[State] ->
+			gen_event:add_handler(GenEventRef, {?MODULE, {CallbackMod, EntityId}}, {recover, State});
+		[] ->
+			{error, not_found}
+	end.
+
 notify(GenEventRef, EventName, FromId, ToId, Data) ->
 	gen_event:notify(GenEventRef, {'$pre_gen_entity_event', EventName, FromId, ToId, Data}).
 
 % gen_event callbacks
+
+init({recover, StoredRec}) ->
+	{?MODULE, {Module, EntityId}, SubState} = StoredRec,
+	State = #state{module = Module, id = EntityId, state = SubState},
+	{ok, State};
 
 init({EntityId, Module, Args}) ->
 	case Module:init(Args) of

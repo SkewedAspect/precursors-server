@@ -76,6 +76,30 @@ behavior_test_() ->
 			?assert(meck:called(callback, removed, [remove_entity, newstate], '_')),
 			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 1}),
 			?assertEqual([], Gots)
+		end},
+
+		{"attempt to recover non-existant entity", fun() ->
+			Got = pre_gen_entity:recover_entity(GE, 1, callback),
+			?assertEqual({error, not_found}, Got)
+		end},
+
+		{"recover an entity that does exist", fun() ->
+			Rec = {pre_gen_entity, {callback, 3}, a_state},
+			mnesia:dirty_write(pre_gen_entity, Rec),
+			Got = pre_gen_entity:recover_entity(GE, 3, callback),
+			?assertEqual(ok, Got),
+			meck:expect(callback, handle_event, fun(some_event, undefined, undefined, data, a_state) ->
+				remove_entity
+			end),
+			Self = self(),
+			meck:expect(callback, removed, fun(_, _) ->
+				Self ! continue
+			end),
+			pre_gen_entity:notify(GE, some_event, undefined, undefined, data),
+			receive continue -> ok after 100 -> ?debugMsg("didn't get continue") end,
+			?assert(meck:called(callback, handle_event, [some_event, undefined, undefined, data, a_state], '_')),
+			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 3}),
+			?assertEqual([], Gots)
 		end}
 
 	] end}.
