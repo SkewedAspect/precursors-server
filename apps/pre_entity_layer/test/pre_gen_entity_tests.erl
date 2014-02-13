@@ -71,7 +71,7 @@ behavior_test_() ->
 				ok
 			end),
 			pre_gen_entity:notify(GE, some_event, some_id, undefined, data),
-			receive contue -> ok after 100 -> ?debugMsg("didn't get continue") end,
+			receive continue -> ok after 100 -> ?debugMsg("didn't get continue") end,
 			?assert(meck:called(callback, handle_event, [some_event, some_id, undefined, data, newstate], '_')),
 			?assert(meck:called(callback, removed, [remove_entity, newstate], '_')),
 			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 1}),
