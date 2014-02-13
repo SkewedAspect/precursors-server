@@ -52,6 +52,13 @@ behavior_test_() ->
 				?debugMsg("Didn't get continue soon enough")
 			end,
 			?assert(meck:called(callback, handle_event, [some_event, undefined, undefined, data, state], '_'))
+		end},
+
+		{"after state update, persistent version persists", fun() ->
+			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 1}),
+			?assertEqual(1, length(Gots)),
+			Got = hd(Gots),
+			?assertEqual({pre_gen_entity, {callback, 1}, newstate}, Got)
 		end}
 
 	] end}.

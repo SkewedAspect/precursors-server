@@ -57,6 +57,7 @@ handle_event({'$pre_gen_entity_event', EventName, FromId, ToId, Data}, State) ->
 	#state{module = Module, state = SubState} = State,
 	case Module:handle_event(EventName, FromId, ToId, Data, SubState) of
 		{ok, NewSubState} ->
+			backend_store({Module, State#state.id}, NewSubState),
 			{ok, State#state{state = NewSubState}}
 	end;
 
