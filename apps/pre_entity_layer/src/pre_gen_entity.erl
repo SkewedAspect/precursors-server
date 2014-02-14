@@ -12,6 +12,7 @@
 	add_sup_entity/4,
 	recover_entity/3,
 	recover_sup_entity/3,
+	retrieve_ids_by_manager/1,
 	notify/5
 ]).
 
@@ -29,10 +30,19 @@
 	sup, module, id, state
 }).
 
+-record(?MODULE, {
+	% the '_' make it easy to build a matchspec.
+	id = '_', state = '_', gen_event = '_' 
+}).
+
 % pulic api
 
 ensure_mnesia_table() ->
-	case mnesia:create_table(?MODULE, [{local_content, true}]) of
+	CreateArgs = [
+		{local_content, true},
+		{attributes, record_info(fields, ?MODULE)}
+	],
+	case mnesia:create_table(?MODULE, CreateArgs) of
 		{atomic, ok} -> ok;
 		{aborted, {already_exists, ?MODULE}} -> ok;
 		{aborted, Else} -> Else
@@ -58,14 +68,19 @@ recover_entity(GenEventRef, EntityId, CallbackMod, SupPid) ->
 			{error, not_found}
 	end.
 
+retrieve_ids_by_manager(GenEventPid) ->
+	Recs = mnesia:dirty_match_object(#?MODULE{gen_event = GenEventPid}),
+	[Id || #?MODULE{id = Id} <- Recs].
+
 notify(GenEventRef, EventName, FromId, ToId, Data) ->
 	gen_event:notify(GenEventRef, {'$pre_gen_entity_event', EventName, FromId, ToId, Data}).
 
 % gen_event callbacks
 
 init({recover, SupPid, StoredRec}) ->
-	{?MODULE, {Module, EntityId}, SubState} = StoredRec,
+	#?MODULE{id = {Module, EntityId}, state = SubState} = StoredRec,
 	State = #state{sup = SupPid, module = Module, id = EntityId, state = SubState},
+	backend_store({Module, EntityId}, SubState),
 	{ok, State};
 
 init({EntityId, SupPid, Module, Args}) ->
@@ -126,6 +141,6 @@ code_change(_,_,_) -> ok.
 %% internal functions
 
 backend_store(Key, Val) ->
-	Rec = {?MODULE, Key, Val},
+	Rec = #?MODULE{ id = Key, state = Val, gen_event = self()},
 	mnesia:dirty_write(Rec).
 

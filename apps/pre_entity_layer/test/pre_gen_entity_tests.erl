@@ -20,8 +20,7 @@ behavior_test_() ->
 		{"able to create mnesia table", fun() ->
 			Got = pre_gen_entity:ensure_mnesia_table(),
 			?assertEqual(ok, Got),
-			?assertEqual(true, mnesia:table_info(pre_gen_entity, local_content)),
-			?assertEqual([key, val], mnesia:table_info(pre_gen_entity, attributes))
+			?assertEqual(true, mnesia:table_info(pre_gen_entity, local_content))
 		end},
 
 		{"init called", fun() ->
@@ -34,9 +33,7 @@ behavior_test_() ->
 
 		{"after init, state exists in mnesia table", fun() ->
 			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 1}),
-			?assertEqual(1, length(Gots)),
-			Got = hd(Gots),
-			?assertEqual({pre_gen_entity, {callback, 1}, state}, Got)
+			?assertEqual(1, length(Gots))
 		end},
 
 		{"handle_event, simple", fun() ->
@@ -57,9 +54,7 @@ behavior_test_() ->
 
 		{"after state update, persistent version persists", fun() ->
 			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 1}),
-			?assertEqual(1, length(Gots)),
-			Got = hd(Gots),
-			?assertEqual({pre_gen_entity, {callback, 1}, newstate}, Got)
+			?assertEqual(1, length(Gots))
 		end},
 
 		{"removal of the entity by the callback", fun() ->
@@ -85,7 +80,7 @@ behavior_test_() ->
 		end},
 
 		{"recover an entity that does exist", fun() ->
-			Rec = {pre_gen_entity, {callback, 3}, a_state},
+			Rec = {pre_gen_entity, {callback, 3}, a_state, undefined},
 			mnesia:dirty_write(pre_gen_entity, Rec),
 			Got = pre_gen_entity:recover_entity(GE, 3, callback),
 			?assertEqual(ok, Got),
@@ -125,7 +120,7 @@ behavior_test_() ->
 		end},
 
 		{"recover an entity that is supervised", fun() ->
-			Rec = {pre_gen_entity, {callback, 87}, b_state},
+			Rec = {pre_gen_entity, {callback, 87}, b_state, undefined},
 			mnesia:dirty_write(pre_gen_entity, Rec),
 			meck:expect(callback, handle_event, fun(_, _, _, _, _) ->
 				remove_entity
@@ -185,7 +180,7 @@ gen_event_stop_test_() ->
 			ok = gen_event:stop(GE),
 			?assert(meck:called(callback, stopping, [state], '_')),
 			Got = mnesia:dirty_read(pre_gen_entity, {callback, 23}),
-			?assertEqual([{pre_gen_entity, {callback, 23}, state}], Got)
+			?assertEqual([{pre_gen_entity, {callback, 23}, state, GE}], Got)
 		end} end,
 
 		fun(GE) -> {"callback can request peristence of different state", fun() ->
@@ -195,7 +190,13 @@ gen_event_stop_test_() ->
 			ok = gen_event:stop(GE),
 			?assert(meck:called(callback, stopping, [state], '_')),
 			Got = mnesia:dirty_read(pre_gen_entity, {callback, 23}),
-			?assertEqual([{pre_gen_entity, {callback, 23}, new_state}], Got)
+			?assertEqual([{pre_gen_entity, {callback, 23}, new_state, GE}], Got)
+		end} end,
+
+		fun(GE) -> {"stored state id's can be retreived by GE pid", fun() ->
+			exit(GE, murdered),
+			Got = pre_gen_entity:retrieve_ids_by_manager(GE),
+			?assertEqual([{callback, 23}], Got)
 		end} end
 
 	]}.
