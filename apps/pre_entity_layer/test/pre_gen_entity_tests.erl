@@ -146,4 +146,58 @@ behavior_test_() ->
 
 	] end}.
 
+gen_event_stop_test_() ->
+	{foreach, fun() ->
+		_ = pre_gen_entity:ensure_mnesia_table(),
+		{ok, Pid} = gen_event:start(),
+		meck:new(callback, [non_strict]),
+		meck:expect(callback, init, fun(_) ->
+			{ok, state}
+		end),
+		pre_gen_entity:add_entity(Pid, 23, callback, [1,2,3]),
+		Pid
+	end,
+	fun(Pid) ->
+		case is_process_alive(Pid) of
+			true ->
+				gen_event:stop(Pid);
+			false ->
+				ok
+		end,
+		meck:unload(callback)
+	end,
+	[
+
+		fun(GE) -> {"callback can request no persistence", fun() ->
+			meck:expect(callback, stopping, fun(state) ->
+				ok
+			end),
+			ok = gen_event:stop(GE),
+			?assert(meck:called(callback, stopping, [state], '_')),
+			Got = mnesia:dirty_read(pre_gen_entity, {callback, 23}),
+			?assertEqual([], Got)
+		end} end,
+
+		fun(GE) -> {"callback can request persistence", fun() ->
+			meck:expect(callback, stopping, fun(state) ->
+				persist
+			end),
+			ok = gen_event:stop(GE),
+			?assert(meck:called(callback, stopping, [state], '_')),
+			Got = mnesia:dirty_read(pre_gen_entity, {callback, 23}),
+			?assertEqual([{pre_gen_entity, {callback, 23}, state}], Got)
+		end} end,
+
+		fun(GE) -> {"callback can request peristence of different state", fun() ->
+			meck:expect(callback, stopping, fun(state) ->
+				{persist, new_state}
+			end),
+			ok = gen_event:stop(GE),
+			?assert(meck:called(callback, stopping, [state], '_')),
+			Got = mnesia:dirty_read(pre_gen_entity, {callback, 23}),
+			?assertEqual([{pre_gen_entity, {callback, 23}, new_state}], Got)
+		end} end
+
+	]}.
+
 -endif.

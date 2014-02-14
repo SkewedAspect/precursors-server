@@ -96,22 +96,30 @@ handle_call(_,_) -> ok.
 
 handle_info(_,_) -> ok.
 
-terminate(Why, State) ->
+terminate(remove_handler, State) ->
 	#state{module = Module, id = Id, state = SubState} = State,
 	_ = Module:removed(remove_entity, SubState),
 	ok = mnesia:dirty_delete(?MODULE, {Module, Id}),
-	RealWhy = case Why of
-		remove_handler ->
-			entity_removed;
-		_ ->
-			Why
-	end,
 	case State#state.sup of
 		undefined ->
 			ok;
 		Pid when is_pid(Pid) ->
-			Pid ! {pre_gen_entity, RealWhy, self(), {Module, Id}}
-	end.
+			Pid ! {pre_gen_entity, entity_removed, self(), {Module, Id}}
+	end;
+
+terminate(stop, State) ->
+	#state{module = Module, state = SubState} = State,
+	case Module:stopping(SubState) of
+		{persist, NewSubState} ->
+			backend_store({Module, State#state.id}, NewSubState);
+		persist ->
+			ok;
+		_ ->
+			mnesia:dirty_delete(?MODULE, {Module, State#state.id})
+	end;
+
+terminate(_Why, _State) ->
+	ok.
 
 code_change(_,_,_) -> ok.
 
