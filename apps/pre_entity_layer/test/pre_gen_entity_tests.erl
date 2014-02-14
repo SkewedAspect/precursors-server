@@ -6,7 +6,7 @@
 behavior_test_() ->
 	{setup, fun() ->
 		mnesia:start(),
-		lager:start(),
+		%lager:start(),
 		{ok, GE} = gen_event:start(),
 		meck:new(callback, [non_strict]),
 		GE
@@ -101,6 +101,47 @@ behavior_test_() ->
 			?assert(meck:called(callback, handle_event, [some_event, undefined, undefined, data, a_state], '_')),
 			Gots = mnesia:dirty_read(pre_gen_entity, {callback, 3}),
 			?assertEqual([], Gots)
+		end},
+
+		{"add en enitty that is supervised", fun() ->
+			meck:expect(callback, init, fun([3,4]) ->
+				{ok, state}
+			end),
+			meck:expect(callback, handle_event, fun(_, _, _, _, _) ->
+				remove_entity
+			end),
+			meck:expect(callback, removed, fun(_, _) ->
+				ok
+			end),
+			_ = pre_gen_entity:add_sup_entity(GE, 7, callback, [3, 4]),
+			pre_gen_entity:notify(GE, some_event, 7, 7, data),
+			MsgReceived = receive
+				{pre_gen_entity, entity_removed, GE, {callback, 7}} ->
+					true
+			after 100 ->
+				false
+			end,
+			?assert(MsgReceived)
+		end},
+
+		{"recover an entity that is supervised", fun() ->
+			Rec = {pre_gen_entity, {callback, 87}, b_state},
+			mnesia:dirty_write(pre_gen_entity, Rec),
+			meck:expect(callback, handle_event, fun(_, _, _, _, _) ->
+				remove_entity
+			end),
+			meck:expect(callback, removed, fun(_, _) ->
+				ok
+			end),
+			_ = pre_gen_entity:recover_sup_entity(GE, 87, callback),
+			pre_gen_entity:notify(GE, some_event, 7, 7, data),
+			MsgReceived = receive
+				{pre_gen_entity, entity_removed, GE, {callback, 87}} ->
+					true
+			after 100 ->
+				false
+			end,
+			?assert(MsgReceived)
 		end}
 
 	] end}.

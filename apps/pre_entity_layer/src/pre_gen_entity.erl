@@ -9,7 +9,9 @@
 -export([
 	ensure_mnesia_table/0,
 	add_entity/4,
+	add_sup_entity/4,
 	recover_entity/3,
+	recover_sup_entity/3,
 	notify/5
 ]).
 
@@ -24,7 +26,7 @@
 ]).
 
 -record(state, {
-	module, id, state
+	sup, module, id, state
 }).
 
 % pulic api
@@ -37,12 +39,21 @@ ensure_mnesia_table() ->
 	end.
 
 add_entity(GenEventPid, EntityId, CallbackMod, Args) ->
-	gen_event:add_handler(GenEventPid, {?MODULE, {CallbackMod, EntityId}}, {EntityId, CallbackMod, Args}).
+	gen_event:add_handler(GenEventPid, {?MODULE, {CallbackMod, EntityId}}, {EntityId, undefined, CallbackMod, Args}).
+
+add_sup_entity(GenEventPid, EntityId, CallbackMod, Args) ->
+	gen_event:add_handler(GenEventPid, {?MODULE, {CallbackMod, EntityId}}, {EntityId, self(), CallbackMod, Args}).
 
 recover_entity(GenEventRef, EntityId, CallbackMod) ->
+	recover_entity(GenEventRef, EntityId, CallbackMod, undefined).
+
+recover_sup_entity(GenEventRef, EntityId, CallbackMod) ->
+	recover_entity(GenEventRef, EntityId, CallbackMod, self()).
+
+recover_entity(GenEventRef, EntityId, CallbackMod, SupPid) ->
 	case mnesia:dirty_read(?MODULE, {CallbackMod, EntityId}) of
 		[State] ->
-			gen_event:add_handler(GenEventRef, {?MODULE, {CallbackMod, EntityId}}, {recover, State});
+			gen_event:add_handler(GenEventRef, {?MODULE, {CallbackMod, EntityId}}, {recover, SupPid, State});
 		[] ->
 			{error, not_found}
 	end.
@@ -52,16 +63,16 @@ notify(GenEventRef, EventName, FromId, ToId, Data) ->
 
 % gen_event callbacks
 
-init({recover, StoredRec}) ->
+init({recover, SupPid, StoredRec}) ->
 	{?MODULE, {Module, EntityId}, SubState} = StoredRec,
-	State = #state{module = Module, id = EntityId, state = SubState},
+	State = #state{sup = SupPid, module = Module, id = EntityId, state = SubState},
 	{ok, State};
 
-init({EntityId, Module, Args}) ->
+init({EntityId, SupPid, Module, Args}) ->
 	case Module:init(Args) of
 		{ok, SubState} ->
 			backend_store({Module, EntityId}, SubState),
-			State = #state{module = Module, id = EntityId, state = SubState},
+			State = #state{sup = SupPid, module = Module, id = EntityId, state = SubState},
 			{ok, State};
 		Else ->
 			Else
@@ -85,12 +96,22 @@ handle_call(_,_) -> ok.
 
 handle_info(_,_) -> ok.
 
-terminate(remove_handler, State) ->
+terminate(Why, State) ->
 	#state{module = Module, id = Id, state = SubState} = State,
 	_ = Module:removed(remove_entity, SubState),
-	mnesia:dirty_delete(?MODULE, {Module, Id});
-
-terminate(_,_) -> ok.
+	ok = mnesia:dirty_delete(?MODULE, {Module, Id}),
+	RealWhy = case Why of
+		remove_handler ->
+			entity_removed;
+		_ ->
+			Why
+	end,
+	case State#state.sup of
+		undefined ->
+			ok;
+		Pid when is_pid(Pid) ->
+			Pid ! {pre_gen_entity, RealWhy, self(), {Module, Id}}
+	end.
 
 code_change(_,_,_) -> ok.
 
