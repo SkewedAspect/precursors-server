@@ -2,6 +2,8 @@
 
 -callback init(Args :: list(any())) -> {'ok', any()}.
 -callback handle_info(Name :: atom(), From :: 'undefined' | any(), To :: 'undefined' | any(), State :: any()) -> {'ok', any()}.
+-callback removed(Why :: any(), State :: any()) -> any().
+-callback stopping(State :: any()) -> 'persist' | {'persist', any()} | 'ok'.
 
 -behavior(gen_event).
 
