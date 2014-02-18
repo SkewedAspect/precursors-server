@@ -52,18 +52,101 @@ start_link() ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+-spec add_entity(EntityID, EntityController, EntityState) -> 'ok' when
+	EntityID :: integer(),
+	EntityController :: atom(),
+	EntityState :: term().
+
 add_entity(EntityID, EntityController, EntityState) ->
     gen_server:cast(?MODULE, {add_entity, EntityID, EntityController, EntityState}).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+-spec remove_entity(EntityID) -> 'ok' when
+	EntityID :: integer().
 
 remove_entity(EntityID) ->
     gen_server:cast(?MODULE, {remove_entity, EntityID}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+-spec get_entity_state(EntityID) -> {'ok', term()} when
+	EntityID :: integer().
+
 get_entity_state(EntityID) ->
     gen_server:call(?MODULE, {get_entity_state, EntityID}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec update_position(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: vector:vec().
+
+update_position(EntityID, Value) ->
+	gen_server:cast(?MODULE, {update_position, Value}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec update_linear_momentum(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: vector:vec().
+
+update_linear_momentum(EntityID, Value) ->
+	gen_server:cast(?MODULE, {update_linear_momentum, Value}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec update_orientation(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: quaternion:quat().
+
+update_orientation(EntityID, Value) ->
+	gen_server:cast(?MODULE, {update_orientation, Value}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec update_angular_momentum(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: vector:vec().
+
+update_angular_momentum(EntityID, Value) ->
+	gen_server:cast(?MODULE, {update_angular_momentum, Value}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec apply_force_absolute(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: vector:vec().
+
+apply_force_absolute(EntityID, Value) ->
+	gen_server:cast(?MODULE, {apply_force_absolute, Value}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec apply_force_relative(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: vector:vec().
+
+apply_force_relative(EntityID, Value) ->
+	gen_server:cast(?MODULE, {apply_force_relative, Value}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec apply_torque_absolute(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: vector:vec().
+
+apply_torque_absolute(EntityID, Value) ->
+	gen_server:cast(?MODULE, {apply_torque_absolute, Value}).
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+-spec apply_torque_relative(EntityID, Value) -> 'ok' when
+	EntityID :: integer(),
+	Value :: vector:vec().
+
+apply_torque_relative(EntityID, Value) ->
+	gen_server:cast(?MODULE, {apply_torque_relative, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
@@ -107,6 +190,38 @@ handle_cast({add_entity, _EntityID, _EntityController, _EntityState}, State) ->
 
 handle_cast({remove_entity, _EntityID}, State) ->
     {noreply, State};
+
+handle_cast({update_position, Value}) ->
+	lager:warn("update_position NOT IMPLEMENTED!"),
+	{noreply, State};
+
+handle_cast({update_linear_momentum, Value}) ->
+	lager:warn("update_linear_momentum NOT IMPLEMENTED!"),
+	{noreply, State};
+
+handle_cast({update_orientation, Value}) ->
+	lager:warn("update_orientation NOT IMPLEMENTED!"),
+	{noreply, State};
+
+handle_cast({update_angular_momentum, Value}) ->
+	lager:warn("update_angular_momentum NOT IMPLEMENTED!"),
+	{noreply, State};
+
+handle_cast({apply_force_absolute, Value}) ->
+	lager:warn("apply_force_absolute NOT IMPLEMENTED!"),
+	{noreply, State};
+
+handle_cast({apply_force_relative, Value}) ->
+	lager:warn("apply_force_relative NOT IMPLEMENTED!"),
+	{noreply, State};
+
+handle_cast({apply_torque_absolute, Value}) ->
+	lager:warn("apply_torque_absolute NOT IMPLEMENTED!"),
+	{noreply, State};
+
+handle_cast({apply_torque_relative, Value}) ->
+	lager:warn("apply_torque_relative NOT IMPLEMENTED!"),
+	{noreply, State};
 
 handle_cast(Request, State) ->
 	lager:warn("Unhandled cast: ~p", [Request]),
