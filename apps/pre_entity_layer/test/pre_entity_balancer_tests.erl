@@ -13,10 +13,8 @@ start_test() ->
 
 functionality_test_() ->
 	{setup, fun() ->
-		{ok, Sup} = pre_ge_sup:start_link(),
-		{ok, B} = pre_entity_balancer:start_link([
-			{workers, 5}
-		]),
+		{ok, Sup} = pre_ge_sup:start_link(5),
+		{ok, B} = pre_entity_balancer:start_link([]),
 		meck:new(callback, [non_strict]),
 		{Sup, B}
 	end,
@@ -108,7 +106,45 @@ functionality_test_() ->
 %"entity_removal alters stats"
 %"unexpected gen_event death gracefully handled"
 
+gen_event_exit_test_() ->
+	{setup, fun() ->
+		{ok, Sup} = pre_ge_sup:start_link(1),
+		{ok, B} = pre_entity_balancer:start_link([]),
+		meck:new(callback, [non_strict]),
+		{Sup, B}
+	end,
+	fun({Sup, B}) ->
+		preetu:kill(B),
+		preetu:kill(Sup),
+		meck:unload(callback)
+	end,
+	fun({_Sup, _B}) -> [
 
+		{"a new gen_event is started when old one killed", fun() ->
+			Self = self(),
+			meck:expect(callback, init, fun(_) ->
+				Self ! continue,
+				{ok, state}
+			end),
+			Twenty = lists:seq(1, 20),
+			lists:foreach(fun(N) ->
+				pre_entity_balancer:add_entity(callback, N + 200, undefined)
+			end, Twenty),
+			lists:foreach(fun(_) ->
+				receive continue -> ok end
+			end, Twenty),
+			[{GE, _}] = pre_entity_balancer:stats(),
+			?debugFmt("Old GE: ~p", [GE]),
+			preetu:kill(GE),
+			timer:sleep(1000),
+			GotStats = pre_entity_balancer:stats(),
+			?assertMatch([{_, 0}], GotStats),
+			[{NewGE, _}] = GotStats,
+			?debugFmt("new GE: ~p", [NewGE]),
+			?assertNotEqual(GE, NewGE)
+		end}
+
+	] end}.
 
 
 

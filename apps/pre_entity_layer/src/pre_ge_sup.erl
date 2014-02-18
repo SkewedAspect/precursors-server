@@ -3,12 +3,23 @@
 -behavior(supervisor).
 
 % api
--export([start_link/0, start_child/0, running_children/0]).
+-export([start_link/0, start_link/1, start_child/0, running_children/0]).
 % supervisor
 -export([init/1]).
 
 start_link() ->
-	supervisor:start_link({local, ?MODULE}, ?MODULE, undefined).
+	start_link(5).
+
+start_link(N) ->
+	case supervisor:start_link({local, ?MODULE}, ?MODULE, undefined) of
+		{ok, _} = Out ->
+			lists:foreach(fun(_) ->
+				start_child()
+			end, lists:seq(1, N)),
+			Out;
+		Else ->
+			Else
+	end.
 
 start_child() ->
 	supervisor:start_child(?MODULE, []).

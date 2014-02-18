@@ -9,11 +9,18 @@ start_test() ->
 	{ok, Pid} = Got,
 	?assert(is_pid(Pid)),
 	exit(Pid, normal),
-	preetu:wait_for_exit(Pid).
+	preetu:wait_for_exit(Pid),
+	Got2 = pre_ge_sup:start_link(5),
+	?assertMatch({ok, _}, Got2),
+	{ok, Pid2} = Got2,
+	?assert(is_pid(Pid2)),
+	Running = supervisor:which_children(pre_ge_sup),
+	?assertEqual(5, length(Running)),
+	preetu:kill(Pid2).
 
 use_test_() ->
 	{setup, fun() ->
-		{ok, Pid} = pre_ge_sup:start_link(),
+		{ok, Pid} = pre_ge_sup:start_link(0),
 		Pid
 	end,
 	fun(Pid) ->
