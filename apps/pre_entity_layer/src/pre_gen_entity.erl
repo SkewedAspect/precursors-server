@@ -15,7 +15,9 @@
 	recover_entity/3,
 	recover_sup_entity/3,
 	retrieve_ids_by_manager/1,
-	notify/5
+	notify/5,
+	notify_after/5,
+	cancel_notify/1
 ]).
 
 % gen_event
@@ -77,6 +79,16 @@ retrieve_ids_by_manager(GenEventPid) ->
 notify(GenEventRef, EventName, FromId, ToId, Data) ->
 	gen_event:notify(GenEventRef, {'$pre_gen_entity_event', EventName, FromId, ToId, Data}).
 
+notify_after(Time, EventName, FromId, ToId, Data) ->
+	Msg = {'$pre_gen_entity_timer', EventName, FromId, ToId, Data},
+	Tref = erlang:send_after(Time, self(), Msg),
+	{Msg, Tref}.
+
+cancel_notify({Msg, Tref}) ->
+	Out = erlang:cancel_timer(Tref),
+	receive Msg -> ok after 0 -> ok end,
+	Out.
+
 % gen_event callbacks
 
 init({recover, SupPid, StoredRec}) ->
@@ -111,7 +123,15 @@ handle_event(Event, State) ->
 
 handle_call(_,_) -> ok.
 
-handle_info(_,_) -> ok.
+handle_info({'$pre_gen_entity_timer', EventName, FromId, ToId, Data},State) ->
+	#state{module = Module, state = SubState} = State,
+	case Module:handle_event(EventName, FromId, ToId, Data, SubState) of
+		{ok, NewSubState} ->
+			backend_store({Module, State#state.id}, NewSubState),
+			{ok, State#state{state = NewSubState}};
+		remove_entity ->
+			remove_handler
+	end.
 
 terminate(remove_handler, State) ->
 	#state{module = Module, id = Id, state = SubState} = State,

@@ -137,6 +137,33 @@ behavior_test_() ->
 				false
 			end,
 			?assert(MsgReceived)
+		end},
+
+		{"able to send an event after a time", fun() ->
+			_Timer = pre_gen_entity:notify_after(100, timer, undefined, undefined, data),
+			Got = receive Msg -> Msg after 150 -> timeout end,
+			?assertNotEqual(timeout, Got)
+		end},
+
+		{"able to cancel a notify_after", fun() ->
+			Timer = pre_gen_entity:notify_after(100, timer, undefined, undefined, data),
+			pre_gen_entity:cancel_notify(Timer),
+			Got = receive Msg -> Msg after 150 -> timeout end,
+			?assertEqual(timeout, Got)
+		end},
+
+		{"notify after hits callback", fun() ->
+			Self = self(),
+			meck:expect(callback, init, fun(_) ->
+				_ = pre_gen_entity:notify_after(100, timer, undefined, undefined, data),
+				{ok, state}
+			end),
+			meck:expect(callback, handle_event, fun(timer, undefined, undefined, data, state) ->
+				Self ! continue,
+				{ok, state}
+			end),
+			pre_gen_entity:add_entity(GE, 65, callback, []),
+			receive continue -> ok end
 		end}
 
 	] end}.
