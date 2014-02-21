@@ -47,27 +47,33 @@ start_link(Args) ->
 
 %% @hidden
 init(Args) ->
-	%SslOpts = proplists:get_value(ssl_port_opts, Args, []),
-	%SslKid = ?CHILD(pre_ssl_listener, worker, SslOpts),
 
-	%TcpListener = proplists:get_value(tcp_port_opts, Args, []),
-	%TcpKid = ?CHILD(pre_tcp_listener, worker, TcpListener),
+	% Default SSL certfile
+	PrivDir = pre_server_app:priv_dir(),
+	DefaultCertfile = filename:join(PrivDir, "precursors.crt"),
+	DefaultKeyfile = filename:join(PrivDir, "key"),
 
-  lager:error("HELP ME!"),
+	% SSL Configuration
+	SslAcceptors = proplists:get_value(ssl_acceptors, Args, 100),
+	SslOpts = proplists:get_value(ssl_port_opts, Args, [
+		{port, 6006},
+		{certfile, DefaultCertfile},
+		{keyfile, DefaultKeyfile}
+	]),
 
-  % Start Ranch SSL listener
-  SslAcceptors = proplists:get_value(ssl_acceptors, Args, 100),
-  SslOpts = proplists:get_value(ssl_port_opts, Args, [{port, 6006}]),
-  {ok, _} = ranch:start_listener(ssl, SslAcceptors, ranch_ssl, SslOpts, pre_ssl_proto, []),
+	% Start Ranch SSL listener
+	{ok, _} = ranch:start_listener(pre_ssl_ranch_listener, SslAcceptors, ranch_ssl, SslOpts, pre_channels_proto, []),
 
-  % Start Ranch TCP listener
-  TcpAcceptors = proplists:get_value(tcp_acceptors, Args, 100),
-  TcpOpts = proplists:get_value(tcp_port_opts, Args, [{port, 6007}]),
-  {ok, _} = ranch:start_listener(tcp, TcpAcceptors, ranch_tcp, TcpOpts, pre_tcp_proto, []),
+	% TCP Configuration
+	TcpAcceptors = proplists:get_value(tcp_acceptors, Args, 100),
+	TcpOpts = proplists:get_value(tcp_port_opts, Args, [{port, 6007}]),
 
+	% Start Ranch TCP listener
+	{ok, _} = ranch:start_listener(pre_tcp_ranch_listener, TcpAcceptors, ranch_tcp, TcpOpts, pre_channels_proto, []),
+
+	% Setup Kids
 	ManagerOpts = proplists:get_value(client_manager_opts, Args, []),
 	Manager = ?CHILD(pre_client_manager, worker, [ManagerOpts]),
 
-  %Kids = [SslKid, TcpKid, Manager],
 	Kids = [Manager],
 	{ok, { {one_for_one, 5, 10}, Kids} }.
