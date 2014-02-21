@@ -47,14 +47,27 @@ start_link(Args) ->
 
 %% @hidden
 init(Args) ->
-	SslOpts = proplists:get_value(ssl_port_opts, Args, []),
-	SslKid = ?CHILD(pre_ssl_listener, worker, SslOpts),
+	%SslOpts = proplists:get_value(ssl_port_opts, Args, []),
+	%SslKid = ?CHILD(pre_ssl_listener, worker, SslOpts),
 
-	TcpListener = proplists:get_value(tcp_port_opts, Args, []),
-	TcpKid = ?CHILD(pre_tcp_listener, worker, TcpListener),
+	%TcpListener = proplists:get_value(tcp_port_opts, Args, []),
+	%TcpKid = ?CHILD(pre_tcp_listener, worker, TcpListener),
+
+  lager:error("HELP ME!"),
+
+  % Start Ranch SSL listener
+  SslAcceptors = proplists:get_value(ssl_acceptors, Args, 100),
+  SslOpts = proplists:get_value(ssl_port_opts, Args, [{port, 6006}]),
+  {ok, _} = ranch:start_listener(ssl, SslAcceptors, ranch_ssl, SslOpts, pre_ssl_proto, []),
+
+  % Start Ranch TCP listener
+  TcpAcceptors = proplists:get_value(tcp_acceptors, Args, 100),
+  TcpOpts = proplists:get_value(tcp_port_opts, Args, [{port, 6007}]),
+  {ok, _} = ranch:start_listener(tcp, TcpAcceptors, ranch_tcp, TcpOpts, pre_tcp_proto, []),
 
 	ManagerOpts = proplists:get_value(client_manager_opts, Args, []),
 	Manager = ?CHILD(pre_client_manager, worker, [ManagerOpts]),
 
-	Kids = [SslKid, TcpKid, Manager],
+  %Kids = [SslKid, TcpKid, Manager],
+	Kids = [Manager],
 	{ok, { {one_for_one, 5, 10}, Kids} }.
