@@ -1,9 +1,22 @@
-%%% @doc Load balances entity assignment among the `pre_gen_entity' instances.
+%%% @doc Load balances `pre_gen_entity' assignment among gen_event managers.
+%%% Uses {@link pre_ge_sup} to start and supervisor the managers. This will
+%%% supervisor the entities and recover them if they fail. It will also
+%%% monitor the gen_event managers and attempt to move the entities it was
+%%% handling to a new one.
 %%%
-%%% The way this works out, it will always end up doing a round-robin in the event entities are added, but not removed.
-%%% However, it is smart enough to always add to the least-loaded `pre_gen_entity'. In the future, this could be made
-%%% smart enough to spawn more `pre_gen_entity' instances, or tear down unloaded ones; at the moment there's no need.
+%%% The load strategy is to always add an entity to the gen_event manager
+%%% with the fewest entities assigned to it. If there is a tie, then one
+%%% is chosen arbitrarily.
+%%%
+%%% Also allows sending the same event to all gen_event managers.
 %%% --------------------------------------------------------------------------------------------------------------------
+
+% The way this works out, it will always end up doing a round-robin in the
+% event entities are added, but not removed. That's because entities
+% determine when they are removed, so no balancing is done there.
+% However, it is smart enough to always add to the least-loaded
+% gen_event manager. In the future, this could be made smart enough to
+% spawn more gen_event managers, or tear down unloaded ones.
 
 -module(pre_entity_balancer).
 
@@ -23,41 +36,53 @@
 %% External API
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @doc Same as `start_link([]).'
+%% @see start_link/1
+-spec start_link() -> {'ok', pid()}.
+
 start_link() ->
 	start_link([]).
+
+%% @doc Start the load balancer supervisored by the calling process with
+%% the given options.
+%% Currently, there are no options, so just give us an empty list, please.
+-spec start_link([]) -> {'ok', pid()}.
 
 start_link(Options) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, Options, []).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Returns statistics about the current running `pre_gen_entity' instances.
--spec stats() -> [ term() ].
+%% @doc Returns a list of the gen_event managers that are used for
+%% balancing and the number of entities currently on each one.
+-spec stats() -> [ {pid(), non_neg_integer()} ].
 
 stats() ->
 	qlc:e(qlc:q([Row || {Pid, _} = Row <- ets:table(?MODULE), is_pid(Pid)])).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Adds an entity to the event engine.
--spec add_entity(Module :: atom(), Id :: any(), Args :: list()) -> ok | { error, event_manager_exit }.
+%% @doc Adds an entity to the least loaded gen_event manager.
+-spec add_entity(Module :: atom(), Id :: any(), Args :: [any()]) -> 'ok' | { 'error', 'event_manager_exit' }.
 
 add_entity(Module, Id, Args) ->
 	gen_server:call(?MODULE, {add_entity, Module, Id, Args}, infinity).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Attempts to recover from an error, by reloading the entity from mnesia.
--spec recover_entity(Module :: atom(), Id :: any()) ->  ok | { error, event_manager_exit }.
+%% @doc Tries to recover an entity and add it to the least loaded
+%% gen_event manager.
+%% @see pre_gen_event:recover_entity/3
+-spec recover_entity(Module :: atom(), Id :: any()) ->  'ok' | { 'error', 'event_manager_exit' }.
 
 recover_entity(Module, Id) ->
 	gen_server:call(?MODULE, {recover_entity, Module, Id}, infinity).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Sends an event to all `pre_gen_entity' instances. (This will send the event to all entities, and they are
-%% expected to filter the events they're interested in.) The return value isn't very useful.
--spec notify(EventName :: term(), From :: any(), To :: any(), Data :: any()) -> list().
+%% @doc Sends the same event to all gen_event managers monitored.
+%% @see pre_gen_entity:notify/5
+-spec notify(EventName :: any(), From :: any(), To :: any(), Data :: any()) -> ['ok'].
 
 notify(EventName, From, To, Data) ->
 	Pids = pg2:get_members(?MODULE),
@@ -67,6 +92,7 @@ notify(EventName, From, To, Data) ->
 %% gen_server
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 init(_Options) ->
 	ets:new(?MODULE, [named_table, public]),
 	pg2:create(?MODULE),
@@ -75,6 +101,7 @@ init(_Options) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_call({add_entity, Module, Id, Args}, _From, State) ->
 	GenEvent = least_loaded(),
 	Reply = maybe_add_sup_entity(GenEvent, Id, Module, Args),
@@ -94,11 +121,13 @@ handle_call(_Req, _From, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_cast(_Msg, State) ->
 	{noreply, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_info({pre_gen_entity, entity_removed, GenEvent, _}, State) ->
 	ets:update_counter(?MODULE, GenEvent, {2, -1}),
 	{noreply, State};
@@ -117,11 +146,13 @@ handle_info(_Msg, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 terminate(_Why, _State) ->
 	ok.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 

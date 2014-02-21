@@ -1,4 +1,5 @@
-%%% @doc Supervises and starts the pre_gen_entity gen_servers.
+%%% @doc Supervisor for gen_event managers. This is a named supervisor,
+%%% so only one can be running at a time.
 %%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_ge_sup).
@@ -15,15 +16,18 @@
 %% External API
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc By default, we start 5 children.
--spec start_link() -> {ok, any()} | any().
-
+%% @doc Same as `start_link(5).'
+%% @see start_link/1
+-spec start_link() -> {'ok', pid()}.
 start_link() ->
   start_link(5).
 
-%% @doc Starts N children.
--spec start_link(N :: integer()) -> {ok, any()} | any().
-
+%% @doc Start the named supervisor `pre_ge_sup' linked to the calling
+%% process. `N' is the number of gen_event managers to run. This is a
+%% `simple_one_for_one' supervisor with a restart strategy of transient.
+%% This means that all of the children are basically the same, and if they
+%% exit with reason `normal' or `shutdown' they are not restarted.
+-spec start_link(N :: non_neg_integer()) -> {'ok', pid()}.
 start_link(N) ->
   case supervisor:start_link({local, ?MODULE}, ?MODULE, undefined) of
     {ok, _} = Out ->
@@ -37,17 +41,15 @@ start_link(N) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Starts the child.
--spec start_child() -> any().
-
+%% @doc Starts a child.
+-spec start_child() -> {'ok', pid()}.
 start_child() ->
 	supervisor:start_child(?MODULE, []).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Returns a list of currently running children.
--spec running_children() -> list().
-
+%% @doc Returns a list of currently running children pids.
+-spec running_children() -> [pid()].
 running_children() ->
 	Kids = supervisor:which_children(?MODULE),
 	[Child || {_Id, Child, _Type, _Module} <- Kids, is_pid(Child)].
@@ -56,6 +58,7 @@ running_children() ->
 %% Supervisor behavior
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 init(_) ->
 	ChildSpec = {undefined, {gen_event, start_link, []}, transient, 5, worker, dynamic},
 	{ok, {{simple_one_for_one, 5, 10}, [ChildSpec]}}.
