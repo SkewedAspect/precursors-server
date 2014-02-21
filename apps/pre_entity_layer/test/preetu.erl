@@ -1,6 +1,11 @@
+%%% @doc Entity test utilities. A small collection of useful functions for our entity unit tests.
+%%% --------------------------------------------------------------------------------------------------------------------
+
 -module(preetu).
 
 -compile(export_all).
+
+%% ---------------------------------------------------------------------------------------------------------------------
 
 kill(undefined) ->
 	ok;
@@ -12,6 +17,8 @@ kill(Pid) when is_pid(Pid) ->
 	unlink(Pid),
 	exit(Pid, kill),
 	wait_for_exit(Pid).
+
+%% ---------------------------------------------------------------------------------------------------------------------
 
 wait_for_exit(undefined) ->
 	ok;
