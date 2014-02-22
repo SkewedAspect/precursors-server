@@ -34,8 +34,8 @@ start_link(Args) ->
 
 %% @hidden
 init(Args) ->
-  ListenerArgs = proplists:get_value(listener, Args, []),
-  ListenerKid = ?CHILD(pre_communication_layer_sup, supervisor, [ListenerArgs]),
+	%ListenerArgs = proplists:get_value(listener, Args, []),
+	%ListenerKid = ?CHILD(pre_communication_layer_sup, supervisor, [ListenerArgs]),
 
 	HooksKid = ?CHILD(pre_hooks, supervisor, []),
 
@@ -46,7 +46,7 @@ init(Args) ->
 	EntityManagerKid = ?CHILD(pre_entity_engine_sup, supervisor, [EntityManagerArgs]),
 
 	Kids = [
-		ListenerKid,
+		%ListenerKid,
 		HooksKid,
 		DataKid,
 		EntityManagerKid

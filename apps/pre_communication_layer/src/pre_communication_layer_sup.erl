@@ -47,6 +47,7 @@ start_link(Args) ->
 
 %% @hidden
 init(Args) ->
+	lager:error("***** STUFF"),
 
 	% Default SSL certfile
 	PrivDir = pre_server_app:priv_dir(),
