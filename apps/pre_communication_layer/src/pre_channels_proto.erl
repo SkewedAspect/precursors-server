@@ -81,7 +81,8 @@ handle_info({ssl, _Socket, Data}, State) ->
 
   DecodedMessages = [json_to_envelope(Message) || Message <- Messages],
 
-	%TODO: Send the messages to the client connection pid.
+	% Send the messages to the client connection pid.
+  pre_client:handle_message(State#state.client, ssl, DecodedMessages),
 
 	{noreply, State1};
 
@@ -94,7 +95,8 @@ handle_info({tcp, _Socket, Data}, State) ->
 
 	DecryptedMessages = [aes_decrypt_envelope(Message, State1) || Message <- Messages],
 
-	%TODO: Send the messages to the client connection pid.
+	% Send the messages to the client connection pid.
+  pre_client:handle_message(State#state.client, tcp, DecryptedMessages),
 
 	{noreply, State1};
 
