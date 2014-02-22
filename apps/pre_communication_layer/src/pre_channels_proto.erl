@@ -79,6 +79,8 @@ handle_info({ssl, _Socket, Data}, State) ->
 	{Messages, Cont} = netstring:decode(data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
+  DecodedMessages = [json_to_envelope(Message) || Message <- Messages],
+
 	%TODO: Send the messages to the client connection pid.
 
 	{noreply, State1};
@@ -113,7 +115,7 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 			State
 	end,
 
-	{noreply, State};
+	{noreply, State1};
 
 handle_info(Info, State) ->
 	lager:warning("Unhandled message: ~p", [Info]),
@@ -134,9 +136,8 @@ code_change(_OldVsn, State, _Extra) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 % Decrypt message
-aes_decrypt(Packet, #state{aes_key = AESKey, aes_vector = AESVector}) ->
-	%TODO: Warning: crypto:aes_cbc_128_decrypt/3 is deprecated and will be removed in in a future release; use crypto:block_decrypt/4
-	Decrypted = crypto:aes_cbc_128_decrypt(AESKey, AESVector, Packet),
+aes_decrypt(CipherText, #state{aes_key = AESKey, aes_vector = AESVector}) ->
+  Decrypted = crypto:block_decrypt(aes_cbc128, AESKey, AESVector, CipherText),
 
 	% Strip padding added by OpenSSL's AES algorithm.
 	PaddingByteCount = binary:last(Decrypted),
