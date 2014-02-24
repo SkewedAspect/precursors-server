@@ -47,8 +47,6 @@ start_link(Args) ->
 
 %% @hidden
 init(Args) ->
-	lager:error("***** STUFF"),
-
 	% Default SSL certfile
 	PrivDir = pre_server_app:priv_dir(),
 	DefaultCertfile = filename:join(PrivDir, "precursors.crt"),
@@ -72,9 +70,8 @@ init(Args) ->
 	% Start Ranch TCP listener
 	{ok, _} = ranch:start_listener(pre_tcp_ranch_listener, TcpAcceptors, ranch_tcp, TcpOpts, pre_channels_proto, []),
 
-	% Setup Kids
-	ManagerOpts = proplists:get_value(client_manager_opts, Args, []),
-	Manager = ?CHILD(pre_client_manager, worker, [ManagerOpts]),
+	% Setup the client supervisor
+	ClientSup = ?CHILD(pre_client_sup, supervisor, []),
 
-	Kids = [Manager],
+	Kids = [ClientSup],
 	{ok, { {one_for_one, 5, 10}, Kids} }.

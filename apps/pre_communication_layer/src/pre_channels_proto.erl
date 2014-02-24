@@ -21,8 +21,6 @@
 	terminate/2,
 	code_change/3]).
 
--define(SERVER, ?MODULE).
-
 -record(state, {
 	ref :: any(),
 	socket :: any(),
@@ -40,7 +38,7 @@
 %% @doc Starts the server
 
 start_link(Ref, Socket, Transport, Opts) ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [Ref, Socket, Transport], Opts).
+	gen_server:start_link({local, ?MODULE}, ?MODULE, [Ref, Socket, Transport], Opts).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
@@ -79,10 +77,10 @@ handle_info({ssl, _Socket, Data}, State) ->
 	{Messages, Cont} = netstring:decode(data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
-  DecodedMessages = [json_to_envelope(Message) || Message <- Messages],
+	DecodedMessages = [json_to_envelope(Message) || Message <- Messages],
 
 	% Send the messages to the client connection pid.
-  pre_client:handle_message(State#state.client, ssl, DecodedMessages),
+	pre_client:handle_message(State#state.client, ssl, DecodedMessages),
 
 	{noreply, State1};
 
@@ -93,12 +91,19 @@ handle_info({tcp, _Socket, Data}, State) ->
 	{Messages, Cont} = netstring:decode(data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
-	DecryptedMessages = [aes_decrypt_envelope(Message, State1) || Message <- Messages],
+	% Check to see if we have our client yet. If not, we look through the messages for a cookie. (Om nom nom.)
+	State2 = case State1#state.client of
+		undefined ->
+			check_for_cookie(Messages, State1);
+		_ ->
+			% Messages are only encrypted if we have found our client pid.
+			DecryptedMessages = [aes_decrypt_envelope(Message, State1) || Message <- Messages],
 
-	% Send the messages to the client connection pid.
-  pre_client:handle_message(State#state.client, tcp, DecryptedMessages),
+			% Send the messages to the client connection pid.
+			pre_client:handle_message(State1#state.client, tcp, DecryptedMessages)
+	end,
 
-	{noreply, State1};
+	{noreply, State2};
 
 % Sets up the ranch protocol.
 handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transport}) ->
@@ -106,16 +111,16 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 	ok = Transport:setopts(Socket, [{active, once}]),
 
 	State1 = case Socket of
-		ssl ->
-			%TODO: spawn the client connection pid.
-			State;
-		tcp ->
-			%TODO: look up the client connection pid, (and retrieve the AES key/vector?)
-			State;
-		Sock ->
-			lager:warning("Unknown Socket Type: ~p", [Sock]),
-			State
-	end,
+		         ssl ->
+			         % Spawn a new client pid
+			         pre_client:new(self()),
+			         State;
+		         tcp ->
+			         State;
+		         Sock ->
+			         lager:warning("Unknown Socket Type: ~p", [Sock]),
+			         State
+	         end,
 
 	{noreply, State1};
 
@@ -137,9 +142,38 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal
 %% --------------------------------------------------------------------------------------------------------------------
 
+% Check messages for a cookie
+check_for_cookie([], State) ->
+	State;
+
+check_for_cookie([Message | Rest], State) ->
+	State1 = case check_for_cookie(Message, State) of
+		{true, State2} ->
+			pre_client:handle_message(State#state.client, tcp, Rest),
+			State2;
+		{false, _} ->
+			check_for_cookie(Rest, State)
+	end,
+	State1;
+
+check_for_cookie(Message, State) ->
+	State1 = case Message of
+		#envelope{type = request, channel = <<"control">>, contents = Request} ->
+			Cookie = proplists:get_value(cookie, Request),
+			ClientPid = pre_client:connect_tcp(self(), Cookie),
+			{AESKey, AESVec} = pre_client:get_aes(ClientPid),
+			State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec };
+		_ ->
+			%TODO: Kill the connection.
+			lager:warning("Non-cookie message received: ~p, ~p, ~p",
+				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents])
+	end,
+
+	{false, State1}.
+
 % Decrypt message
 aes_decrypt(CipherText, #state{aes_key = AESKey, aes_vector = AESVector}) ->
-  Decrypted = crypto:block_decrypt(aes_cbc128, AESKey, AESVector, CipherText),
+	Decrypted = crypto:block_decrypt(aes_cbc128, AESKey, AESVector, CipherText),
 
 	% Strip padding added by OpenSSL's AES algorithm.
 	PaddingByteCount = binary:last(Decrypted),
@@ -165,4 +199,3 @@ json_to_envelope([{_, _} | _] = Props) ->
 check_envelope_type(<<"request">>) -> request;
 check_envelope_type(<<"response">>) -> response;
 check_envelope_type(<<"event">>) -> event.
-
