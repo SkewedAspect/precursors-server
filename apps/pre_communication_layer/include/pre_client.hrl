@@ -1,24 +1,5 @@
--record(client_info, {
-	connection :: pid(),
-	channel_manager :: pid(),
-	user_id :: any(),
-	username :: binary(),
-	show_account :: 'hidden' | 'public',
-	character_id :: binary(),
-	character, %:: json(),
-	entity :: binary(),
-	entity_engine :: pid()
-}).
-
-%%-----------------------------------------------------------------------
-%% These records should ONLY be used by pre_client_connection and
-%% pre_tcp_transient!
-
--record(client_connection, {
-	pid,
-	ssl_socket,
-	tcp_socket
-}).
+%%% @doc This header is for working with data internal to the `pre_client' process, and the channels callbacks.
+%%% --------------------------------------------------------------------------------------------------------------------
 
 -type(message_type() :: 'request' | 'response' | 'event').
 -type(message_id() :: any()).
@@ -29,4 +10,14 @@
 	contents %:: json()
 }).
 
-%%-----------------------------------------------------------------------
+%% ---------------------------------------------------------------------------------------------------------------------
+
+-record(state, {
+	account :: term(),
+	cookie :: binary(),
+	ssl_proto :: pid(),
+	tcp_proto :: pid(),
+	aes_key :: binary(),
+	aes_vector :: binary()
+}).
+
