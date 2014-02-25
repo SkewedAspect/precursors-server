@@ -14,10 +14,12 @@
 
 -record(client_state, {
 	account :: term(),
+	character :: term(),
 	cookie :: binary(),
 	ssl_proto :: pid(),
 	tcp_proto :: pid(),
 	aes_key :: binary(),
-	aes_vector :: binary()
+	aes_vector :: binary(),
+	client_version :: binary()
 }).
 
