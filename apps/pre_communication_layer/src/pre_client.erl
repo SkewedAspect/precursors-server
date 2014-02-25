@@ -301,24 +301,37 @@ code_change(_OldVsn, State, _Extra) ->
 
 % Send the message off to a callback module.
 process_channel(#envelope{channel = <<"control">>} = Message, State) ->
-	Contents = Message#envelope.contents,
-	ReqType = proplists:get_value(type, Contents),
+	process_channel(pre_control_channel, Message, State);
 
-	State1 = case Message#envelope.type of
-		 <<"event">> ->
-			 pre_control_channel:handle_event({ ReqType, Message#envelope.id, Contents }, State);
-		 <<"request">> ->
-			 pre_control_channel:handle_request({ ReqType, Message#envelope.id, Contents }, State);
-		 <<"response">> ->
-			 pre_control_channel:handle_response({ ReqType, Message#envelope.id, Contents }, State);
-		 _ ->
-			 lager:warning("Unknown Message Type: ~p", [Message])
-	end,
-	State1;
+process_channel(#envelope{channel = <<"entity">>} = Message, State) ->
+	process_channel(pre_entity_channel, Message, State);
+
+process_channel(#envelope{channel = <<"input">>} = Message, State) ->
+	process_channel(pre_input_channel, Message, State);
+
+process_channel(#envelope{channel = <<"ping">>} = Message, State) ->
+	process_channel(pre_ping_channel, Message, State);
 
 process_channel(Message, State) ->
 	lager:warning("Got message for unknown channel: ~p", [Message]),
 	State.
+
+
+process_channel(ChannelModule, Message, State) ->
+	Contents = Message#envelope.contents,
+	ReqType = proplists:get_value(type, Contents),
+
+	case Message#envelope.type of
+		 <<"event">> ->
+			 ChannelModule:handle_event({ ReqType, Message#envelope.id, Contents }, State);
+		 <<"request">> ->
+			 ChannelModule:handle_request({ ReqType, Message#envelope.id, Contents }, State);
+		 <<"response">> ->
+			 ChannelModule:handle_response({ ReqType, Message#envelope.id, Contents }, State);
+		 _ ->
+			 lager:warning("Unknown Message Type: ~p", [Message])
+	end.
+
 
 % Make a ref and then wrap it in a bin
 make_bin_ref() ->
