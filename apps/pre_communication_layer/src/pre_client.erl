@@ -15,8 +15,11 @@
 	handle_messages/3,
 	handle_message/3,
 	send_event/3,
+	send_event/4,
 	send_response/4,
-	send_request/4
+	send_response/5,
+	send_request/4,
+	send_request/5
 ]).
 
 % gen_server callbacks
@@ -93,17 +96,26 @@ handle_message(ClientPid, Transport, Message) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Send an event to the client. `Content' must be able JSON serializable. (Note: this method is responsible for
-%% wrapping `Content' in the envelope structure.)
+%% @doc Send an event to the client, over tcp.
+%% @see send_event/4
 -spec send_event(ClientPid :: pid(), Channel :: binary(), Content :: term()) -> ok.
 
 send_event(ClientPid, Channel, Content) ->
-	gen_server:cast(ClientPid, { send_event, Channel, Content }).
+	gen_server:cast(ClientPid, { send_event, tcp, Channel, Content }).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Send a response to the client. `Content' must be able JSON serializable. (Note: this method is responsible for
+%% @doc Send an event to the client. `Content' must be able JSON serializable. (Note: this method is responsible for
 %% wrapping `Content' in the envelope structure.)
+-spec send_event(ClientPid :: pid(), Transport :: ssl | tcp, Channel :: binary(), Content :: term()) -> ok.
+
+send_event(ClientPid, Transport, Channel, Content) ->
+	gen_server:cast(ClientPid, { send_event, Transport, Channel, Content }).
+
+%% ---------------------------------------------------------------------------------------------------------------------
+
+%% @doc Send a response to the client over tcp.
+%% @see send_response/5
 -spec send_response(ClientPid :: pid(), Channel :: binary(), ID :: any(), Content :: term()) -> ok.
 
 send_response(ClientPid, Channel, ID, Content) ->
@@ -111,12 +123,36 @@ send_response(ClientPid, Channel, ID, Content) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Send a request to the client. `Content' must be able JSON serializable. (Note: this method is responsible for
-%% wrapping `Content' in the envelope structure.) !!! Currently, there is never any reason to use this method. !!!
+%% @doc Send a response to the client. `Content' must be able JSON serializable. (Note: this method is responsible for
+%% wrapping `Content' in the envelope structure.)
+-spec send_response(ClientPid :: pid(), Transport :: ssl | tcp, Channel :: binary(), ID :: any(), Content :: term()) -> ok.
+
+send_response(ClientPid, Transport, Channel, ID, Content) ->
+	gen_server:cast(ClientPid, { send_response, Transport, Channel, ID, Content }).
+
+%% ---------------------------------------------------------------------------------------------------------------------
+
+%TODO: These functions are here for possible future use, but I'm not sure it EVER makes sense. Maybe remove?
+
+%% @doc Send a request to the client over tcp.
+%% @see send_request/5
 -spec send_request(ClientPid :: pid(), Channel :: binary(), ID :: any(), Content :: term()) -> ok.
 
 send_request(ClientPid, Channel, ID, Content) ->
+	lager:warning("Sending a request to the client. ARE YOU SURE YOU MEANT TO DO THIS?!!!"),
 	gen_server:cast(ClientPid, { send_request, Channel, ID, Content }).
+
+%% ---------------------------------------------------------------------------------------------------------------------
+
+%TODO: These functions are here for possible future use, but I'm not sure it EVER makes sense. Maybe remove?
+
+%% @doc Send a request to the client. `Content' must be able JSON serializable. (Note: this method is responsible for
+%% wrapping `Content' in the envelope structure.)
+-spec send_request(ClientPid :: pid(), Transport :: ssl | tcp, Channel :: binary(), ID :: any(), Content :: term()) -> ok.
+
+send_request(ClientPid, Transport, Channel, ID, Content) ->
+	lager:warning("Sending a request to the client. ARE YOU SURE YOU MEANT TO DO THIS?!!!"),
+	gen_server:cast(ClientPid, { send_request, Transport, Channel, ID, Content }).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 %% gen_server
@@ -132,48 +168,89 @@ init([SslProto, Cookie]) ->
 	{ok, #client_state{ssl_proto = SslProto, cookie = Cookie}}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-
 %% @hidden
+
 handle_call(get_aes, _From, State) ->
 	%TODO: Check `From' and make sure it's our TCPProto?
 	{reply, { State#client_state.aes_key, State#client_state.aes_vector }, State};
 
-%% @hidden
+
 handle_call(Request, _From, State) ->
 	lager:debug("Unhandled call:  ~p", [Request]),
 	{reply, unknown, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-
 %% @hidden
+
+handle_cast({send_event, ssl, Channel, Content}, State) ->
+	Envelope = #envelope{channel = Channel, contents = Content},
+	SslProto = State#client_state.ssl_proto,
+
+	% Send a message over SSL
+	pre_channels_proto:send_envelope(SslProto, Envelope),
+
+	{noreply, State};
+
+
+handle_cast({send_event, tcp, Channel, Content}, State) ->
+	Envelope = #envelope{channel = Channel, contents = Content},
+	TcpProto = State#client_state.tcp_proto,
+
+	% Send a message over TCP
+	pre_channels_proto:send_envelope(TcpProto, Envelope),
+
+	{noreply, State};
+
+handle_cast({send_response, ssl, Channel, ID, Content}, State) ->
+	Envelope = #envelope{channel = Channel, id = ID, contents = Content},
+	SslProto = State#client_state.ssl_proto,
+
+	% Send a message over SSL
+	pre_channels_proto:send_envelope(SslProto, Envelope),
+
+	{noreply, State};
+
+
+handle_cast({send_response, tcp, Channel, ID, Content}, State) ->
+	Envelope = #envelope{channel = Channel, id = ID, contents = Content},
+	TcpProto = State#client_state.tcp_proto,
+
+	% Send a message over TCP
+	pre_channels_proto:send_envelope(TcpProto, Envelope),
+
+	{noreply, State};
+
+
 handle_cast({tcp_connect, TcpProto}, State) ->
 	State1 = State#client_state{tcp_proto = TcpProto},
 	{noreply, State1};
 
-%% @hidden
+
 handle_cast({ssl, Message}, State) ->
 	State1 = process_channel(Message, State),
 	{noreply, State1};
 
-%% @hidden
+
 handle_cast({tcp, #envelope{channel = <<"control">>} = Message}, State) ->
-	%TODO: Do we want to drop the client? What about logging more information?
 	lager:error("Control message received over TCP! Someone's doing something bad! Message: ~p", [Message]),
+
+	% Drop the client! It's either trying to do something bad, or there's a bug in it's code. Either way, die in a fire.
+	exit("Control message received over TCP."),
 	{noreply, State};
 
-%% @hidden
+
 handle_cast({tcp, Message}, State) ->
 	State1 = process_channel(Message, State),
 	{noreply, State1};
 
-%% @hidden
+
 handle_cast(Request, State) ->
 	lager:debug("Unhandled cast:  ~p", [Request]),
 	{noreply, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-
 %% @hidden
+
 handle_info(check_tcp, State) ->
 	case State#client_state.tcp_proto of
 		undefined ->
@@ -184,14 +261,14 @@ handle_info(check_tcp, State) ->
 	end,
 	{noreply, State};
 
-%% @hidden
+
 handle_info(Info, State) ->
 	lager:warning("Unhandled message: ~p", [Info]),
 	{noreply, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-
 %% @hidden
+
 terminate(Reason, State) ->
 	% In the event that we are exiting before TCP has connected, clean up after ourselves.
 	case State#client_state.tcp_proto of

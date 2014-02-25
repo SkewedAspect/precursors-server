@@ -10,8 +10,12 @@
 
 -include("pre_client.hrl").
 
+-define(AES_BLOCK_SIZE, 16).
+
 % API
--export([start_link/4]).
+-export([start_link/4,
+	send_envelope/2
+]).
 
 % gen_server callbacks
 -export([init/1,
@@ -19,7 +23,8 @@
 	handle_cast/2,
 	handle_info/2,
 	terminate/2,
-	code_change/3]).
+	code_change/3
+]).
 
 -record(state, {
 	ref :: any(),
@@ -41,6 +46,11 @@ start_link(Ref, Socket, Transport, Opts) ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [Ref, Socket, Transport], Opts).
 
 %% --------------------------------------------------------------------------------------------------------------------
+
+send_envelope(ProtoPid, envelope) ->
+	gen_server:cast(ProtoPid, {send, envelope}).
+
+%% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -55,20 +65,40 @@ init([Ref, Socket, Transport]) ->
 	{ok, {state, Ref, Socket, Transport}, 0}.
 
 %% --------------------------------------------------------------------------------------------------------------------
-
 %% @hidden
+
 handle_call(Request, _From, State) ->
 	lager:debug("Unhandled call:  ~p", [Request]),
 	{reply, unknown, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
-
 %% @hidden
+
+handle_cast({send, Envelope}, State) ->
+	% If we have an aes key, we assume we need to aes encrypt the message.
+	Data = case State#state.aes_key of
+		undefined ->
+			pre_json:to_json(Envelope);
+		_ ->
+			% Encrypt the envelope
+			aes_encrypt(pre_json:to_json(Envelope), State#state.aes_key, State#state.aes_vector)
+	end,
+
+	Packet = netstring:encode(Data),
+
+	Transport = State#state.transport,
+	Socket = State#state.socket,
+	Transport:send(Socket, Packet),
+
+	{noreply, State};
+
+
 handle_cast(Request, State) ->
 	lager:debug("Unhandled cast:  ~p", [Request]),
 	{noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
+%% @hidden
 
 % Handles incoming SSL data
 handle_info({ssl, _Socket, Data}, State) ->
@@ -83,6 +113,7 @@ handle_info({ssl, _Socket, Data}, State) ->
 	pre_client:handle_message(State#state.client, ssl, DecodedMessages),
 
 	{noreply, State1};
+
 
 % Handles incoming TCP data
 handle_info({tcp, _Socket, Data}, State) ->
@@ -105,6 +136,7 @@ handle_info({tcp, _Socket, Data}, State) ->
 
 	{noreply, State2};
 
+
 % Sets up the ranch protocol.
 handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transport}) ->
 	ok = ranch:accept_ack(Ref),
@@ -123,6 +155,7 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 	         end,
 
 	{noreply, State1};
+
 
 handle_info(Info, State) ->
 	lager:warning("Unhandled message: ~p", [Info]),
@@ -170,6 +203,19 @@ check_for_cookie(Message, State) ->
 	end,
 
 	{false, State1}.
+
+get_pkcs5_padding(Packet) ->
+	PacketLength = byte_size(Packet),
+	PaddingNeeded = ?AES_BLOCK_SIZE - (PacketLength rem ?AES_BLOCK_SIZE),
+	binary:copy(<<PaddingNeeded/integer>>, PaddingNeeded).
+
+% Decrypt message
+aes_encrypt(Packet, AESKey, AESVector) ->
+	% Decrypt message
+	Padding = get_pkcs5_padding(Packet),
+	Padded = <<Packet/binary, Padding/binary>>,
+	crypto:aes_cbc_128_encrypt(AESKey, AESVector, Padded).
+
 
 % Decrypt message
 aes_decrypt(CipherText, #state{aes_key = AESKey, aes_vector = AESVector}) ->

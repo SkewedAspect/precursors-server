@@ -1,4 +1,4 @@
-%%% @doc pre_control_channel
+%%% @doc Callbacks for the "control" channel.
 %%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_control_channel).
@@ -13,106 +13,89 @@
 %% ---------------------------------------------------------------------------------------------------------------------
 
 handle_request({<<"login">>, ID, Request}, State) ->
-	lager:info("starting authentication"),
+	lager:info("Starting authentication"),
 
-	% ---------------------------------------------------------------------------------------
-	%TODO: This all needs to change for the new authentication system!
-
-	% Check with authentication backends
-	UserOrNick = proplists:get_value(user, Request),
+	User = proplists:get_value(user, Request),
 	Password= proplists:get_value(password, Request),
-	lager:info("Authenticating user: ~p", [UserOrNick]),
-	{Confirm, ReasonOrUsername} = case pre_gen_auth:authenticate(UserOrNick, Password) of
-		{allow, Username} ->
-			{true, Username};
-		{deny, Msg} ->
-			{false, list_to_binary(Msg)};
-		_ ->
-			lager:warning("Authentication failed for unkown reason."),
-			{false, <<"An unkown error has occured.">>}
-	end,
-	% ---------------------------------------------------------------------------------------
+
+	lager:info("Authenticating user: ~p", [User]),
+
+	%TODO: call into the new auth system.
+	Confirm = false,
+	Reason = "Not Implemented yet.",
+
+	%TODO: set the current account, on success
+	Account = {account, {}},
 
 	LoginRep = [
 		{confirm, Confirm},
-		{reason, ReasonOrUsername},
+		{reason, Reason},
 		{cookie, State#client_state.cookie},
 		{tcpPort, 6007}
 	],
 
 	% Send login response
-	pre_client:send_response(self(), <<"control">>, ID, LoginRep),
+	pre_client:send_response(self(), <<"control">>, ssl, ID, LoginRep),
 
 	% Record login information in client_state
 	AESKey = base64:decode(proplists:get_value(key, Request)),
 	AESVector = base64:decode(proplists:get_value(vector, Request)),
 	State#client_state{
 		aes_key = AESKey,
-		aes_vector = AESVector
+		aes_vector = AESVector,
+		account = Account
 	};
 
-handle_request({<<"getCharacters">>, ID, Request}, State) ->
-	%TODO: Convert this!
 
-%% 	lager:info("Retrieving character list for client ~p.", [State#client_state.client_info]),
-%%
-%% 	%TODO: Make sure that Username is the Key for account, and not a secondary index, like nick name.
-%% 	ClientInfo = State#client_state.client_info,
-%% 	Username = ClientInfo#client_info.username,
-%%
-%% 	% Lookup the account
-%% 	{ok, _Account, AccountMeta} = pre_data:get_with_meta(<<"account">>, Username),
-%% 	Links = riakc_obj:get_all_links(AccountMeta),
-%% 	CharacterLinks = proplists:get_value(<<"character">>, Links),
-%%
-%% 	% Fetch all charcters
-%% 	Characters = fetch_characters(CharacterLinks),
-%%
-%% 	GetCharsRep = [
-%% 		{confirm, true},
-%% 		{characters, Characters}
-%% 	],
-%% 	respond(ssl, MessageID, <<"control">>, GetCharsRep),
+handle_request({<<"getCharacters">>, ID, _Request}, State) ->
+	lager:info("Retrieving character list for client ~p.", [self()]),
+	Account = State#client_state.account,
+
+	%TODO: Get list of characters!
+	Characters = [],
+
+ 	GetCharsRep = [
+ 		{confirm, true},
+ 		{characters, Characters}
+ 	],
+
+	% Send the response
+	pre_client:send_response(self(), <<"control">>, ssl, ID, GetCharsRep),
 	State;
+
 
 handle_request({<<"selectCharacter">>, ID, Request}, State) ->
-	%TODO: Convert this!
+ 	CharId = proplists:get_value(character, Request),
+ 	lager:info("Character selected: ~p", [CharId]),
 
-%% 	CharId = proplists:get_value(character, Request),
-%% 	lager:info("Character selected: ~p", [CharId]),
-%%
-%% 	% Get the character.
-%% 	Character = pre_data:get(<<"character">>, CharId),
-%%
-%% 	% Store character and id in client_state.
-%% 	NewState = State#client_state{
-%% 		client_info = State#client_state.client_info#client_info{
-%% 			character_id = CharId,
-%% 			character = Character
-%% 		}
-%% 	},
-%%
-%%
-%% 	Connection = State#client_state.client_info#client_info.connection,
-%% 	LevelUrl = <<"zones/test/TestArea.json">>,
-%% 	LoadLevel = [
-%% 		{type, <<"setZone">>},
-%% 		{level, LevelUrl}
-%% 	],
-%% 	send(Connection, tcp, event, level, LoadLevel),
-%%
-%% 	%TODO: Look up existing entity, if possible.
-%% 	EntityID = undefined,
-%%
-%% 	lager:info("Creating entity for client ~p.", [State#client_state.client_info]),
-%% 	{ok, _Entity} = pre_entity_manager:create_entity(EntityID, entity_ship, [{}], State#client_state.client_info),
-%%
-%% 	CharSelRep = [
-%% 		{confirm, true}
-%% 	],
-%% 	respond(ssl, MessageID, <<"control">>, CharSelRep),
-%% 	NewState;
-	State;
+	%TODO: Look up the Character!
+	Character = {character, {}},
+
+	%TODO: Look up the correct level the character is located in. (For now, there's only one level.)
+ 	LevelUrl = <<"zones/test/TestArea.json">>,
+ 	LoadLevel = [
+ 		{type, <<"setZone">>},
+ 		{level, LevelUrl}
+ 	],
+
+	% Tell the client to load the appropriate level.
+	pre_client:send_event(self(), <<"level">>, LoadLevel),
+
+	%TODO: Look up the entity from cold storage, and load that into the entity event engine.
+	Entity = {entity, {}},
+
+ 	CharSelRep = [
+ 		{confirm, true}
+ 	],
+
+	% Send the response.
+	pre_client:send_response(self(), <<"control">>, ssl, ID, CharSelRep),
+
+	State#client_state{
+		character = Character,
+		entity = Entity
+	};
+
 
 handle_request({Type, ID, Request}, State) ->
 	lager:warning("[Control] Unknown Request: ~p, ~p, ~p", [Type, ID, Request]),

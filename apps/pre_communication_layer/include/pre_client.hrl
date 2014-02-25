@@ -15,6 +15,7 @@
 -record(client_state, {
 	account :: term(),
 	character :: term(),
+	entity :: any(),
 	cookie :: binary(),
 	ssl_proto :: pid(),
 	tcp_proto :: pid(),
