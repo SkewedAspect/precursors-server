@@ -9,7 +9,6 @@
 -module(pre_entity_engine_sup).
 -behaviour(supervisor).
 
--include("pre_entity.hrl").
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -46,7 +45,7 @@ init(_) ->
 
 	SimulationWorkers = case application:get_env(pre_entity_layer, simulation_workers) of
 		undefined -> 5;
-		Else -> Else
+		Else1 -> Else1
 	end,
 	SimulationEngine = {pre_sim_worker_sup, {pre_sim_worker_sup, start_link, [SimulationWorkers]},
 		permanent, 5, supervisor, [?MODULE]},
