@@ -145,7 +145,7 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 	State1 = case Socket of
 		         ssl ->
 			         % Spawn a new client pid
-			         pre_client_sup:start_child/1(self()),
+			         pre_client_sup:start_child(self()),
 			         State;
 		         tcp ->
 			         State;

@@ -2,7 +2,7 @@
 
 -record(entity, {
 	id :: binary(),
-	client :: #client_info{},
+	client :: pid(),
 	controller :: atom(),
 	state :: any(),
 	latest_update = [] :: list()
