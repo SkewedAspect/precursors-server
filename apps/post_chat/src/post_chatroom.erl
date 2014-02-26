@@ -145,24 +145,26 @@ message(Room, Client, Message) ->
 %% ==================================================================
 
 init({Name, Mode, ModeMeta, Password}) ->
-	State = #state{name = Name, mode = Mode, password = Password},
-	case Mode of
-		user when is_record(ModeMeta, client_info) ->
-			#client_info{connection = Conn} = ModeMeta,
-			Chatters = [ModeMeta],
-			Controller = [Conn],
-			State0 = State#state{chatters = Chatters, controllers = Controller},
-			{ok, State0};
-		plugin when is_record(ModeMeta, client_info) ->
-			#client_info{connection = Conn} = ModeMeta,
-			Chatters = [Conn],
-			State0 = State#state{chatters = Chatters},
-			{ok, State0};
-		system when is_list(ModeMeta) ->
-			SystemOpts = build_system_opts(ModeMeta),
-			State0 = State#state{mode_meta = SystemOpts},
-			{ok, State0}
-	end.
+	State = #state{name = Name, mode = Mode, password = Password}.
+
+	%TODO: Remove the client_info record.
+%% 	case Mode of
+%% 		user when is_record(ModeMeta, client_info) ->
+%% 			#client_info{connection = Conn} = ModeMeta,
+%% 			Chatters = [ModeMeta],
+%% 			Controller = [Conn],
+%% 			State0 = State#state{chatters = Chatters, controllers = Controller},
+%% 			{ok, State0};
+%% 		plugin when is_record(ModeMeta, client_info) ->
+%% 			#client_info{connection = Conn} = ModeMeta,
+%% 			Chatters = [Conn],
+%% 			State0 = State#state{chatters = Chatters},
+%% 			{ok, State0};
+%% 		system when is_list(ModeMeta) ->
+%% 			SystemOpts = build_system_opts(ModeMeta),
+%% 			State0 = State#state{mode_meta = SystemOpts},
+%% 			{ok, State0}
+%% 	end.
 
 build_system_opts(Opts) ->
 	build_system_opts(Opts, #system_opts{}).
@@ -243,7 +245,9 @@ handle_call({leave, _Client}, _From, #state{mode = system, mode_meta =
 
 handle_call({leave, Client}, _From, State) ->
 	#state{chatters = Chatters, controllers = Controllers} = State,
-	#client_info{connection = Conn} = Client,
+	%TODO: Need to be refactored to remove the client_info.
+	Conn = undefined,
+	%#client_info{connection = Conn} = Client,
 	case [N || {P, N} <- Chatters, P =:= Conn] of
 		[] ->
 			{reply, {error, not_member}, State};
@@ -264,7 +268,10 @@ handle_call({leave, Client}, _From, State) ->
 handle_call({join, Client, Password}, _From, #state{password = Stateword} = State)
 	when Stateword =/= undefined orelse Password =:= Stateword ->
 	#state{chatters = Chatters} = State,
-	#client_info{connection = Conn, username = Name} = Client,
+	%TODO: Need to be refactored to remove the client_info.
+	Conn = undefined,
+	Name = undefined,
+	%#client_info{connection = Conn, username = Name} = Client,
 	Chatters0 = [{Conn, Name} | Chatters],
 	Msg = [
 		{message, <<"chatter_joined">>},
@@ -281,7 +288,9 @@ handle_call({kick, _Client, _Target}, _From, #state{mode = system, mode_meta = #
 	{reply, {error, no_kicking}, State};
 
 handle_call({kick, Client, Target}, From, State) ->
-	#client_info{connection = Conn} = Client,
+	%TODO: Need to be refactored to remove the client_info.
+	Conn = undefined,
+	%#client_info{connection = Conn} = Client,
 	case lists:member(Conn, State#state.controllers) of
 		false ->
 			{reply, {error, not_controller}, State};
@@ -291,7 +300,8 @@ handle_call({kick, Client, Target}, From, State) ->
 				false ->
 					{reply, {error, no_target}, State};
 				TargetPid ->
-					FakeClient = Client#client_info{connection = TargetPid},
+					%TODO: Need to be refactored to remove the client_info.
+					FakeClient = Conn,%Client#client_info{connection = TargetPid},
 					handle_call({leave, FakeClient}, From, State)
 			end
 	end;
@@ -300,7 +310,9 @@ handle_call({mute, _Client, _Target}, _From, #state{mode = system, mode_meta = #
 	{reply, {error, no_muting}, State};
 
 handle_call({mute, Client, Target}, _From, State) ->
-	#client_info{connection = Conn} = Client,
+	%TODO: Need to be refactored to remove the client_info.
+	Conn = undefined,
+	%#client_info{connection = Conn} = Client,
 	TargetPid = lists:keyfind(Target, 2, State#state.chatters),
 	IsChatter = lists:member(TargetPid, State#state.chatters),
 	IsController = lists:member(Conn, State#state.controllers),
@@ -322,7 +334,9 @@ handle_call({mute, Client, Target}, _From, State) ->
 handle_call({unmute, Client, Target}, _From, State) ->
 	TargetPid = lists:keyfind(Target, 2, State#state.chatters),
 	#state{squelched = Squelched} = State,
-	#client_info{connection = Conn} = Client,
+	%TODO: Need to be refactored to remove the client_info.
+	Conn = undefined,
+	%#client_info{connection = Conn} = Client,
 	IsController = lists:member(Conn, State#state.controllers),
 	case {IsController, lists:delete(TargetPid, Squelched)} of
 		{false, _} ->
@@ -336,7 +350,10 @@ handle_call({unmute, Client, Target}, _From, State) ->
 
 handle_call({message, Client, Message}, _From, State) ->
 	#state{chatters = Chatters, squelched = Squelched} = State,
-	#client_info{connection = ConnPid, username = Username} = Client,
+	%TODO: Need to be refactored to remove the client_info.
+	ConnPid = undefined,
+	Username = undefined,
+	%#client_info{connection = ConnPid, username = Username} = Client,
 	case lists:member(ConnPid, Squelched) of
 		true ->
 			{reply, {error, muted}, State};

@@ -2,7 +2,9 @@
 
 -include_lib("pre_communication_layer/include/pre_client.hrl").
 % api
--export([start_link/0, client_login_hook/2]).
+-export([start_link/0%,
+	%client_login_hook/2
+]).
 % channel stuf
 -export([client_request/4, client_response/4, client_event/3]).
 % supervisor stuff
@@ -12,12 +14,13 @@
 start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, [supervisor]).
 
-client_login_hook(undefined, Client) ->
-	lager:info("Client logged in, registering chat channel"),
-	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]),
-	Join = post_chatroom:join(<<"global">>, Client),
-	lager:info("Join: ~p", [Join]),
-	{ok, undefined}.
+%TODO: This needs new way of being started.
+%client_login_hook(undefined, Client) ->
+%	lager:info("Client logged in, registering chat channel"),
+%	supervisor:start_child(?MODULE, [Client#client_info.channel_manager]),
+%	Join = post_chatroom:join(<<"global">>, Client),
+%	lager:info("Join: ~p", [Join]),
+%	{ok, undefined}.
 
 %% supervisor
 init([supervisor]) ->
