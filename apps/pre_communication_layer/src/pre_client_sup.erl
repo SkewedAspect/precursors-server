@@ -44,8 +44,7 @@ running_children() ->
 %% @private
 init(_) ->
 	% Build an ets table to handle the TCP Cookie lookup.
-	_Ets = ets:new(client_ets, [named_table, public, set, {keypos, 1}]),
-
+	pre_client:ensure_ets(),
 
 	ChildSpec = {undefined, {pre_client, start_link, []}, transient, 5, worker, dynamic},
 	{ok, {{simple_one_for_one, 5, 10}, [ChildSpec]}}.

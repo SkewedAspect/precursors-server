@@ -10,7 +10,8 @@
 % API
 -export([start_link/2,
 	connect_tcp/2,
-	get_aes / 1,
+	ensure_ets/0,
+	get_aes/ 1,
 	handle_messages/3,
 	handle_message/3,
 	send_event/3,
@@ -43,15 +44,11 @@ start_link(SslProto, Cookie) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Starts a new client connection process. You should always use this method to create a new client pid.
--spec new(SslProto :: pid()) -> ok.
+%% @doc Starts the ETS table needed for the TCP cookie lookup.
+-spec ensure_ets() -> ok.
 
-new(SslProto) ->
-	Cookie = make_bin_ref(),
-
-	% Ask the supervisor to create a new client connection pid.
-	pre_client_sup:start_child(SslProto, Cookie),
-	ok.
+ensure_ets() ->
+	ets:new(client_ets, [named_table, public]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -60,7 +57,13 @@ new(SslProto) ->
 -spec connect_tcp(TcpProto :: pid(), Cookie :: binary()) -> ClientPid :: pid().
 
 connect_tcp(TcpProto, Cookie) ->
-	[{_, ClientPid}] = ets:lookup(client_ets, Cookie),
+	ClientPid = case ets:lookup(client_ets, Cookie) of
+		[{_, Pid}] ->
+			Pid;
+		_ ->
+			lager:error("Failed to look up TCP cookie, disconnecting client."),
+			exit("Failed to lookup TCP cookie.")
+	end,
 	gen_server:cast(ClientPid, {tcp_connect, TcpProto}),
 
 	% Clean ourselves up.
