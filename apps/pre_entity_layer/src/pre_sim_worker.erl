@@ -15,6 +15,8 @@
 
 -behaviour(gen_server).
 
+-include("simulation.hrl").
+
 % API
 -export([
 	add_entity/3,
@@ -148,7 +150,7 @@ apply_torque_relative(EntityID, Value) ->
 	to_entity(cast, apply_torque_relative, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% Supervisor-facing API
+%% supervisor-facing API
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Sets up the worker process group and the worker ETS tables for this node.
@@ -314,9 +316,9 @@ terminate(shutdown, _State) ->
 
 to_entity(CastOrCall, MessageTag, EntityID, MessageArgs) ->
 	case ets:lookup(pre_sim_entity_table, EntityID) of
-		{error, Error} ->
-			{error, Error};
-		{ok, Pid} ->
+		[] ->
+			{error, not_found};
+		[Pid] ->
 			gen_server:CastOrCall(Pid, {MessageTag, EntityID, MessageArgs})
 	end.
 
@@ -324,20 +326,8 @@ to_entity(CastOrCall, MessageTag, EntityID, MessageArgs) ->
 
 %% @hidden
 
-find_entity(EntityID) ->
-	case ets:lookup(pre_sim_entity_table, EntityID) of
-		[] ->
-			{error, not_found};
-		[Pid] ->
-			{ok, Pid}
-	end.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @hidden
-
 register_worker(WorkerPid, IncomingUpdatesTable) ->
-	case ets:insert_new(pre_sim_worker_table, {WorkerPid, IncomingUpdatesTable} of
+	case ets:insert_new(pre_sim_worker_table, {WorkerPid, IncomingUpdatesTable}) of
 		true -> true;
 		false ->
 			lager:error("Error inserting worker info for %p! (IncomingUpdatesTable = %p)",
@@ -399,36 +389,39 @@ simulate(Start, State) ->
 %% @hidden
 
 simulate_entities(State) ->
-	#state {
-		entity_table = EntityTable
-	} = State,
+	lager:warn("pre_sim_worker:simulate_entities/1 NOT YET IMPLEMENTED!"),
+	State.
 
-	{NewEntities2, OutgoingUpdates2} = lists:foldl(
-		fun(Entity, {NewEntities1, OutgoingUpdates1}) ->
-			IncomingEntityUpdates = dict:find(Entity#entity.id, Updates),
-
-			% Wrap return_result, passing the new entities and outgoing updates lists.
-			ReturnResult = fun(ControllerFuncResult, Context) ->
-				return_result(ControllerFuncResult, Context, {NewEntities1, OutgoingUpdates1})
-			end,
-
-			% First, apply any incoming updates.
-			Entity1 = case IncomingEntityUpdates of
-				error -> Entity;
-				{ok, []} -> Entity;
-				{ok, EntityUpdates} -> entity_controller:apply_updates(lists:flatten(EntityUpdates), Entity)
-			end,
-
-			% Then, call simulate.
-			entity_controller:call(Entity1, simulate, [Entity1, State])
-		end,
-		{[], []},
-		Entities
-	),
-
-	pre_entity_engine_sup:broadcast_updates(OutgoingUpdates2),
-
-	State#state {
-		entities = NewEntities2,
-		incoming_updates = dict:new()
-	}.
+%	#state {
+%		entity_states = EntityTable
+%	} = State,
+%
+%	{NewEntities2, OutgoingUpdates2} = lists:foldl(
+%		fun(Entity, {NewEntities1, OutgoingUpdates1}) ->
+%			IncomingEntityUpdates = dict:find(Entity#entity.id, Updates),
+%
+%			% Wrap return_result, passing the new entities and outgoing updates lists.
+%			ReturnResult = fun(ControllerFuncResult, Context) ->
+%				return_result(ControllerFuncResult, Context, {NewEntities1, OutgoingUpdates1})
+%			end,
+%
+%			% First, apply any incoming updates.
+%			Entity1 = case IncomingEntityUpdates of
+%				error -> Entity;
+%				{ok, []} -> Entity;
+%				{ok, EntityUpdates} -> entity_controller:apply_updates(lists:flatten(EntityUpdates), Entity)
+%			end,
+%
+%			% Then, call simulate.
+%			entity_controller:call(Entity1, simulate, [Entity1, State])
+%		end,
+%		{[], []},
+%		Entities
+%	),
+%
+%	pre_entity_engine_sup:broadcast_updates(OutgoingUpdates2),
+%
+%	State#state {
+%		entities = NewEntities2,
+%		incoming_updates = dict:new()
+%	}.
