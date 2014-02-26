@@ -312,6 +312,9 @@ process_channel(#envelope{channel = <<"input">>} = Message, State) ->
 process_channel(#envelope{channel = <<"ping">>} = Message, State) ->
 	process_channel(pre_ping_channel, Message, State);
 
+process_channel(#envelope{channel = <<"chat">>} = Message, State) ->
+	process_channel(pre_ping_chat, Message, State);
+
 process_channel(Message, State) ->
 	lager:warning("Got message for unknown channel: ~p", [Message]),
 	State.
