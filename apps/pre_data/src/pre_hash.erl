@@ -6,7 +6,15 @@
 -module(pre_hash).
 
 % API
--export([authenticate/2, check_password/2, create_hash/2]).
+-export([check_password/2, hash/1, hash/2]).
+
+-record(credential, {
+	hash :: string(),
+	iterations :: integer(),
+	prf :: string(),
+	salt :: string()
+}).
+
 
 % Default PBKDF2 values to the ones used by WPA2:
 -define(DEFAULT_PBKDF2_ITERATIONS, 4096).
@@ -16,25 +24,6 @@
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Authenticates an account, given the account name, and password. Account name, in this case, will be the email
-%% address.
--spec authenticate(AccountName :: binary(), Password :: binary()) -> 'ok'.
-authenticate(AccountName, _Password) ->
-	% TODO: actually call into the database
-	Result = pre_account:get_by_email(AccountName),
-	case Result of
-		account_not_found ->
-			account_not_found;
-		{ok, Account} ->
-			check_password()
-	end,
-
-  ok.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-% TODO: refactor so only hashing occurs here, equivalence checking goes in pre_account
 
 %% @doc Check user credential
 check_password(CheckPassword, Credential) ->
@@ -65,11 +54,17 @@ check_password(CheckPassword, Credential) ->
 			false
 	end.
 
-%% @doc Create hash of new password for storage
-create_hash(Password, Credential) ->
+%% @doc Hash passwords for authentication
+hash(Password) ->
+	Credential = new_credential(),
+	HashedPassword = hash(Password, Credential),
+	{HashedPassword, Credential}.
+
+%% @doc Hash passwords for new accounts or authentication
+hash(Password, Credential) ->
 	Salt = crypto:rand_bytes(12),
-	Iterations = proplists:get_value(iterations, Credential, ?DEFAULT_PBKDF2_ITERATIONS),
-	PseudoRandomFunction = proplists:get_value(prf, Credential, ?DEFAULT_PBKDF2_PRF),
+	Iterations = Credential#credential.iterations,
+	PseudoRandomFunction = Credential#credential.prf,
 	DerivedLength = ?DEFAULT_PBKDF2_DERIVED_LENGTH,  %FIXME: Determine this from the PRF!
 	case PseudoRandomFunction of
 		?DEFAULT_PBKDF2_PRF ->
@@ -79,3 +74,14 @@ create_hash(Password, Credential) ->
 			lager:warning("Incompatible PRF ~p (only ~p is supported)", [PseudoRandomFunction, ?DEFAULT_PBKDF2_PRF]),
 			false
 	end.
+
+%% -----------------------------------------------------------------------
+%% Internal
+%% -----------------------------------------------------------------------
+
+%% @hidden
+new_credential() ->
+	#credential{
+		iterations = ?DEFAULT_PBKDF2_ITERATIONS,
+		prf = ?DEFAULT_PBKDF2_PRF
+	}.
