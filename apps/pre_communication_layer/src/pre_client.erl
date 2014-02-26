@@ -326,11 +326,11 @@ process_channel(ChannelModule, Message, State) ->
 
 	case Message#envelope.type of
 		 <<"event">> ->
-			 ChannelModule:handle_event({ ReqType, Message#envelope.id, Contents }, State);
+			 ChannelModule:handle_event(ReqType, Message#envelope.id, Contents, State);
 		 <<"request">> ->
-			 ChannelModule:handle_request({ ReqType, Message#envelope.id, Contents }, State);
+			 ChannelModule:handle_request(ReqType, Message#envelope.id, Contents, State);
 		 <<"response">> ->
-			 ChannelModule:handle_response({ ReqType, Message#envelope.id, Contents }, State);
+			 ChannelModule:handle_response(ReqType, Message#envelope.id, Contents, State);
 		 _ ->
 			 lager:warning("Unknown Message Type: ~p", [Message])
 	end.

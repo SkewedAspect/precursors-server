@@ -3,16 +3,16 @@
 
 -module(pre_entity_channel).
 
--behaviour(pre_channel).
+-behaviour(pre_gen_channel).
 
 -include("pre_client.hrl").
 
 % API
--export([handle_request/2, handle_response/2, handle_event/2]).
+-export([handle_request/4, handle_response/4, handle_event/4]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_request({<<"full">>, ID, Request}, State) ->
+handle_request(<<"full">>, ID, Request, State) ->
 	lager:warning("Full udate requested."),
 	case State#client_state.entity of
 		undefined ->
@@ -33,18 +33,18 @@ handle_request({<<"full">>, ID, Request}, State) ->
 	State;
 
 
-handle_request({Type, ID, Request}, State) ->
+handle_request(Type, ID, Request, State) ->
 	%TODO: Forward to the entity event engine.
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_response({Type, ID, Request}, State) ->
+handle_response(Type, ID, Request, State) ->
 	lager:warning("[Entity] Unknown Response: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_event({Type, ID, Request}, State) ->
+handle_event(Type, ID, Request, State) ->
 	%TODO: Forward to the entity event engine.
 	State.

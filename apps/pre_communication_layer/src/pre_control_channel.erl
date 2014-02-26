@@ -3,16 +3,16 @@
 
 -module(pre_control_channel).
 
--behaviour(pre_channel).
+-behaviour(pre_gen_channel).
 
 -include("pre_client.hrl").
 
 % API
--export([handle_request/2, handle_response/2, handle_event/2]).
+-export([handle_request/4, handle_response/4, handle_event/4]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_request({<<"login">>, ID, Request}, State) ->
+handle_request(<<"login">>, ID, Request, State) ->
 	lager:info("Starting authentication"),
 
 	User = proplists:get_value(user, Request),
@@ -47,7 +47,7 @@ handle_request({<<"login">>, ID, Request}, State) ->
 	};
 
 
-handle_request({<<"getCharacters">>, ID, _Request}, State) ->
+handle_request(<<"getCharacters">>, ID, _Request, State) ->
 	lager:info("Retrieving character list for client ~p.", [self()]),
 	Account = State#client_state.account,
 
@@ -64,7 +64,7 @@ handle_request({<<"getCharacters">>, ID, _Request}, State) ->
 	State;
 
 
-handle_request({<<"selectCharacter">>, ID, Request}, State) ->
+handle_request(<<"selectCharacter">>, ID, Request, State) ->
  	CharId = proplists:get_value(character, Request),
  	lager:info("Character selected: ~p", [CharId]),
 
@@ -97,25 +97,25 @@ handle_request({<<"selectCharacter">>, ID, Request}, State) ->
 	};
 
 
-handle_request({Type, ID, Request}, State) ->
+handle_request(Type, ID, Request, State) ->
 	lager:warning("[Control] Unknown Request: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_response({Type, ID, Request}, State) ->
+handle_response(Type, ID, Request, State) ->
 	lager:warning("[Control] Unknown Response: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_event({<<"logout">>, _ID, _Request}, _State) ->
+handle_event(<<"logout">>, _ID, _Request, _State) ->
 	lager:info("Got logout event from client."),
 
 	%TODO: We should probably let something know about the exit?
 
 	exit(normal);
 
-handle_event({Type, ID, Request}, State) ->
+handle_event(Type, ID, Request, State) ->
 	lager:warning("[Control] Unknown Event: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
