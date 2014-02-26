@@ -22,10 +22,12 @@ start_link(SslProto, Cookie) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Starts a child.
--spec start_child(Args :: list()) -> {'ok', pid()}.
-start_child(Args) ->
-	supervisor:start_child(?MODULE, Args).
+%% @doc Starts a new client connection process.
+-spec start_child(SslProto :: pid()) -> {'ok', pid()}.
+start_child(SslProto) ->
+	Cookie = make_bin_ref(),
+
+	supervisor:start_child(?MODULE, [SslProto, Cookie]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -47,4 +49,8 @@ init(_) ->
 
 	ChildSpec = {undefined, {pre_client, start_link, []}, transient, 5, worker, dynamic},
 	{ok, {{simple_one_for_one, 5, 10}, [ChildSpec]}}.
-% Code Here.
+
+% Make a ref and then wrap it in a bin
+make_bin_ref() ->
+	list_to_binary(io_lib:format("~p", [make_ref()])).
+

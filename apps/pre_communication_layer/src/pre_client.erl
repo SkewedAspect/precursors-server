@@ -9,7 +9,6 @@
 
 % API
 -export([start_link/2,
-	new/1,
 	connect_tcp/2,
 	get_aes / 1,
 	handle_messages/3,
@@ -335,8 +334,4 @@ process_channel(ChannelModule, Message, State) ->
 			 lager:warning("Unknown Message Type: ~p", [Message])
 	end.
 
-
-% Make a ref and then wrap it in a bin
-make_bin_ref() ->
-	list_to_binary(io_lib:format("~p", [make_ref()])).
 
