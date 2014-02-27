@@ -9,6 +9,7 @@
 -behaviour(ranch_protocol).
 
 -include("pre_client.hrl").
+-include_lib("eunit/include/eunit.hrl").
 
 -define(AES_BLOCK_SIZE, 16).
 
@@ -105,8 +106,6 @@ handle_cast(Request, State) ->
 
 %% @hidden Handles incoming SSL data
 handle_info({ssl, _Socket, Data}, State) ->
-	lager:warning("Incoming SSL message: ~p", [Data]),
-
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -119,8 +118,6 @@ handle_info({ssl, _Socket, Data}, State) ->
 
 %% @hidden Handles incoming TCP data
 handle_info({tcp, _Socket, Data}, State) ->
-	lager:warning("Incoming TCP message: ~p", [Data]),
-
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -144,16 +141,16 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 	ok = Transport:setopts(Socket, [{active, once}]),
 
 	State1 = case Socket of
-		         ssl ->
-			         % Spawn a new client pid
-			         pre_client_sup:start_child(self()),
-			         State;
-		         tcp ->
-			         State;
-		         Sock ->
-			         lager:warning("Unknown Socket Type: ~p", [Sock]),
-			         State
-	         end,
+		ssl ->
+			% Spawn a new client pid
+			pre_client_sup:start_child(self()),
+			State;
+		tcp ->
+			State;
+		Sock ->
+			lager:warning("Unknown Socket Type: ~p", [Sock]),
+			State
+	end,
 
 	{noreply, State1};
 
@@ -191,16 +188,27 @@ check_for_cookie([Message | Rest], State) ->
 	State1;
 
 check_for_cookie(Message, State) ->
-	State1 = case Message of
-		#envelope{type = request, channel = <<"control">>, contents = Request} ->
-			Cookie = proplists:get_value(cookie, Request),
-			ClientPid = pre_client:connect_tcp(self(), Cookie),
-			{AESKey, AESVec} = pre_client:get_aes(ClientPid),
-			State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec };
+	Decoded = json_to_envelope(Message),
+	State1 = case Decoded of
+		#envelope{type = request, channel = <<"control">>, contents = Request} when is_list(Request) ->
+			case proplists:get_value(cookie, Request) of
+				undefined ->
+					lager:warning("Non-cookie message received: ~p, ~p, ~p",
+						[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
+					exit(non_cookie_message),
+					State;
+				Cookie ->
+					ClientPid = pre_client:connect_tcp(self(), Cookie),
+					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
+					State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }
+			end;
+
 		_ ->
-			%TODO: Kill the connection.
 			lager:warning("Non-cookie message received: ~p, ~p, ~p",
-				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents])
+				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
+			exit(non_cookie_message),
+			State
+
 	end,
 
 	{false, State1}.
@@ -210,13 +218,11 @@ get_pkcs5_padding(Packet) ->
 	PaddingNeeded = ?AES_BLOCK_SIZE - (PacketLength rem ?AES_BLOCK_SIZE),
 	binary:copy(<<PaddingNeeded/integer>>, PaddingNeeded).
 
-% Decrypt message
+% Encrypt message
 aes_encrypt(Packet, AESKey, AESVector) ->
-	% Decrypt message
 	Padding = get_pkcs5_padding(Packet),
 	Padded = <<Packet/binary, Padding/binary>>,
 	crypto:aes_cbc_128_encrypt(AESKey, AESVector, Padded).
-
 
 % Decrypt message
 aes_decrypt(CipherText, #state{aes_key = AESKey, aes_vector = AESVector}) ->
