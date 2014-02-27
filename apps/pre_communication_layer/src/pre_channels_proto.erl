@@ -65,15 +65,19 @@ init([Ref, Socket, Transport]) ->
 	{ok, {state, Ref, Socket, Transport}, 0}.
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @hidden
 
+%% @hidden
 handle_call(Request, _From, State) ->
 	lager:debug("Unhandled call:  ~p", [Request]),
 	{reply, unknown, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @hidden
 
+%% @hidden
+handle_cast(stop, State) ->
+	{stop, normal, State};
+
+%% @hidden
 handle_cast({send, Envelope}, State) ->
 	% If we have an aes key, we assume we need to aes encrypt the message.
 	Data = case State#state.aes_key of
@@ -92,34 +96,32 @@ handle_cast({send, Envelope}, State) ->
 
 	{noreply, State};
 
-
+%% @hidden
 handle_cast(Request, State) ->
 	lager:debug("Unhandled cast:  ~p", [Request]),
 	{noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% @hidden
 
-% Handles incoming SSL data
+%% @hidden Handles incoming SSL data
 handle_info({ssl, _Socket, Data}, State) ->
 	lager:warning("Incoming SSL message: ~p", [Data]),
 
-	{Messages, Cont} = netstring:decode(data, State#state.netstring_cont),
+	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
 	DecodedMessages = [json_to_envelope(Message) || Message <- Messages],
 
 	% Send the messages to the client connection pid.
-	pre_client:handle_message(State#state.client, ssl, DecodedMessages),
+	pre_client:handle_messages(State#state.client, ssl, DecodedMessages),
 
 	{noreply, State1};
 
-
-% Handles incoming TCP data
+%% @hidden Handles incoming TCP data
 handle_info({tcp, _Socket, Data}, State) ->
 	lager:warning("Incoming TCP message: ~p", [Data]),
 
-	{Messages, Cont} = netstring:decode(data, State#state.netstring_cont),
+	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
 	% Check to see if we have our client yet. If not, we look through the messages for a cookie. (Om nom nom.)
@@ -131,13 +133,12 @@ handle_info({tcp, _Socket, Data}, State) ->
 			DecryptedMessages = [aes_decrypt_envelope(Message, State1) || Message <- Messages],
 
 			% Send the messages to the client connection pid.
-			pre_client:handle_message(State1#state.client, tcp, DecryptedMessages)
+			pre_client:handle_messages(State1#state.client, tcp, DecryptedMessages)
 	end,
 
 	{noreply, State2};
 
-
-% Sets up the ranch protocol.
+%% @hidden Sets up the ranch protocol.
 handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transport}) ->
 	ok = ranch:accept_ack(Ref),
 	ok = Transport:setopts(Socket, [{active, once}]),
@@ -156,7 +157,7 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 
 	{noreply, State1};
 
-
+%% @hidden
 handle_info(Info, State) ->
 	lager:warning("Unhandled message: ~p", [Info]),
 	{noreply, State}.
