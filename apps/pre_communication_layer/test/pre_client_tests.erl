@@ -1,6 +1,5 @@
 -module(pre_client_tests).
 
--ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
 %% simple_start_test() ->
@@ -51,5 +50,3 @@
 %% 			}]
 %% 		end
 %% 	}.
-
--endif.

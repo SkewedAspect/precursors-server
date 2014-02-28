@@ -1,6 +1,5 @@
 -module(pre_channels_proto_tests).
 
--ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 
 -record(state, {
@@ -36,6 +35,11 @@ proto_test_() ->
 	{setup, fun() ->
 		meck:new(fake_transport, [non_strict]),
 		meck:new(pre_client)
+	end,
+
+	% Teardown
+	fun(_) ->
+		meck:unload()
 	end,
 
 	% Test runner
@@ -174,5 +178,3 @@ aes_encrypt(Packet, AESKey, AESVector) ->
 	Padding = get_pkcs5_padding(Packet),
 	Padded = <<Packet/binary, Padding/binary>>,
 	crypto:aes_cbc_128_encrypt(AESKey, AESVector, Padded).
-
--endif.

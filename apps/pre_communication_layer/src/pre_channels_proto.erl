@@ -9,7 +9,6 @@
 -behaviour(ranch_protocol).
 
 -include("pre_client.hrl").
--include_lib("eunit/include/eunit.hrl").
 
 -define(AES_BLOCK_SIZE, 16).
 

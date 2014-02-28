@@ -13,7 +13,7 @@
 %% ---------------------------------------------------------------------------------------------------------------------
 
 handle_request(<<"full">>, ID, Request, State) ->
-	lager:warning("Full udate requested."),
+	lager:warning("Full update requested."),
 	case State#client_state.entity of
 		undefined ->
 			Response = [
