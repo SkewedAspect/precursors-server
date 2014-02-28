@@ -24,6 +24,11 @@ behavior_test_() ->
 			?assert(meck:called(callback, init, [[1,2]], '_'))
 		end},
 
+		{"stored state id's can be retreived by GE pid", fun() ->
+			Got = pre_gen_entity:retrieve_ids_by_manager(GE),
+			?assertEqual([{callback, 1}], Got)
+		end},
+
 		{"handle_event, simple", fun() ->
 			Self = self(),
 			meck:expect(callback, handle_event, fun(some_event, undefined, undefined, data, state) ->

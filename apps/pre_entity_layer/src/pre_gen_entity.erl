@@ -25,11 +25,8 @@
 
 % API
 -export([
-	ensure_mnesia_table/0,
 	add_entity/4,
 	add_sup_entity/4,
-	recover_entity/3,
-	recover_sup_entity/3,
 	retrieve_ids_by_manager/1,
 	notify/5,
 	notify_after/5,
@@ -59,24 +56,6 @@
 %% External API
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Ensures that the mnesia table exists. When put into a supervisor
-%% tree, the supervisor should call this function before any gen_event
-%% managers have pre_gen_enities added to them.
--spec ensure_mnesia_table() -> 'ok' | any().
-
-ensure_mnesia_table() ->
-	CreateArgs = [
-		{local_content, true},
-		{attributes, record_info(fields, ?MODULE)}
-	],
-	case mnesia:create_table(?MODULE, CreateArgs) of
-		{atomic, ok} -> ok;
-		{aborted, {already_exists, ?MODULE}} -> ok;
-		{aborted, Else} -> Else
-	end.
-
-%% ---------------------------------------------------------------------------------------------------------------------
-
 %% @doc Adds a pre_gen_entity to the given gen_event_manager `GenEventPid'.
 -spec add_entity(GenEventPid :: event_mgr_ref(), EntityId :: any(), CallbackMod :: atom(), Args :: [any()]) -> 'ok'.
 
@@ -99,54 +78,14 @@ add_sup_entity(GenEventPid, EntityId, CallbackMod, Args) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc If a given entity is persistend, attempt to recover it and
-%% continue on under the contorl of the give gen_event manager
-%% `GenEventRef'. Attempts to recover the same entity to multiple gen_event
-%% managers are undefiend.
--spec recover_entity(GenEventRef :: event_mgr_ref(), EntityId :: any(), CallbackMod :: atom()) -> ok | {error, not_found}.
-
-recover_entity(GenEventRef, EntityId, CallbackMod) ->
-	recover_entity(GenEventRef, EntityId, CallbackMod, undefined).
-
-%% ---------------------------------------------------------------------------------------------------------------------
-
-%% @doc If a given entity is persistend, attempt to recover it and
-%% continue on under the contorl of the give gen_event manager
-%% `GenEventRef' supervised by the given process `SupPid'. This is a
-%% combination of {@link recover_entity/3} and {@link add_sup_entity/4}.
-%% Attempts to recover the same entity to multiple gen_event
-%% managers are undefiend.
-%% @see add_sup_entity/4
-%% @see recover_entity/3
--spec recover_entity(GenEventRef :: event_mgr_ref(), EntityId :: any(), CallbackMod :: atom(), SupPid :: pid()) -> ok | {error, not_found}.
-
-recover_entity(GenEventRef, EntityId, CallbackMod, SupPid) ->
-  case mnesia:dirty_read(?MODULE, {CallbackMod, EntityId}) of
-    [State] ->
-      gen_event:add_handler(GenEventRef, {?MODULE, {CallbackMod, EntityId}}, {recover, SupPid, State});
-    [] ->
-      {error, not_found}
-  end.
-
-%% ---------------------------------------------------------------------------------------------------------------------
-
-%% @doc Recover an entity supervisored by the calling process.
-%% @see recover_entitiy/4
--spec recover_sup_entity(GenEventRef :: event_mgr_ref(), EntityId :: any(), CallbackMod :: atom()) -> ok.
-
-recover_sup_entity(GenEventRef, EntityId, CallbackMod) ->
-	recover_entity(GenEventRef, EntityId, CallbackMod, self()).
-
-%% ---------------------------------------------------------------------------------------------------------------------
-
 %% @doc Return the list of entity id's the given event_event manager
 %% `GenEventPid' is running. The Id in this case is a tuple of the callback
 %% module and the id passed into the recover or add functions.
 -spec retrieve_ids_by_manager(GenEventPid :: event_mgr_ref()) -> [{atom(), any()}].
 
 retrieve_ids_by_manager(GenEventPid) ->
-	Recs = mnesia:dirty_match_object(#?MODULE{gen_event = GenEventPid}),
-	[Id || #?MODULE{id = Id} <- Recs].
+	Ids = gen_event:which_handlers(GenEventPid),
+	[Id || {?MODULE, Id} <- Ids].
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -199,16 +138,9 @@ cancel_notify({Msg, Tref}) ->
 %% ---------------------------------------------------------------------------------------------------------------------
 
 %% @private
-init({recover, SupPid, StoredRec}) ->
-	#?MODULE{id = {Module, EntityId}, state = SubState} = StoredRec,
-	State = #state{sup = SupPid, module = Module, id = EntityId, state = SubState},
-	backend_store({Module, EntityId}, SubState),
-	{ok, State};
-
 init({EntityId, SupPid, Module, Args}) ->
 	case Module:init(Args) of
 		{ok, SubState} ->
-			backend_store({Module, EntityId}, SubState),
 			State = #state{sup = SupPid, module = Module, id = EntityId, state = SubState},
 			{ok, State};
 		Else ->
@@ -219,14 +151,7 @@ init({EntityId, SupPid, Module, Args}) ->
 
 %% @private
 handle_event({'$pre_gen_entity_event', EventName, FromId, ToId, Data}, State) ->
-	#state{module = Module, state = SubState} = State,
-	case Module:handle_event(EventName, FromId, ToId, Data, SubState) of
-		{ok, NewSubState} ->
-			backend_store({Module, State#state.id}, NewSubState),
-			{ok, State#state{state = NewSubState}};
-		remove_entity ->
-			remove_handler
-	end;
+	callback_event(EventName, FromId, ToId, Data, State);
 
 handle_event(Event, State) ->
 	lager:info("Some unhandled event: ~p", [Event]),
@@ -235,20 +160,13 @@ handle_event(Event, State) ->
 %% ---------------------------------------------------------------------------------------------------------------------
 
 %% @private
-handle_call(_,State) -> {ok, {error, invalide}, State}.
+handle_call(_,State) -> {ok, {error, invalid}, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
 %% @private
 handle_info({'$pre_gen_entity_timer', EventName, FromId, ToId, Data},State) ->
-	#state{module = Module, state = SubState} = State,
-	case Module:handle_event(EventName, FromId, ToId, Data, SubState) of
-		{ok, NewSubState} ->
-			backend_store({Module, State#state.id}, NewSubState),
-			{ok, State#state{state = NewSubState}};
-		remove_entity ->
-			remove_handler
-	end;
+	callback_event(EventName, FromId, ToId, Data, State);
 
 handle_info(_, State) ->
 	{ok, State}.
@@ -259,7 +177,6 @@ handle_info(_, State) ->
 terminate(remove_handler, State) ->
 	#state{module = Module, id = Id, state = SubState} = State,
 	_ = Module:removed(remove_entity, SubState),
-	ok = mnesia:dirty_delete(?MODULE, {Module, Id}),
 	case State#state.sup of
 		undefined ->
 			ok;
@@ -269,14 +186,7 @@ terminate(remove_handler, State) ->
 
 terminate(stop, State) ->
 	#state{module = Module, state = SubState} = State,
-	case Module:stopping(SubState) of
-		{persist, NewSubState} ->
-			backend_store({Module, State#state.id}, NewSubState);
-		persist ->
-			ok;
-		_ ->
-			mnesia:dirty_delete(?MODULE, {Module, State#state.id})
-	end;
+	_ = Module:stopping(SubState);
 
 terminate(_Why, _State) ->
 	ok.
@@ -290,7 +200,12 @@ code_change(_,_,State) -> {ok, State}.
 %% Internal
 %% ---------------------------------------------------------------------------------------------------------------------
 
-backend_store(Key, Val) ->
-	Rec = #?MODULE{ id = Key, state = Val, gen_event = self()},
-	mnesia:dirty_write(Rec).
+callback_event(EventName, FromId, ToId, Data, State) ->
+	#state{module = Module, state = SubState} = State,
+	case Module:handle_event(EventName, FromId, ToId, Data, SubState) of
+		{ok, NewSubState} ->
+			{ok, State#state{state = NewSubState}};
+		remove_entity ->
+			remove_handler
+	end.
 
