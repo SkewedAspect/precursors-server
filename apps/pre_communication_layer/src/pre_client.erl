@@ -62,7 +62,7 @@ connect_tcp(TcpProto, Cookie) ->
 			Pid;
 		_ ->
 			lager:error("Failed to look up TCP cookie, disconnecting client."),
-			exit("Failed to lookup TCP cookie.")
+			exit(tcp_cookie_error)
 	end,
 	gen_server:cast(ClientPid, {tcp_connect, TcpProto}),
 
@@ -237,7 +237,7 @@ handle_cast({tcp, #envelope{channel = <<"control">>} = Message}, State) ->
 	lager:error("Control message received over TCP! Someone's doing something bad! Message: ~p", [Message]),
 
 	% Drop the client! It's either trying to do something bad, or there's a bug in it's code. Either way, die in a fire.
-	exit("Control message received over TCP."),
+	exit(control_msg_over_tcp),
 	{noreply, State};
 
 
@@ -257,7 +257,7 @@ handle_info(check_tcp, State) ->
 	case State#client_state.tcp_proto of
 		undefined ->
 			%TODO: Inform the client, somehow, of the reason.
-			exit("TCP failed to connect after 30 seconds.");
+			exit(tcp_timeout);
 		_ ->
 			ok
 	end,
