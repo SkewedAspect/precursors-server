@@ -49,15 +49,23 @@ handle_request(<<"login">>, ID, Request, State) ->
 
 handle_request(<<"getCharacters">>, ID, _Request, State) ->
 	lager:info("Retrieving character list for client ~p.", [self()]),
-	Account = State#client_state.account,
 
-	%TODO: Get list of characters!
-	Characters = [],
+	GetCharsRep = case State#client_state.account of
+		undefined ->
+			[
+				{confirm, false},
+				{reason, "Not logged in."}
+			];
+		Account ->
+			%TODO: Get list of characters!
+			Characters = [],
 
- 	GetCharsRep = [
- 		{confirm, true},
- 		{characters, Characters}
- 	],
+			% Response object
+			[
+				{confirm, true},
+				{characters, Characters}
+			]
+	end,
 
 	% Send the response
 	pre_client:send_response(self(), <<"control">>, ssl, ID, GetCharsRep),
@@ -68,25 +76,34 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
  	CharId = proplists:get_value(character, Request),
  	lager:info("Character selected: ~p", [CharId]),
 
-	%TODO: Look up the Character!
-	Character = {character, {}},
+	CharSelRep = case State#client_state.account of
+		 undefined ->
+			 [
+				 {confirm, false},
+				 {reason, "Not logged in."}
+			 ];
+		 Account ->
+			 %TODO: Look up the Character!
+			 Character = {character, {}},
 
-	%TODO: Look up the correct level the character is located in. (For now, there's only one level.)
- 	LevelUrl = <<"zones/test/TestArea.json">>,
- 	LoadLevel = [
- 		{type, <<"setZone">>},
- 		{level, LevelUrl}
- 	],
+			 %TODO: Look up the correct level the character is located in. (For now, there's only one level.)
+			 LevelUrl = <<"zones/test/TestArea.json">>,
+			 LoadLevel = [
+				 {type, <<"setZone">>},
+				 {level, LevelUrl}
+			 ],
 
-	% Tell the client to load the appropriate level.
-	pre_client:send_event(self(), <<"level">>, LoadLevel),
+			 % Tell the client to load the appropriate level.
+			 pre_client:send_event(self(), <<"level">>, LoadLevel),
 
-	%TODO: Look up the entity from cold storage, and load that into the entity event engine.
-	Entity = {entity, {}},
+			 %TODO: Look up the entity from cold storage, and load that into the entity event engine.
+			 Entity = {entity, {}},
 
- 	CharSelRep = [
- 		{confirm, true}
- 	],
+			 % Response object
+			 [
+				 {confirm, true}
+			 ]
+		end,
 
 	% Send the response.
 	pre_client:send_response(self(), <<"control">>, ssl, ID, CharSelRep),
