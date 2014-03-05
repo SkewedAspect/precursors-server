@@ -5,6 +5,8 @@
 -define(t(Thing), pre_data:transaction(fun() -> Thing end)).
 
 simple_start_test() ->
+	error_logger:tty(false),
+
 	Got = pre_data:start_link(fake_callback),
 	?assertMatch({ok, _}, Got),
 	{ok, Pid} = Got,
@@ -32,7 +34,6 @@ data_access_test_() ->
 		end
 	end,
 	fun(_) ->
-	
 		meck:expect(data_callback, transaction, fun(TransactionFun) ->
 			TransactionFun()
 		end),
