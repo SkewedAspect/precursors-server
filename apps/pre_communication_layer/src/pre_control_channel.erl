@@ -76,12 +76,12 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
  	CharId = proplists:get_value(character, Request),
  	lager:info("Character selected: ~p", [CharId]),
 
-	CharSelRep = case State#client_state.account of
+	{SelectedChar, CharSelResp} = case State#client_state.account of
 		 undefined ->
-			 [
+			 {undefined, [
 				 {confirm, false},
 				 {reason, "Not logged in."}
-			 ];
+			 ]};
 		 Account ->
 			 %TODO: Look up the Character!
 			 Character = {character, {}},
@@ -96,20 +96,20 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
 			 % Tell the client to load the appropriate level.
 			 pre_client:send_event(self(), <<"level">>, LoadLevel),
 
-			 %TODO: Look up the entity from cold storage, and load that into the entity event engine.
-			 Entity = {entity, {}},
-
 			 % Response object
-			 [
+			 {Character, [
 				 {confirm, true}
-			 ]
+			 ]}
 		end,
 
 	% Send the response.
-	pre_client:send_response(self(), <<"control">>, ssl, ID, CharSelRep),
+	pre_client:send_response(self(), <<"control">>, ssl, ID, CharSelResp),
+
+	%TODO: Look up the entity from cold storage, and load that into the entity event engine.
+	Entity = {entity, {}},
 
 	State#client_state{
-		character = Character,
+		character = SelectedChar,
 		entity = Entity
 	};
 
