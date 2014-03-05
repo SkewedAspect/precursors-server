@@ -3,259 +3,130 @@
 
 -module(entity_base).
 
--include_lib("pre_entity_layer/include/pre_entity.hrl").
-
 -behaviour(entity_controller).
 
-% pre_entity
--export([init/1, simulate/2, get_client_controller/0, get_full_state/1, client_request/5, client_event/4,
-	entity_event/3, apply_update/3]).
+% API
+-export([diff_state/2]).
 
-% helpers
--export([gen_full_state/3, gen_full_state/2, gen_full_state/1, diff_state/2, calc_update/2, calc_update/3]).
+% entity_controller
+-export([init/3, simulate/2, get_full_state/2, client_request/6, client_event/5, entity_event/4, apply_update/4]).
 
 -record(state, {
-	h :: any(),
-	model_def :: list()
+	model_def :: list(),
+
+	id :: term(),
+	controller :: module()
 }).
 
--define(STEP_SIZE, 50).
-
 %% --------------------------------------------------------------------------------------------------------------------
-%% API
+%% entity_controller
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(Entity) ->
-	Entity#entity{
-		state = dict:new()
+init(EntityID, Controller, InitData) ->
+	#state{
+		model_def = proplists:get_value(model_def, InitData),
+
+		id = EntityID,
+		controller = Controller
 	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-simulate(Entity, _EntityEngineState) ->
-	{undefined, Entity}.
+simulate(_Controller, State) ->
+	{[], State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-get_client_controller() ->
-	<<"Base">>.
+get_full_state(_Controller, State) ->
+	ModelDef = State#state.model_def,
 
-%% --------------------------------------------------------------------------------------------------------------------
-
-get_full_state(Entity) ->
-	ModelDef = dict:fetch(modelDef, Entity#entity.state),
-	Controller = Entity#entity.controller,
-
-	[
-		{controller, Controller:get_client_controller()},
+	{<<"Base">>, [
 		{base, [{modelDef, ModelDef}]}
-	].
+	]}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_request(Entity, entity, <<"full">>, _RequestID, _Request) ->
-	Controller = Entity#entity.controller,
+client_request(entity, <<"full">>, _RequestID, _Request, Controller, State) ->
 	StateUpdate = [
 		{confirm, true}
-		| Controller:get_full_state(Entity)
+		| Controller:get_full_state(State)
 	],
 
-	Response = pre_channel_entity:build_state_event(undefined, StateUpdate, Entity#entity.id),
-	{Response, undefined, Entity};
+	Response = pre_channel_entity:build_state_event(undefined, StateUpdate, State#state.id),
+	{Response, [], State};
 
-client_request(Entity, Channel, RequestType, _RequestID, Request) ->
+client_request(Channel, RequestType, _RequestID, Request, Controller, State) ->
 	lager:debug("~p received unhandled request ~p on channel ~p! (full request: ~p)",
-		[Entity#entity.id, RequestType, Channel, Request]),
+		[State#state.id, RequestType, Channel, Request]),
 
 	% Respond humorously.
-	ControllerBin = atom_to_binary(Entity#entity.controller, latin1),
+	ControllerBin = atom_to_binary(Controller, latin1),
 	Response = [
 		{confirm, false},
 		{reason, <<ControllerBin/binary, " entity does not acknowledge your pathetic requests.">>}
 	],
 
-	{Response, undefined, Entity}.
+	{Response, [], State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_event(Entity, Channel, EventType, Event) ->
+client_event(Channel, EventType, Event, _Controller, State) ->
 	lager:debug("~p received unhandled event ~p on channel ~p! (full event: ~p)",
-		[Entity#entity.id, EventType, Channel, Event]),
+		[State#state.id, EventType, Channel, Event]),
 
-	{undefined, Entity}.
+	{[], State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-entity_event(Event, From, Entity) ->
+entity_event(Event, From, _Controller, State) ->
 	lager:debug("~p received unhandled entity event from ~p! (full event: ~p)",
-		[Entity#entity.id, From, Event]),
+		[State#state.id, From, Event]),
 
-	{undefined, Entity}.
+	{[], State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-apply_update(base, [{modelDef, Value} | Rest], Entity) ->
-	Entity1 = Entity#entity {
-		state = dict:store(modelDef, Value, Entity#entity.state)
+apply_update(base, [], _Controller, State) ->
+	{[], State};
+
+apply_update(base, [{modelDef, NewValue} | Rest], Controller, State) ->
+	State1 = State#state {
+		model_def = NewValue
 	},
-	apply_update(base, Rest, Entity1);
+	apply_update(base, Rest, Controller, State1);
 
-apply_update(base, [], Entity) ->
-	{undefined, Entity};
+apply_update(base, [{SubKey, NewValue} | Rest], Controller, State) ->
+	lager:warning("Ignoring unrecognized update for subkey ~p of base! (value: ~p)", [SubKey, NewValue]),
+	apply_update(base, Rest, Controller, State);
 
-apply_update(Key, Value, Entity) ->
-	lager:warning("Ignoring unrecognized update key ~p! (value: ~p)", [Key, Value]),
-	{undefined, Entity}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-%% Helpers
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Returns a json term representing the full state of the entity.
-%%
-%% Allows you to pass in a transformation function and initial accumulator state for the generation. The transformation
-%% function is expected to take a value, and return the new value.
-
--spec gen_full_state(TransformFun :: fun(), InitialAcc :: list(), State :: dict()) ->
-	[{Key :: binary(), Value::term()}].
-
-gen_full_state(TransformFun, InitialAcc, State) ->
-	dict:fold(
-		fun(Key, Value, AccIn) ->
-			NewVal = TransformFun(Value),
-			[{Key, NewVal} | AccIn]
-		end,
-		InitialAcc, State
-	).
-
-
-%% @doc Returns a json term representing the full state of the entity.
-%%
-%% Allows you to pass in a transformation function _or_ initial accumulator state for the generation. If the
-%% transformation function it omitted, it simply assumes value requires no transformation.
-
--spec gen_full_state(TransformFun | InitialAcc, State :: dict()) ->
-	[{Key :: binary(), Value::term()}] when
-	TransformFun :: fun(),
-	InitialAcc :: list().
-
-
-gen_full_state(TransformFun, State) when is_function(TransformFun) ->
-	dict:fold(
-		fun(Key, Value, AccIn) ->
-			NewVal = TransformFun(Value),
-			[{Key, NewVal} | AccIn]
-		end,
-		[], State
-	);
-
-gen_full_state(InitialAcc, State) when is_list(InitialAcc) ->
-	dict:fold(
-		fun(Key, Value, AccIn) ->
-			[{Key, Value} | AccIn]
-		end,
-		InitialAcc, State
-	).
-
-
-%% @doc Returns a json term representing the full state of the entity.
-%%
-%% Assumes value requires no transformation, and simply returns the json.
-
--spec gen_full_state(State :: dict()) ->
-	[{Key :: binary(), Value::term()}].
-
-
-gen_full_state(State) ->
-	dict:fold(
-		fun(Key, Value, AccIn) ->
-			[{Key, Value} | AccIn]
-		end,
-		[], State
-	).
+apply_update(Key, SubKeys, _Controller, State) ->
+	lager:warning("Ignoring unrecognized update key ~p! (subkeys: ~p)", [Key, SubKeys]),
+	{[], State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
+%% API
+%% --------------------------------------------------------------------------------------------------------------------
 
-%% @doc Returns the difference of two state dictionaries.
+%% @doc Returns the difference of two state proplists.
 %%
-%% Assumes that both states are dictionaries, returns a list of tuples of Key, Value.
+%% Assumes that both states are proplists; returns a filtered version of the new state, only containing items that have
+%% changed.
 
--spec diff_state(OldState :: dict(), NewState :: dict()) ->
-	[{Key :: binary(), Value::term()}].
+-spec diff_state(OldState, NewState) -> Update when
+	OldState :: StateMessage,
+	NewState :: StateMessage,
+	Update :: StateMessage,
+	StateMessage :: [{Key, Value}],
+	Key :: atom(),
+	Value :: term().
 
 diff_state(OldState, NewState) ->
-	dict:fold(fun(Key, NewSubState, AccIn) ->
-		OldSubState = dict:fetch(Key, OldState),
-
-		% Some states (like physical) need to be handled differently, because we store thier state in something other
-		% than a dict. This probably could be pulled out into a function that took the fun to call, and the states,
-		% but for now this will work fine.
-		Value = case Key of
-			physical ->
-				pre_physics_rk4:diff_to_proplist(OldSubState, NewSubState);
-			_ ->
-				diff_sub_state(OldSubState, NewSubState)
+	lists:filter(
+		fun({Key, NewVal}) ->
+			case proplists:get_value(Key, OldState) of
+				NewVal -> false;
+				_ -> true
+			end
 		end,
-		case Value of
-			[] ->
-				AccIn;
-			StateDiff ->
-				[{Key, StateDiff} | AccIn]
-		end
-	end, [], NewState).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Returns the difference of two single level state dictionaries.
-%%
-%% Assumes that both states are dictionaries or proplists, returns a list of tuples of Key, Value for ever Key/Value
-%% pair that is different in NewState from OldState.
-
--spec diff_sub_state(OldState :: dict() | list(), NewState :: dict() | list()) ->
-	[{Key :: binary(), Value::term()}].
-
-diff_sub_state(OldState, [{_, _} | _] = NewState) ->
-	lists:filter(fun({Key, NewValue}) ->
-		OldValue = proplists:get_value(Key, OldState),
-		OldValue =/= NewValue
-	end, NewState);
-
-diff_sub_state(OldState, NewState) ->
-	dict:fold(fun(Key, NewValue, AccIn) ->
-		OldValue = dict:fetch(Key, OldState),
-		case NewValue == OldValue of
-			false ->
-				[{Key, NewValue} | AccIn];
-			_ ->
-				AccIn
-		end
-	end, [], NewState).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-%% @doc Calculates the update record, and returns an appropriate update tuple.
-%%
-%% This assumes that Entity has not been updated already, therefore, it performs the update, and then calculates the diff
-%% between the states, and returns a properly formated return tuple.
-
-calc_update(NewState, Entity) ->
-	calc_update(NewState, Entity, []).
-
-calc_update(NewState, Entity, []) ->
-	OldState = Entity#entity.state,
-	NewEntity = Entity#entity{
-		state = NewState
-	},
-	case diff_state(OldState, NewState) of
-		[] ->
-			{undefined, NewEntity};
-		Update ->
-			{Update, NewEntity}
-	end;
-
-calc_update(NewState, Entity, OtherUpdate) ->
-	OldState = Entity#entity.state,
-	NewEntity = Entity#entity{
-		state = NewState
-	},
-	{OtherUpdate ++ diff_state(OldState, NewState), NewEntity}.
+		NewState
+	).
