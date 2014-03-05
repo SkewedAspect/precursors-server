@@ -23,7 +23,7 @@ data_access_test_() ->
 		Pid
 	end,
 	fun(Pid) ->
-		meck:unload(data_callback),
+		catch meck:unload(data_callback),
 		pre_data:stop(),
 		Mon = erlang:monitor(process, Pid),
 		receive
@@ -143,6 +143,38 @@ data_access_test_() ->
 			end,
 			Got = pre_data:transaction(TransactFun),
 			?assertMatch({error, {{badmatch, 2}, _}}, Got)
+		end},
+
+		{"data export", fun() ->
+			DataList = [
+				{goober, 1, <<"goober 1">>},
+				{goober, 2, <<"goober 2">>}
+			],
+			FileName = "./",
+			meck:expect(data_callback, search, fun(goober, []) ->
+				DataList
+			end),
+			Got = pre_data:export(FileName, [goober]),
+			?assertEqual(ok, Got),
+			Got2 = file:consult(FileName ++ "goober.hrl"),
+			?assertEqual({ok, DataList}, Got2)
+		end},
+
+		{"data import", fun() ->
+			meck:unload(data_callback),
+			meck:new(data_callback, [non_strict]),
+			DataList = [
+				{goober, 1, <<"goober 1">>},
+				{goober, 2, <<"goober 2">>}
+			],
+			FileName = "./goobe*.hrl",
+			meck:expect(data_callback, transaction, fun(TFun) ->
+				TFun()
+			end),
+			meck:sequence(data_callback, save, 1, DataList),
+			Got = pre_data:import(FileName),
+			?assertEqual(ok, Got),
+			?assert(meck:validate(data_callback))
 		end}
 
 	] end}.

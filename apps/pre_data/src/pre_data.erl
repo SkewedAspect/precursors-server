@@ -34,6 +34,7 @@
 -export([start_link/1, stop/0]).
 -export([get_by_id/2, search/2, save/1, delete/1, delete/2]).
 -export([transaction/1]).
+-export([export/2, import/1]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
@@ -101,6 +102,35 @@ search(Record, Params) ->
 -spec transaction(TransFun :: fun()) -> any().
 transaction(Fun) ->
     gen_server:call(?MODULE, {api, transaction, [Fun]}, infinity).
+
+%% @doc Query the running system for all data and place it in a file on
+%% the given directory. Each type of record handled by this system is
+%% put into a file with ".hrl" appeneded to the record name.
+-spec export(Dir :: filelib:dirname(), RecordTypes :: [atom()]) -> 'ok'.
+export(Dir, Types) ->
+	true = filelib:is_dir(Dir),
+	lists:foreach(fun(Type) ->
+		Recs = pre_data:transaction(fun() ->
+			search(Type, [])
+		end),
+		{ok, File} = file:open(filename:join(Dir, Type) ++ ".hrl", [write]),
+		lists:foreach(fun(Rec) ->
+			io:format(File, "~p.~n", [Rec])
+		end, Recs)
+	end, Types).
+
+%% @doc Import data stored in the file glob.
+-spec import(Wildcard :: filelib:filename() | filelib:dirname()) -> 'ok'.
+import(Wildcard) ->
+	Files = filelib:wildcard(Wildcard),
+	lists:foreach(fun(File) ->
+		{ok, Terms} = file:consult(File),
+		pre_data:transaction(fun() ->
+			lists:foreach(fun(Term) ->
+				pre_data:save(Term)
+			end, Terms)
+		end)
+	end, Files).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
