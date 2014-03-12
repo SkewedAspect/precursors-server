@@ -6,10 +6,10 @@
 
 -record(pre_rec_account, {
 	id :: any(), %auto generated id
-	email :: string(), % der email, secondary index
-	real_name :: string(), % optional
-	nickname :: string(), % unique constraint
-	password :: string(), % hash of the password
+	email :: binary(), % der email, secondary index
+	real_name :: binary(), % optional
+	nickname :: binary(), % unique constraint
+	password :: binary(), % hash of the password
 	hash_data :: any(), % the hash algorthm used and any args needed.
 	created,
 	updated
