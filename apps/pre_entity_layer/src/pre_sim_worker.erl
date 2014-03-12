@@ -53,11 +53,12 @@
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec add_entity(WorkerPid, EntityID, EntityController, EntityState) -> 'ok' when
+-spec add_entity(WorkerPid, EntityID, EntityController, EntityState) -> Reply when
 	WorkerPid :: pid(),
 	EntityID :: integer(),
 	EntityController :: atom(),
-	EntityState :: term().
+	EntityState :: term(),
+	Reply :: 'ok' | {'error', term()}.
 
 add_entity(WorkerPid, EntityID, EntityController, EntityState) ->
 	case gen_server:call(WorkerPid, {add_entity, EntityID, {EntityController, EntityState}}) of
@@ -77,91 +78,102 @@ add_entity(WorkerPid, EntityID, EntityController, EntityState) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec remove_entity(EntityID) -> 'ok' when
-	EntityID :: integer().
+-spec remove_entity(EntityID) -> Reply when
+	EntityID :: integer(),
+	Reply :: 'ok' | {'error', term()}.
 
 remove_entity(EntityID) ->
-	to_entity(cast, remove_entity, EntityID, undefined).
+	cast_to_entity(remove_entity, EntityID, undefined).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec get_entity_state(EntityID) -> {'ok', term()} when
-	EntityID :: integer().
+-spec get_entity_state(EntityID) -> Reply when
+	EntityID :: integer(),
+	Reply :: {'ok', EntityState} | {'error', term()},
+	EntityState :: term().
 
 get_entity_state(EntityID) ->
-	to_entity(call, get_entity_state, EntityID, undefined).
+	call_to_entity(get_entity_state, EntityID, undefined).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec update_position(EntityID, Value) -> 'ok' when
+-spec update_position(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: vector:vec().
+	Value :: vector:vec(),
+	Reply :: 'ok' | {'error', term()}.
 
 update_position(EntityID, Value) ->
-	to_entity(cast, update_position, EntityID, Value).
+	cast_to_entity(update_position, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec update_linear_momentum(EntityID, Value) -> 'ok' when
+-spec update_linear_momentum(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: vector:vec().
+	Value :: vector:vec(),
+	Reply :: 'ok' | {'error', term()}.
 
 update_linear_momentum(EntityID, Value) ->
-	to_entity(cast, update_linear_momentum, EntityID, Value).
+	cast_to_entity(update_linear_momentum, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec update_orientation(EntityID, Value) -> 'ok' when
+-spec update_orientation(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: quaternion:quat().
+	Value :: quaternion:quat(),
+	Reply :: 'ok' | {'error', term()}.
 
 update_orientation(EntityID, Value) ->
-	to_entity(cast, update_orientation, EntityID, Value).
+	cast_to_entity(update_orientation, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec update_angular_momentum(EntityID, Value) -> 'ok' when
+-spec update_angular_momentum(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: vector:vec().
+	Value :: vector:vec(),
+	Reply :: 'ok' | {'error', term()}.
 
 update_angular_momentum(EntityID, Value) ->
-	to_entity(cast, update_angular_momentum, EntityID, Value).
+	cast_to_entity(update_angular_momentum, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec apply_force_absolute(EntityID, Value) -> 'ok' when
+-spec apply_force_absolute(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: vector:vec().
+	Value :: vector:vec(),
+	Reply :: 'ok' | {'error', term()}.
 
 apply_force_absolute(EntityID, Value) ->
-	to_entity(cast, apply_force_absolute, EntityID, Value).
+	cast_to_entity(apply_force_absolute, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec apply_force_relative(EntityID, Value) -> 'ok' when
+-spec apply_force_relative(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: vector:vec().
+	Value :: vector:vec(),
+	Reply :: 'ok' | {'error', term()}.
 
 apply_force_relative(EntityID, Value) ->
-	to_entity(cast, apply_force_relative, EntityID, Value).
+	cast_to_entity(apply_force_relative, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec apply_torque_absolute(EntityID, Value) -> 'ok' when
+-spec apply_torque_absolute(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: vector:vec().
+	Value :: vector:vec(),
+	Reply :: 'ok' | {'error', term()}.
 
 apply_torque_absolute(EntityID, Value) ->
-	to_entity(cast, apply_torque_absolute, EntityID, Value).
+	cast_to_entity(apply_torque_absolute, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec apply_torque_relative(EntityID, Value) -> 'ok' when
+-spec apply_torque_relative(EntityID, Value) -> Reply when
 	EntityID :: integer(),
-	Value :: vector:vec().
+	Value :: vector:vec(),
+	Reply :: 'ok' | {'error', term()}.
 
 apply_torque_relative(EntityID, Value) ->
-	to_entity(cast, apply_torque_relative, EntityID, Value).
+	cast_to_entity(apply_torque_relative, EntityID, Value).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% supervisor-facing API
@@ -231,10 +243,16 @@ init([]) ->
 
 %% @private
 
+handle_call({add_entity, EntityID, {_EntityController, _EntityState} = Entity}, _From, State) ->
+	State1 = State#state{
+		entity_states = [{EntityID, Entity} || State#state.entity_states]
+	},
+    {reply, ok, State1};
+
 handle_call({get_entity_state, EntityID, _}, _From, State) ->
 	Reply = case proplists:get_value(EntityID, State#state.entity_states) of
 		undefined ->
-			{error, not_found, EntityID};
+			{error, not_found};
 		{_EntityController, EntityState} ->
 			{ok, EntityState}
 	end,
@@ -247,12 +265,6 @@ handle_call(Request, _From, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @private
-
-handle_cast({add_entity, EntityID, {_EntityController, _EntityState} = Entity}, State) ->
-	State1 = State#state{
-		entity_states = [{EntityID, Entity} || State#state.entity_states]
-	},
-    {noreply, State1};
 
 handle_cast({remove_entity, EntityID, _}, State) ->
 	ets:insert(State#state.incoming_updates_table, {EntityID, remove}),
@@ -330,12 +342,24 @@ terminate(shutdown, _State) ->
 
 %% @hidden
 
-to_entity(CastOrCall, MessageTag, EntityID, MessageArgs) ->
+cast_to_entity(MessageTag, EntityID, MessageArgs) ->
 	case ets:lookup(pre_sim_entity_table, EntityID) of
 		[] ->
 			{error, not_found};
 		[{_EntityID, WorkerPid, _WorkerUpdatesTable}] ->
-			gen_server:CastOrCall(WorkerPid, {MessageTag, EntityID, MessageArgs})
+			gen_server:cast(WorkerPid, {MessageTag, EntityID, MessageArgs})
+	end.
+
+%% --------------------------------------------------------------------------------------------------------------------
+
+%% @hidden
+
+call_to_entity(MessageTag, EntityID, MessageArgs) ->
+	case ets:lookup(pre_sim_entity_table, EntityID) of
+		[] ->
+			{error, not_found};
+		[{_EntityID, WorkerPid, _WorkerUpdatesTable}] ->
+			gen_server:call(WorkerPid, {MessageTag, EntityID, MessageArgs})
 	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
