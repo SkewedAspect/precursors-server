@@ -19,7 +19,7 @@
 
 % API
 -export([
-	add_entity/3,
+	add_entity/4,
 	remove_entity/1,
 	get_entity_state/1,
 	update_position/2,
@@ -53,13 +53,27 @@
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
--spec add_entity(EntityID, EntityController, EntityState) -> 'ok' when
+-spec add_entity(WorkerPid, EntityID, EntityController, EntityState) -> 'ok' when
+	WorkerPid :: pid(),
 	EntityID :: integer(),
 	EntityController :: atom(),
 	EntityState :: term().
 
-add_entity(EntityID, EntityController, EntityState) ->
-	to_entity(cast, add_entity, EntityID, {EntityController, EntityState}).
+add_entity(WorkerPid, EntityID, EntityController, EntityState) ->
+	case gen_server:call(WorkerPid, {add_entity, EntityID, {EntityController, EntityState}}) of
+		ok ->
+			case ets:update_element(pre_sim_entity_table, EntityID, {2, WorkerPid}) of
+				true -> ok;
+				false ->
+					case ets:lookup(pre_sim_worker_table, WorkerPid) of
+						[] ->
+							{error, worker_not_found};
+						[{WorkerPid, WorkerUpdatesTable}] ->
+							ets:insert(pre_sim_entity_table, {EntityID, WorkerPid, WorkerUpdatesTable})
+					end
+			end;
+		Error -> Error
+	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
