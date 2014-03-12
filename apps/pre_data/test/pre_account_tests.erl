@@ -42,7 +42,7 @@ account_access_test_() ->
 			},
 			{"delete account", fun() ->
 				ok = pre_account:delete(1),
-				?assertMatch(account_not_found, pre_account:get_by_id(1))
+				?assertMatch({error, account_not_found}, pre_account:get_by_id(1))
 			end
 			}
 		] end }.

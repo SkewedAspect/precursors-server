@@ -23,7 +23,7 @@ authenticate(AccountName, Password) ->
 	Result = get_by_email(AccountName),
 	case Result of
 		account_not_found ->
-			account_not_found;
+			{error, account_not_found};
 		{ok, Account} ->
 			{TestHash, _} = pre_hash:hash(Password, pre_rec_account:hash_data(Account)),
 			DbHash = pre_rec_account:password(Account),
@@ -31,7 +31,7 @@ authenticate(AccountName, Password) ->
 				TestHash =:= DbHash ->
 					ok;
 				true ->
-					not_matched
+					{error, not_matched}
 			end
 	end.
 
@@ -42,7 +42,7 @@ authenticate(AccountName, Password) ->
 get_by_email(EmailAddress) ->
 	{ok, Rec} = ?t(pre_data:search(pre_rec_account, [{email, EmailAddress}])),
 	case Rec of
-		{error, notfound} -> account_not_found;
+		{error, notfound} -> {error, account_not_found};
 		[R | _] ->
 			{ok, R}
 	end.
@@ -53,7 +53,7 @@ get_by_email(EmailAddress) ->
 get_by_id(AccountID) ->
 	Got = ?t(pre_data:get_by_id(pre_rec_account, AccountID)),
 	case Got of
-		{error, notfound} -> account_not_found;
+		{error, notfound} -> {error, account_not_found};
 		_ -> {ok, Got}
 	end.
 
