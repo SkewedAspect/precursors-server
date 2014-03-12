@@ -246,7 +246,7 @@ init([]) ->
 
 handle_call({add_entity, EntityID, {_EntityController, _EntityState} = Entity}, _From, State) ->
 	State1 = State#state{
-		entity_states = [{EntityID, Entity} || State#state.entity_states]
+		entity_states = [{EntityID, Entity} | State#state.entity_states]
 	},
     {reply, ok, State1};
 
