@@ -211,7 +211,8 @@ start_link() ->
 -spec simulate() -> 'ok'.
 
 simulate() ->
-	[gen_server:cast(Pid, {simulate, os:timestamp()}) || Pid <- pg2:get_local_members(pre_sim_worker_group)].
+	Now = os:timestamp(),
+	[gen_server:cast(Pid, {simulate, Now}) || Pid <- pg2:get_local_members(pre_sim_worker_group)].
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
