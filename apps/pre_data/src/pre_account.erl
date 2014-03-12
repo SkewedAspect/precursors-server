@@ -49,7 +49,7 @@ get_by_email(EmailAddress) ->
 
 
 %% @doc Gets an account by id. Returns an account.
-	-spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
+-spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
 get_by_id(AccountID) ->
 	Got = ?t(pre_data:get_by_id(pre_rec_account, AccountID)),
 	case Got of
