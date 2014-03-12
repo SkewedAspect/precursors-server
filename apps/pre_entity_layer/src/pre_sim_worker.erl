@@ -83,7 +83,7 @@ add_entity(WorkerPid, EntityID, EntityController, EntityState) ->
 	Reply :: 'ok' | {'error', term()}.
 
 remove_entity(EntityID) ->
-	cast_to_entity(remove_entity, EntityID, undefined).
+	add_entity_update(EntityID, remove).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -103,7 +103,7 @@ get_entity_state(EntityID) ->
 	Reply :: 'ok' | {'error', term()}.
 
 update_position(EntityID, Value) ->
-	cast_to_entity(update_position, EntityID, Value).
+	add_entity_update(EntityID, {position, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -113,7 +113,7 @@ update_position(EntityID, Value) ->
 	Reply :: 'ok' | {'error', term()}.
 
 update_linear_momentum(EntityID, Value) ->
-	cast_to_entity(update_linear_momentum, EntityID, Value).
+	add_entity_update(EntityID, {update_linear_momentum, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -123,7 +123,7 @@ update_linear_momentum(EntityID, Value) ->
 	Reply :: 'ok' | {'error', term()}.
 
 update_orientation(EntityID, Value) ->
-	cast_to_entity(update_orientation, EntityID, Value).
+	add_entity_update(EntityID, {update_orientation, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -133,7 +133,7 @@ update_orientation(EntityID, Value) ->
 	Reply :: 'ok' | {'error', term()}.
 
 update_angular_momentum(EntityID, Value) ->
-	cast_to_entity(update_angular_momentum, EntityID, Value).
+	add_entity_update(EntityID, {update_angular_momentum, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ update_angular_momentum(EntityID, Value) ->
 	Reply :: 'ok' | {'error', term()}.
 
 apply_force_absolute(EntityID, Value) ->
-	cast_to_entity(apply_force_absolute, EntityID, Value).
+	add_entity_update(EntityID, {apply_force_absolute, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -153,7 +153,7 @@ apply_force_absolute(EntityID, Value) ->
 	Reply :: 'ok' | {'error', term()}.
 
 apply_force_relative(EntityID, Value) ->
-	cast_to_entity(apply_force_relative, EntityID, Value).
+	add_entity_update(EntityID, {apply_force_relative, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -163,7 +163,7 @@ apply_force_relative(EntityID, Value) ->
 	Reply :: 'ok' | {'error', term()}.
 
 apply_torque_absolute(EntityID, Value) ->
-	cast_to_entity(apply_torque_absolute, EntityID, Value).
+	add_entity_update(EntityID, {apply_torque_absolute, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -173,7 +173,7 @@ apply_torque_absolute(EntityID, Value) ->
 	Reply :: 'ok' | {'error', term()}.
 
 apply_torque_relative(EntityID, Value) ->
-	cast_to_entity(apply_torque_relative, EntityID, Value).
+	add_entity_update(EntityID, {apply_torque_relative, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% supervisor-facing API
@@ -267,57 +267,21 @@ handle_call(Request, _From, State) ->
 
 %% @private
 
-handle_cast({remove_entity, EntityID, _}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, remove}),
-    {noreply, State};
-
-handle_cast({update_position, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {position, Value}}),
-	{noreply, State};
-
-handle_cast({update_linear_momentum, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {update_linear_momentum, Value}}),
-	{noreply, State};
-
-handle_cast({update_orientation, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {update_orientation, Value}}),
-	{noreply, State};
-
-handle_cast({update_angular_momentum, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {update_angular_momentum, Value}}),
-	{noreply, State};
-
-handle_cast({apply_force_absolute, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {apply_force_absolute, Value}}),
-	{noreply, State};
-
-handle_cast({apply_force_relative, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {apply_force_relative, Value}}),
-	{noreply, State};
-
-handle_cast({apply_torque_absolute, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {apply_torque_absolute, Value}}),
-	{noreply, State};
-
-handle_cast({apply_torque_relative, EntityID, Value}, State) ->
-	ets:insert(State#state.incoming_updates_table, {EntityID, {apply_torque_relative, Value}}),
-	{noreply, State};
-
 handle_cast({simulate, Start}, State) ->
 	State1 = simulate(Start, State),
 	{noreply, State1};
 
 handle_cast(Request, State) ->
 	lager:warn("Unhandled cast: ~p", [Request]),
-    {noreply, State}.
+	{noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @private
 
 handle_info({'EXIT', _Pid, _Reason}, State) ->
-    %% code to handle exits here...
-    {noreply, State};
+	%% code to handle exits here...
+	{noreply, State};
 
 handle_info(Info, State) ->
 	lager:warn("Unhandled info: ~p", [Info]),
@@ -343,24 +307,25 @@ terminate(shutdown, _State) ->
 
 %% @hidden
 
-cast_to_entity(MessageTag, EntityID, MessageArgs) ->
+call_to_entity(MessageTag, EntityID, MessageArgs) ->
 	case ets:lookup(pre_sim_entity_table, EntityID) of
 		[] ->
 			{error, not_found};
-		[{_EntityID, WorkerPid, _WorkerUpdatesTable}] ->
-			gen_server:cast(WorkerPid, {MessageTag, EntityID, MessageArgs})
+		[{EntityID, WorkerPid, _WorkerUpdatesTable}] ->
+			gen_server:call(WorkerPid, {MessageTag, EntityID, MessageArgs})
 	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @hidden
 
-call_to_entity(MessageTag, EntityID, MessageArgs) ->
+add_entity_update(EntityID, Update) ->
 	case ets:lookup(pre_sim_entity_table, EntityID) of
 		[] ->
 			{error, not_found};
-		[{_EntityID, WorkerPid, _WorkerUpdatesTable}] ->
-			gen_server:call(WorkerPid, {MessageTag, EntityID, MessageArgs})
+		[{EntityID, _WorkerPid, WorkerUpdatesTable}] ->
+			ets:insert(WorkerUpdatesTable, {EntityID, Update}),
+			ok
 	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
