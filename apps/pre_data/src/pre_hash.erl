@@ -10,7 +10,6 @@
 -export([hash/1, hash/2]).
 
 -record(credential, {
-	hash :: string(),
 	iterations :: integer(),
 	prf :: string(),
 	salt :: string()
@@ -43,8 +42,7 @@ hash(Password, Credential) ->
 		?DEFAULT_PBKDF2_PRF ->
 			%FIXME: Use the PRF!
 			{ok, Hash} = pbkdf2:pbkdf2(?DEFAULT_PBKDF2_PRF, Password, Salt, Iterations, DerivedLength),
-			Credential3 = Credential2#credential{hash = Hash},
-			{Hash, Credential3};
+			{Hash, Credential2};
 		_ ->
 			lager:warning("Incompatible PRF ~p (only ~p is supported)", [PseudoRandomFunction, ?DEFAULT_PBKDF2_PRF]),
 			false
