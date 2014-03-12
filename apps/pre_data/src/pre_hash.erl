@@ -28,8 +28,7 @@
 %% @doc Hash passwords for authentication
 hash(Password) ->
 	Credential = new_credential(),
-	{HashedPassword, Credential1} = hash(Password, Credential),
-	{HashedPassword, Credential1}.
+	hash(Password, Credential).
 
 %% @doc Hash passwords for new accounts or authentication
 hash(Password, Credential) ->
@@ -45,7 +44,7 @@ hash(Password, Credential) ->
 			{Hash, Credential2};
 		_ ->
 			lager:warning("Incompatible PRF ~p (only ~p is supported)", [PseudoRandomFunction, ?DEFAULT_PBKDF2_PRF]),
-			false
+			{error, not_supported}
 	end.
 
 %% -----------------------------------------------------------------------
