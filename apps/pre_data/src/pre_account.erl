@@ -18,7 +18,7 @@
 
 %% @doc Authenticates an account, given the account name, and password. Account name, in this case, will be the email
 %% address.
--spec authenticate(AccountName :: binary(), Password :: binary()) -> 'ok'.
+-spec authenticate(AccountName :: binary(), Password :: binary()) -> 'ok' | {'error', term()}.
 authenticate(AccountName, Password) ->
 	Result = get_by_email(AccountName),
 	case Result of
@@ -40,10 +40,10 @@ authenticate(AccountName, Password) ->
 %% @doc Gets an account by email address. Returns an account.
 -spec get_by_email(EmailAddress :: binary()) -> {'ok', tuple()}.
 get_by_email(EmailAddress) ->
-	{ok, Rec} = ?t(pre_data:search(pre_rec_account, [{email, EmailAddress}])),
-	case Rec of
-		{error, notfound} -> {error, account_not_found};
-		[R | _] ->
+	Got = ?t(pre_data:search(pre_rec_account, [{email, EmailAddress}])),
+	case Got of
+		{ok, []} -> {error, account_not_found};
+		{ok, [R | _]} ->
 			{ok, R}
 	end.
 
@@ -54,12 +54,12 @@ get_by_id(AccountID) ->
 	Got = ?t(pre_data:get_by_id(pre_rec_account, AccountID)),
 	case Got of
 		{error, notfound} -> {error, account_not_found};
-		_ -> {ok, Got}
+		_ -> Got
 	end.
 
 %% FIXME: De-duplicate before creating!
 %% @doc Creates a new account. Returns the newly created account.
--spec create(Email :: binary(), RealName :: binary(), NickName :: binary(), Password :: binary()) -> {'ok', tuple()}.
+-spec create(Email :: binary(), RealName :: binary(), NickName :: binary(), Password :: binary()) -> {'ok', tuple()} | {error, term()}.
 create(Email, RealName, NickName, Password) ->
 	{HashedPassword, Credential} = pre_hash:hash(Password),
 	New = pre_rec_account:new(Email, RealName, NickName, HashedPassword, Credential),
