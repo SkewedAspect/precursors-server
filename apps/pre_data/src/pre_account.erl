@@ -67,7 +67,7 @@ create(Email, RealName, NickName, Password) ->
 
 
 %% @doc Removed an account.
--spec delete(AccountID :: any()) -> {'ok'}.
+-spec delete(AccountID :: any()) -> 'ok'.
 delete(AccountID) ->
 	?t(pre_data:delete(pre_rec_account, AccountID)).
 
