@@ -3,20 +3,17 @@
 
 -module(entity_physical).
 
--behaviour(entity_controller).
+-behaviour(pre_gen_simulated).
 
 % API
 -export([get_orientation/1, get_linear_velocity/1, get_angular_velocity/1, get_force_relative/1, get_torque_relative/1]).
 
 % entity_controller
--export([init/3, simulate/2, get_full_state/2, client_request/6, client_event/5, entity_event/4, apply_update/4]).
+-export([init/2, simulate/2]).
 
 -record(state, {
-	physical :: any(),
-
 	id :: term(),
-	controller :: module(),
-	base :: any()
+	physical :: any()
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -50,73 +47,70 @@ get_torque_relative(State) ->
 %% entity_controller
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(EntityID, Controller, InitData) ->
-	#state{
-		physical = pre_physics_rk4:update_from_proplist(pre_physics_rk4:default_physical(), InitData),
+-spec init(EntityID, InitData) -> State when
+	EntityID :: term(),
+	InitData :: [{Key, Value}],
+	Key :: atom(),
+	Value :: any(),
+	State :: any().
 
+init(EntityID, InitData) ->
+	#state{
 		id = EntityID,
-		controller = Controller,
-		base = entity_base:init(EntityID, Controller, InitData)
+		physical = pre_physics_rk4:update_from_proplist(pre_physics_rk4:default_physical(), InitData)
 	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-simulate(_Controller, State) ->
-	LastPhysical = State#state.physical,
+-spec simulate(Updates, State) -> {StateUpdateMessage, NewState} when
+	Updates :: [UpdateSpec],
+	UpdateSpec :: remove | {Key, Value},
+	State :: any(),
+	StateUpdateMessage :: [{Key, Value}],
+	Key :: atom(),
+	Value :: any(),
+	NewState :: State.
+
+simulate(Updates, State) ->
+	Physical1 = State#state.physical,
+
+	%TODO: Update pre_physics_rk4:update_from_proplist/2 to handle the following updates:
+	% - {update, position, vector:vec()}
+	% - {update, linear_momentum, vector:vec()}
+	% - {update, orientation, quaternion:quat()}
+	% - {update, angular_momentum, vector:vec()}
+	% - {apply, force_absolute, vector:vec()}
+	% - {apply, force_relative, vector:vec()}
+	% - {apply, torque_absolute, vector:vec()}
+	% - {apply, torque_relative, vector:vec()}
+	Physical2 = pre_physics_rk4:update_from_proplist(Physical1, Updates),
 
 	% Do physics simulation
-	Physical = pre_physics_rk4:simulate(LastPhysical),
+	Physical3 = pre_physics_rk4:simulate(Physical2),
 
 	% Calculate a state update message
-	PhysicalPL = pre_physics_rk4:to_proplist(Physical),
-	LastPhysicalPL = pre_physics_rk4:to_proplist(LastPhysical),
-	UpdateMsg = entity_base:diff_state(LastPhysicalPL, PhysicalPL),
+	CurPhysicalPL = pre_physics_rk4:to_proplist(Physical3),
+	PrevPhysicalPL = pre_physics_rk4:to_proplist(Physical1),
+	UpdateMsg = diff_proplist(PrevPhysicalPL, CurPhysicalPL),
 
 	% Save State
 	NewState = State#state{
-		physical = Physical
+		physical = Physical3
 	},
 
 	{UpdateMsg, NewState}.
 
 %% --------------------------------------------------------------------------------------------------------------------
-
-get_full_state(Controller, State) ->
-	{_, BaseFullState} = entity_base:get_full_state(Controller, State#state.base),
-
-	{<<"Physical">>, [
-		{physical, pre_physics_rk4:to_proplist(State#state.physical)}
-		| BaseFullState
-	]}.
-
+%% Internal functions
 %% --------------------------------------------------------------------------------------------------------------------
 
-client_request(Channel, RequestType, RequestID, Request, Controller, State) ->
-	{Update, NewBase} = entity_base:client_request(Channel, RequestType, RequestID, Request, Controller, State),
-	{Update, State#state { base = NewBase }}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-client_event(Channel, EventType, Event, Controller, State) ->
-	{Update, NewBase} = entity_base:client_event(Channel, EventType, Event, Controller, State),
-	{Update, State#state { base = NewBase }}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-entity_event(Event, From, Controller, State) ->
-	{Update, NewBase} = entity_base:client_event(Event, From, Controller, State),
-	{Update, State#state { base = NewBase }}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-apply_update(physical, PhysicalUpdates, _Controller, State) ->
-	NewPhysical = pre_physics_rk4:update_from_proplist(State#state.physical, PhysicalUpdates),
-
-	State1 = State#state {
-		physical = NewPhysical
-	},
-	{[], State1};
-
-apply_update(Key, SubKeys, Controller, State) ->
-	{Update, NewBase} = entity_base:apply_update(Key, SubKeys, Controller, State),
-	{Update, State#state { base = NewBase }}.
+diff_proplist(OldState, NewState) ->
+	lists:filter(
+		fun({Key, NewVal}) ->
+			case proplists:get_value(Key, OldState) of
+				NewVal -> false;
+				_ -> true
+			end
+		end,
+		NewState
+	).

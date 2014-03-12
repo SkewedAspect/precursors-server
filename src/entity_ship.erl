@@ -3,10 +3,10 @@
 
 -module(entity_ship).
 
--behaviour(entity_controller).
+-behaviour(pre_gen_simulated).
 
 % entity_controller
--export([init/3, simulate/2, get_full_state/2, client_request/6, client_event/5, entity_event/4, apply_update/4]).
+-export([init/2, simulate/2]).
 
 -record(state, {
 	target_linear_velocity :: {integer(), integer(), integer()},
@@ -21,7 +21,6 @@
 	angular_responsiveness :: {integer(), integer(), integer()}, %  {pitch, heading, roll}
 
 	id :: term(),
-	controller :: module(),
 	physical :: any()
 }).
 
@@ -29,7 +28,7 @@
 %% API
 %% --------------------------------------------------------------------------------------------------------------------
 
-init(EntityID, Controller, InitData) ->
+init(EntityID, InitData) ->
 	Defaults = [
 		{ target_linear_velocity, {0, 0, 0} },
 		{ target_angular_velocity, {0, 0, 0} },
@@ -66,7 +65,7 @@ init(EntityID, Controller, InitData) ->
 	% Set up default model def, and default physical state with random position/orientation
 	InitDataWithDefaults = lists:ukeymerge(1, InitData, Defaults),
 
-	Physical = entity_physical:init(EntityID, Controller, InitDataWithDefaults),
+	Physical = entity_physical:init(EntityID, InitDataWithDefaults),
 
 	#state{
 		target_linear_velocity = proplists:get_value(target_linear_velocity, InitData),
@@ -81,177 +80,58 @@ init(EntityID, Controller, InitData) ->
 		angular_responsiveness = proplists:get_value(angular_responsiveness, InitData),
 
 		id = EntityID,
-		controller = Controller,
 		physical = Physical
 	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-simulate(Controller, State) ->
+simulate(Updates, State) ->
+	PhysicalUpdates = lists:filtermap(
+		fun
+			({update, Key, Value}, {Unhandled, State1}) ->
+				apply_update(Key, Value, {Unhandled, State1});
+			(Other, {Unhandled, State1}) ->
+				{[Other | Unhandled], State1}
+		end,
+		Updates
+	),
+
 	{ShipUpdate, State1} = do_flight_control(State),
-	{PhysicalUpdate, NewPhysical} = entity_physical:simulate(Controller, State1#state.physical),
+
+	{PhysicalUpdate, NewPhysical} = entity_physical:simulate(PhysicalUpdates, State1#state.physical),
+
 	{ShipUpdate ++ PhysicalUpdate, State1#state { physical = NewPhysical }}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-get_full_state(Controller, State) ->
-	{_, PhysicalFullState} = entity_physical:get_full_state(Controller, State#state.physical),
-
-	{<<"Ship">>, [
-		{ship, [
-			{target_linear_velocity, State#state.target_linear_velocity},
-			{target_angular_velocity, State#state.target_angular_velocity},
-
-			% Intrinsic ship parameters
-			{linear_target_velocity_scaling, State#state.linear_target_velocity_scaling},
-			{angular_target_velocity_scaling, State#state.angular_target_velocity_scaling},
-			{max_linear_thrust, State#state.max_linear_thrust},
-			{max_angular_thrust, State#state.max_angular_thrust},
-			{linear_responsiveness, State#state.linear_responsiveness},
-			{angular_responsiveness, State#state.angular_responsiveness}
-		]}
-		| PhysicalFullState
-	]}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-client_request(input, <<"command">>, _RequestID, Request, _Controller, State) ->
-	handle_input_command(Request, State);
-
-client_request(Channel, RequestType, RequestID, Request, Controller, State) ->
-	{Update, NewPhysical} = entity_physical:client_request(Channel, RequestType, RequestID, Request, Controller, State#state.physical),
-	{Update, State#state { physical = NewPhysical }}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-client_event(input, <<"command">>, Event, _Controller, State) ->
-	{_Response, Update, State1} = handle_input_command(Event, State),
-	{Update, State1};
-
-client_event(Channel, EventType, Event, Controller, State) ->
-	{Update, NewPhysical} = entity_physical:client_event(Channel, EventType, Event, Controller, State#state.physical),
-	{Update, State#state { physical = NewPhysical }}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-entity_event(Event, From, Controller, State) ->
-	{Update, NewPhysical} = entity_physical:client_event(Event, From, Controller, State#state.physical),
-	{Update, State#state { physical = NewPhysical }}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-apply_update(ship, [], _Controller, State) ->
-	{[], State};
-
-apply_update(ship, [{SubKey, NewValue} | Rest], Controller, State) ->
-	{Update, State1} = apply_update(ship, Rest, Controller, State),
-
-	State2 = case SubKey of
-		target_linear_velocity -> State1#state { target_linear_velocity = NewValue };
-		target_angular_velocity -> State1#state { target_angular_velocity = NewValue };
-
-		% Intrinsic ship parameters
-		linear_target_velocity_scaling -> State1#state { linear_target_velocity_scaling = NewValue };
-		angular_target_velocity_scaling -> State1#state { angular_target_velocity_scaling = NewValue };
-		max_linear_thrust -> State1#state { max_linear_thrust = NewValue };
-		max_angular_thrust -> State1#state { max_angular_thrust = NewValue };
-		linear_responsiveness -> State1#state { linear_responsiveness = NewValue };
-		angular_responsiveness -> State1#state { angular_responsiveness = NewValue };
-		SubKey -> lager:warning("Ignoring unrecognized update for subkey ~p of base! (value: ~p)", [SubKey, NewValue])
-	end,
-
-	{Update, State2};
-
-apply_update(Key, SubKeys, Controller, State) ->
-	{Update, NewPhysical} = entity_physical:apply_update(Key, SubKeys, Controller, State#state.physical),
-	{Update, State#state { physical = NewPhysical }}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% Internal functions
 %% --------------------------------------------------------------------------------------------------------------------
 
-handle_input_command([{_, _} | _] = RawCommand, State) ->
-	Command = proplists:get_value(name, RawCommand),
-	Args = proplists:get_value(args, RawCommand),
-	KWArgs = proplists:get_value(kwargs, RawCommand),
-	handle_input_command(Command, Args, KWArgs, State).
+apply_update(target_linear_velocity, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { target_linear_velocity = Value }};
 
-%% --------------------------------------------------------------------------------------------------------------------
+apply_update(target_angular_velocity, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { target_angular_velocity = Value }};
 
-% Positional target velocity
-handle_input_command(<<"sideslip">>, [TargetVel], _KWArgs, State) ->
-	set_target_linear_velocity({TargetVel, undefined, undefined}, State);
+apply_update(linear_target_velocity_scaling, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { linear_target_velocity_scaling = Value }};
 
-handle_input_command(<<"lift">>, [TargetVel], _KWArgs, State) ->
-	set_target_linear_velocity({undefined, TargetVel, undefined}, State);
+apply_update(angular_target_velocity_scaling, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { angular_target_velocity_scaling = Value }};
 
-handle_input_command(<<"throttle">>, [TargetVel], _KWArgs, State) ->
-	set_target_linear_velocity({undefined, undefined, -TargetVel}, State);
+apply_update(max_linear_thrust, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { max_linear_thrust = Value }};
 
-% Rotational target velocity
-handle_input_command(<<"pitch">>, [TargetVel], _KWArgs, State) ->
-	set_target_angular_velocity({TargetVel, undefined, undefined}, State);
+apply_update(max_angular_thrust, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { max_angular_thrust = Value }};
 
-handle_input_command(<<"heading">>, [TargetVel], _KWArgs, State) ->
-	set_target_angular_velocity({undefined, TargetVel, undefined}, State);
+apply_update(linear_responsiveness, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { linear_responsiveness = Value }};
 
-handle_input_command(<<"roll">>, [TargetVel], _KWArgs, State) ->
-	set_target_angular_velocity({undefined, undefined, TargetVel}, State);
+apply_update(angular_responsiveness, Value, {Unhandled, State}) ->
+	{Unhandled, State#state { angular_responsiveness = Value }};
 
-% Catch-all
-handle_input_command(Command, Args, KWArgs, State) ->
-	lager:info("Got unrecognized input command: ~p, ~p, ~p", [Command, Args, KWArgs]),
-	Response = [
-		{confirm, false},
-		{reason, <<"Unrecognized input command \"", Command/binary, "\"!">>}
-	],
-	{Response, [], State}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-set_target_angular_velocity(RequestedAngVel, State) ->
-	CurrentAngVel = State#state.target_angular_velocity,
-	Response = [{confirm, true}],
-	{Update, State1} = set_target_angular_velocity(CurrentAngVel, update_vector(RequestedAngVel, CurrentAngVel), State),
-	{Response, Update, State1}.
-
-set_target_angular_velocity(CurAndNewAngVel, CurAndNewAngVel, State) ->
-	% No change; confirm, but don't produce an update.
-	{[], State};
-
-set_target_angular_velocity(_CurrentAngVel, NewAngVel, State) ->
-	%?debug("Setting orientation velocity to ~p.", [NewAngVel]),
-	% Update the target angular velocity
-	State1 = State#state{
-		target_angular_velocity = NewAngVel
-	},
-
-	% Build update
-	Update = [{ship, [{target_angular_velocity, vector:vec_to_list(NewAngVel)}]}],
-	{Update, State1}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-set_target_linear_velocity(RequestedLinVel, State) ->
-	CurrentLinVel = State#state.target_linear_velocity,
-	Response = [{confirm, true}],
-	{Update, State1} = set_target_linear_velocity(CurrentLinVel, update_vector(RequestedLinVel, CurrentLinVel), State),
-	{Response, Update, State1}.
-
-set_target_linear_velocity(CurAndNewLinVel, CurAndNewLinVel, State) ->
-	% No change; confirm, but don't produce an update.
-	{[], State};
-
-set_target_linear_velocity(_CurrentLinVel, NewLinVel, State) ->
-	%?debug("Setting position velocity to ~p.", [NewLinVel]),
-	% Update the target linear velocity
-	State1 = State#state{
-		target_linear_velocity = NewLinVel
-	},
-
-	% Build update
-	Update = [{ship, [{target_linear_velocity, vector:vec_to_list(NewLinVel)}]}],
-	{Update, State1}.
+apply_update(Key, Value, {Unhandled, State}) ->
+	{[{Key, Value} | Unhandled], State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -335,20 +215,3 @@ calc_thrust(MaxTh, Resp, CurVel, TargetVel) ->
 	% DMToP = Double Max Thrust over Pi.
 	DMToP = 2 * MaxTh / math:pi(),
 	DMToP * math:atan((TargetVel - CurVel) * Resp / DMToP).
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-update_vector({UpdateX, UpdateY, UpdateZ}, {CurrentX, CurrentY, CurrentZ}) ->
-	{
-		first_defined(UpdateX, CurrentX),
-		first_defined(UpdateY, CurrentY),
-		first_defined(UpdateZ, CurrentZ)
-	}.
-
-%% --------------------------------------------------------------------------------------------------------------------
-
-first_defined(undefined, R1) ->
-	R1;
-
-first_defined(Val, _) ->
-	Val.

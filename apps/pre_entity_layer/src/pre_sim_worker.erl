@@ -103,7 +103,7 @@ get_entity_state(EntityID) ->
 	Reply :: 'ok' | {'error', term()}.
 
 update_position(EntityID, Value) ->
-	add_entity_update(EntityID, {position, Value}).
+	add_entity_update(EntityID, {update_position, Value}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
