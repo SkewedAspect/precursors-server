@@ -39,5 +39,10 @@ account_access_test_() ->
 				Got = pre_account:authenticate(<<"test@test.com">>, <<"12345">>),
 				?assertMatch(ok, Got)
 			end
+			},
+			{"delete account", fun() ->
+				ok = pre_account:delete(1),
+				?assertMatch(account_not_found, pre_account:get_by_id(1))
+			end
 			}
 		] end }.

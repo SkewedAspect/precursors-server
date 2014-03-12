@@ -51,10 +51,10 @@ get_by_email(EmailAddress) ->
 %% @doc Gets an account by id. Returns an account.
 	-spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
 get_by_id(AccountID) ->
-	{ok, Rec} = ?t(pre_data:get_by_id(pre_rec_account, AccountID)),
-	case Rec of
-		[] -> account_not_found;
-		_ -> {ok, Rec}
+	Got = ?t(pre_data:get_by_id(pre_rec_account, AccountID)),
+	case Got of
+		{error, notfound} -> account_not_found;
+		_ -> {ok, Got}
 	end.
 
 %% FIXME: De-duplicate before creating!
@@ -67,7 +67,7 @@ create(Email, RealName, NickName, Password) ->
 
 
 %% @doc Removed an account.
--spec delete(AccountID :: binary()) -> {'ok'}.
+-spec delete(AccountID :: any()) -> {'ok'}.
 delete(AccountID) ->
-	pre_mnesia:delete(account, AccountID).
+	?t(pre_data:delete(pre_rec_account, AccountID)).
 
