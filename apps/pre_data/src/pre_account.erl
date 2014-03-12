@@ -42,7 +42,7 @@ authenticate(AccountName, Password) ->
 get_by_email(EmailAddress) ->
 	{ok, Rec} = ?t(pre_data:search(pre_rec_account, [{email, EmailAddress}])),
 	case Rec of
-		[] -> account_not_found;
+		{error, notfound} -> account_not_found;
 		[R | _] ->
 			{ok, R}
 	end.
