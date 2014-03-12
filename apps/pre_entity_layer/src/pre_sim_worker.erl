@@ -162,10 +162,12 @@ init_node() ->
 	pg2:create(pre_sim_worker_group),
 
 	% ETS table that stores the PIDs of worker processes, and the workers' incoming updates table.
+	% {WorkerPID, WorkerUpdatesTable}
 	ets:new(pre_sim_worker_table, [public, named_table]),
 
 	% ETS table that stores the mapping between entity IDs and worker processes, with the workers' updates tables.
-	ets:new(pre_sim_entity_table, [public, named_table, {keypos, 2}]).
+	% {EntityID, WorkerPID, WorkerUpdatesTable}
+	ets:new(pre_sim_entity_table, [public, named_table]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -318,8 +320,8 @@ to_entity(CastOrCall, MessageTag, EntityID, MessageArgs) ->
 	case ets:lookup(pre_sim_entity_table, EntityID) of
 		[] ->
 			{error, not_found};
-		[Pid] ->
-			gen_server:CastOrCall(Pid, {MessageTag, EntityID, MessageArgs})
+		[{_EntityID, WorkerPid, _WorkerUpdatesTable}] ->
+			gen_server:CastOrCall(WorkerPid, {MessageTag, EntityID, MessageArgs})
 	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
