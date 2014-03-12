@@ -92,6 +92,13 @@ data_access_test_() ->
 				pre_data:get_by_id(pre_thing, 1)
 			end),
 			?assertEqual({error, notfound}, Getted)
+		end},
+
+		{"search with no results", fun() ->
+			Got = pre_data:transaction(fun() ->
+				pre_data:search(pre_thing, [{val, <<"a val">>}])
+			end),
+			?assertEqual({ok, []}, Got)
 		end}
 
 	] end}.
