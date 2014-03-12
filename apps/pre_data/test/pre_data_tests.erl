@@ -117,6 +117,13 @@ data_access_test_() ->
 			?assertEqual({ok, [{goober, 1, <<"hemdal">>}]}, ?t(pre_data:search(goober, [{name, <<"hemdal">>}])))
 		end},
 
+		{"search returns no results", fun() ->
+			meck:expect(data_callback, search, fun(goober, [{name, <<"hemdal">>}]) ->
+				{ok, []}
+			end),
+			?assertEqual({ok, []}, ?t(pre_data:search(goober, [{name, <<"hemdal">>}])))
+		end},
+
 		{"search explosion on bad comparison", fun() ->
 			?assertMatch({error, {{badarg, infix}, _}}, ?t(pre_data:search(goober, [{field, infix, 3}])))
 		end},
