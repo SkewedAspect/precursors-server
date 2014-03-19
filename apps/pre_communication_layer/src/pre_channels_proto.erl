@@ -62,7 +62,7 @@ init([Ref, Socket, Transport]) ->
 	% If you return a timeout value of 0 then the `gen_server' will call `handle_info(timeout, _, _)' right away.
 	% We do this to work around issues with `gen_server' and ranch's protocols. See the ranch docs:
 	%   http://ninenines.eu/docs/en/ranch/HEAD/guide/protocols/#using_gen_server
-	{ok, {state, Ref, Socket, Transport}, 0}.
+	{ok, #state{ref = Ref, socket = Socket, transport = Transport}, 0}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -105,6 +105,7 @@ handle_cast(Request, State) ->
 
 %% @hidden Handles incoming SSL data
 handle_info({ssl, _Socket, Data}, State) ->
+	lager:debug("SSL: ~p", [Data]),
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -117,6 +118,7 @@ handle_info({ssl, _Socket, Data}, State) ->
 
 %% @hidden Handles incoming TCP data
 handle_info({tcp, _Socket, Data}, State) ->
+	lager:debug("TCP: ~p", [Data]),
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -139,15 +141,12 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 	ok = ranch:accept_ack(Ref),
 	ok = Transport:setopts(Socket, [{active, once}]),
 
-	State1 = case Socket of
-		ssl ->
+	State1 = case Transport of
+		ranch_ssl ->
 			% Spawn a new client pid
 			pre_client_sup:start_child(self()),
 			State;
-		tcp ->
-			State;
-		Sock ->
-			lager:warning("Unknown Socket Type: ~p", [Sock]),
+		ranch_tcp ->
 			State
 	end,
 
