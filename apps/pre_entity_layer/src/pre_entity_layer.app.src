@@ -7,6 +7,6 @@
                   kernel,
                   stdlib
                  ]},
-  {mod, { pre_entity_layer, []}},
+  {mod, { pre_entity_layer_app, []}},
   {env, []}
  ]}.

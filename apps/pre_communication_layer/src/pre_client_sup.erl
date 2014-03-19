@@ -6,7 +6,7 @@
 -behavior(supervisor).
 
 % API
--export([start_link/2, start_child/1, running_children/0]).
+-export([start_link/0, start_child/1, running_children/0]).
 
 % Supervisor
 -export([init/1]).
@@ -15,9 +15,9 @@
 %% External API
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Starts a new client connection process. Takes the SSL proto pid, and the tcp cookie.
--spec start_link(SslProto :: pid(), Cookie :: binary()) -> {'ok', pid()}.
-start_link(SslProto, Cookie) ->
+%% @doc Starts the supervisor for client connections.
+-spec start_link() -> {'ok', pid()}.
+start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, undefined).
 
 %% ---------------------------------------------------------------------------------------------------------------------
