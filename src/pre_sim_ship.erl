@@ -1,7 +1,7 @@
 %%% @doc An entity representing a ship.
 %%% -------------------------------------------------------------------------------------------------------------------
 
--module(entity_ship).
+-module(pre_sim_ship).
 
 -behaviour(pre_gen_simulated).
 

@@ -1,7 +1,7 @@
 %%% @doc An entity representing a physical object.
 %%% -------------------------------------------------------------------------------------------------------------------
 
--module(entity_physical).
+-module(pre_sim_physical).
 
 -behaviour(pre_gen_simulated).
 
