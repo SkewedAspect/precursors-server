@@ -45,7 +45,7 @@
 % State record
 -record(state, {
 	incoming_updates_table :: ets:tid(),
-	entity_states :: list(),
+	entity_states = [] :: list(),
 	last_simulate_time :: integer()
 }).
 
@@ -234,7 +234,7 @@ init([]) ->
 
 	register_worker(self(), IncomingUpdatesTable),
 
-	InitialState = #state {
+	InitialState = #state{
 		incoming_updates_table = IncomingUpdatesTable
 	},
 
@@ -381,9 +381,6 @@ simulate(Start, State) ->
 			round(?INTERVAL - SimTime)
 	end,
 
-	% Restart the simulation timer
-	erlang:send_after(NextInterval, self(), {self(), simulate}),
-
 	State1#state {
 		last_simulate_time = Start
 	}.
@@ -392,40 +389,43 @@ simulate(Start, State) ->
 
 %% @hidden
 
-simulate_entities(State) ->
-	lager:warning("pre_sim_worker:simulate_entities/1 NOT YET IMPLEMENTED!"),
-	State.
+apply_updates(_EntityID, [], Entity) ->
+	Entity;
 
-%	#state {
-%		entity_states = EntityTable
-%	} = State,
-%
-%	{NewEntities2, OutgoingUpdates2} = lists:foldl(
-%		fun(Entity, {NewEntities1, OutgoingUpdates1}) ->
-%			IncomingEntityUpdates = dict:find(Entity#entity.id, Updates),
-%
-%			% Wrap return_result, passing the new entities and outgoing updates lists.
-%			ReturnResult = fun(ControllerFuncResult, Context) ->
-%				return_result(ControllerFuncResult, Context, {NewEntities1, OutgoingUpdates1})
-%			end,
-%
-%			% First, apply any incoming updates.
-%			Entity1 = case IncomingEntityUpdates of
-%				error -> Entity;
-%				{ok, []} -> Entity;
-%				{ok, EntityUpdates} -> entity_controller:apply_updates(lists:flatten(EntityUpdates), Entity)
-%			end,
-%
-%			% Then, call simulate.
-%			entity_controller:call(Entity1, simulate, [Entity1, State])
-%		end,
-%		{[], []},
-%		Entities
-%	),
-%
-%	pre_entity_engine_sup:broadcast_updates(OutgoingUpdates2),
-%
-%	State#state {
-%		entities = NewEntities2,
-%		incoming_updates = dict:new()
-%	}.
+apply_updates(EntityID, [{EntityID, Update} | Rest], Entity) ->
+	NewEntity = entity_controller:apply_updates(lists:flatten(Update), Entity),
+	apply_updates(EntityID, Rest, NewEntity);
+
+apply_updates(EntityID, IncomingUpdatesTable, Entity) when is_atom(IncomingUpdatesTable) ->
+	EntityUpdates = ets:lookup(IncomingUpdatesTable, EntityID),
+	ets:delete(IncomingUpdatesTable, EntityID),
+	apply_updates(EntityID, EntityUpdates, Entity).
+
+%% @hidden
+
+simulate_entities(State) ->
+	#state {
+		entity_states = PreviousEntityStates,
+		incoming_updates_table = IncomingUpdatesTable
+	} = State,
+
+	{EntityStates2, OutgoingUpdates3} = lists:foldl(
+		fun({EntityID, Entity1}, {EntityStates1, OutgoingUpdates1}) ->
+			% First, apply any incoming updates.
+			Entity2 = apply_updates(EntityID, IncomingUpdatesTable, Entity1),
+
+			% Then, call simulate.
+			{Entity3, OutgoingUpdates2} = entity_controller:call(Entity2, simulate, [Entity2, State]),
+
+			{[{EntityID, Entity3} | EntityStates1], lists:append(OutgoingUpdates1, OutgoingUpdates2)}
+		end,
+		{[], []},
+		PreviousEntityStates
+	),
+
+	lager:warning("TODO: Broadcast updates to nearby entities!"),
+	%pre_entity_engine_sup:broadcast_updates(OutgoingUpdates3),
+
+	State#state {
+		entity_states = EntityStates2
+	}.
