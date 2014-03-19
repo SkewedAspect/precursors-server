@@ -144,8 +144,8 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 	State1 = case Transport of
 		ranch_ssl ->
 			% Spawn a new client pid
-			pre_client_sup:start_child(self()),
-			State;
+			{ok, ClientPid} = pre_client_sup:start_child(self()),
+			State#state{client = ClientPid};
 		ranch_tcp ->
 			State
 	end,

@@ -327,14 +327,14 @@ process_channel(ChannelModule, Message, State) ->
 	ReqType = proplists:get_value(type, Contents),
 
 	case Message#envelope.type of
-		 <<"event">> ->
+		 event ->
 			 ChannelModule:handle_event(ReqType, Message#envelope.id, Contents, State);
-		 <<"request">> ->
+		 request ->
 			 ChannelModule:handle_request(ReqType, Message#envelope.id, Contents, State);
-		 <<"response">> ->
+		 response ->
 			 ChannelModule:handle_response(ReqType, Message#envelope.id, Contents, State);
 		 _ ->
-			 lager:warning("Unknown Message Type: ~p", [Message])
+			 lager:warning("Unknown Message Type: ~p", [Message#envelope.type])
 	end.
 
 
