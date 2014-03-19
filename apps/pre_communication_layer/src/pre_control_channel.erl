@@ -16,35 +16,37 @@ handle_request(<<"login">>, ID, Request, State) ->
 	lager:info("Starting authentication"),
 
 	User = proplists:get_value(user, Request),
-	Password= proplists:get_value(password, Request),
+	Password = proplists:get_value(password, Request),
 
 	lager:info("Authenticating user: ~p", [User]),
 
-	%TODO: call into the new auth system.
-	Confirm = false,
-	Reason = "Not Implemented yet.",
 
-	%TODO: set the current account, on success
-	Account = {account, {}},
-
-	LoginRep = [
-		{confirm, Confirm},
-		{reason, Reason},
-		{cookie, State#client_state.cookie},
-		{tcpPort, 6007}
-	],
+	{LoginRep, State1} = case pre_account:authenticate(User, Password) of
+		{error, Error} ->
+			{[
+				{confirm, false},
+				{reason, Error}
+			], State};
+		ok ->
+			% Record login information in client_state
+			AESKey = base64:decode(proplists:get_value(key, Request)),
+			AESVector = base64:decode(proplists:get_value(vector, Request)),
+			{ok, Account} = pre_account:get_by_email(User),
+			{[
+				{confirm, true},
+				{cookie, state#client_state.cookie},
+				{tcpport, 6007}
+			],
+				State#client_state{
+					aes_key = AESKey,
+					aes_vector = AESVector,
+					account = Account
+				}}
+	end,
 
 	% Send login response
 	pre_client:send_response(self(), <<"control">>, ssl, ID, LoginRep),
-
-	% Record login information in client_state
-	AESKey = base64:decode(proplists:get_value(key, Request)),
-	AESVector = base64:decode(proplists:get_value(vector, Request)),
-	State#client_state{
-		aes_key = AESKey,
-		aes_vector = AESVector,
-		account = Account
-	};
+	State1.
 
 
 handle_request(<<"getCharacters">>, ID, _Request, State) ->
