@@ -260,8 +260,8 @@ handle_call({get_entity_state, EntityID, _}, _From, State) ->
     {reply, Reply, State};
 
 handle_call(Request, _From, State) ->
-	lager:warn("Unhandled call: ~p", [Request]),
-    {noreply, State}.
+	lager:warning("Unhandled call: ~p", [Request]),
+    {reply, {error, invalid}, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -272,7 +272,7 @@ handle_cast({simulate, Start}, State) ->
 	{noreply, State1};
 
 handle_cast(Request, State) ->
-	lager:warn("Unhandled cast: ~p", [Request]),
+	lager:warning("Unhandled cast: ~p", [Request]),
 	{noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -284,7 +284,7 @@ handle_info({'EXIT', _Pid, _Reason}, State) ->
 	{noreply, State};
 
 handle_info(Info, State) ->
-	lager:warn("Unhandled info: ~p", [Info]),
+	lager:warning("Unhandled info: ~p", [Info]),
 	{noreply, State}.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -384,18 +384,16 @@ simulate(Start, State) ->
 	% Restart the simulation timer
 	erlang:send_after(NextInterval, self(), {self(), simulate}),
 
-	State2 = State1#state {
+	State1#state {
 		last_simulate_time = Start
-	},
-
-    {noreply, State2}.
+	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @hidden
 
 simulate_entities(State) ->
-	lager:warn("pre_sim_worker:simulate_entities/1 NOT YET IMPLEMENTED!"),
+	lager:warning("pre_sim_worker:simulate_entities/1 NOT YET IMPLEMENTED!"),
 	State.
 
 %	#state {
