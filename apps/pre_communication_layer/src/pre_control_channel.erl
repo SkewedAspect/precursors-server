@@ -46,7 +46,7 @@ handle_request(<<"login">>, ID, Request, State) ->
 
 	% Send login response
 	pre_client:send_response(self(), <<"control">>, ssl, ID, LoginRep),
-	State1.
+	State1;
 
 
 handle_request(<<"getCharacters">>, ID, _Request, State) ->
