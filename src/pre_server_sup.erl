@@ -34,17 +34,7 @@ start_link(Args) ->
 
 %% @hidden
 init(Args) ->
-	%ListenerArgs = proplists:get_value(listener, Args, []),
-	%ListenerKid = ?CHILD(pre_communication_layer_sup, supervisor, [ListenerArgs]),
-
-	DataKidArgs = proplists:get_value(riak_conn, Args, ["localhost", 8081]),
-	DataKid = ?CHILD(pre_data, worker, [DataKidArgs]),
-
-	EntityManagerArgs = proplists:get_value(entity_engine_sup, Args, []),
-	EntityManagerKid = ?CHILD(pre_entity_engine_sup, supervisor, [EntityManagerArgs]),
 
 	Kids = [
-		DataKid,
-		EntityManagerKid
 	],
 	{ok, { {one_for_one, 5, 10}, Kids} }.
