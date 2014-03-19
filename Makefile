@@ -90,6 +90,10 @@ devrel: rel/$(DEVRELDIR) $(SSL_CERT)
 	chmod +x devrel
 	-rm -rf rel/$(DEVRELDIR)/lib/$(REPO)*
 	ln -sf $(abspath .) rel/$(DEVRELDIR)/lib/$(REPO)-1
+	$(foreach subapp,$(shell ls apps), \
+		rm -rf rel/$(DEVRELDIR)/lib/$(subapp)*; \
+		ln -sf $(abspath ./apps/$(subapp)) rel/$(DEVRELDIR)/lib/$(subapp)-1; \
+	)
 
 
 # Testing
