@@ -27,5 +27,6 @@ stop() ->
 %% ===================================================================
 
 init([]) ->
+	pre_mnesia:check_setup(),
 	{ok, { {one_for_one, 5, 10}, [?CHILD(pre_data, [pre_mnesia], worker)]} }.
 
