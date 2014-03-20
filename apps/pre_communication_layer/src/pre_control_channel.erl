@@ -34,7 +34,7 @@ handle_request(<<"login">>, ID, Request, State) ->
 			{ok, Account} = pre_account:get_by_email(User),
 			{[
 				{confirm, true},
-				{cookie, state#client_state.cookie},
+				{cookie, State#client_state.cookie},
 				{tcpport, 6007}
 			],
 				State#client_state{
@@ -45,7 +45,7 @@ handle_request(<<"login">>, ID, Request, State) ->
 	end,
 
 	% Send login response
-	pre_client:send_response(self(), <<"control">>, ssl, ID, LoginRep),
+	pre_client:send_response(self(), ssl, <<"control">>, ID, LoginRep),
 	State1;
 
 
@@ -70,7 +70,7 @@ handle_request(<<"getCharacters">>, ID, _Request, State) ->
 	end,
 
 	% Send the response
-	pre_client:send_response(self(), <<"control">>, ssl, ID, GetCharsRep),
+	pre_client:send_response(self(), ssl, <<"control">>, ID, GetCharsRep),
 	State;
 
 
@@ -105,7 +105,7 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
 		end,
 
 	% Send the response.
-	pre_client:send_response(self(), <<"control">>, ssl, ID, CharSelResp),
+	pre_client:send_response(self(), ssl, <<"control">>, ID, CharSelResp),
 
 	%TODO: Look up the entity from cold storage, and load that into the entity event engine.
 	Entity = {entity, {}},
