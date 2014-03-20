@@ -25,6 +25,7 @@ authenticate(AccountName, Password) ->
 		account_not_found ->
 			{error, account_not_found};
 		{ok, Account} ->
+			lager:debug("Auth success: ~p", [Account]),
 			{TestHash, _} = pre_hash:hash(Password, pre_rec_account:hash_data(Account)),
 			DbHash = pre_rec_account:password(Account),
 			if
