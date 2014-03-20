@@ -47,6 +47,7 @@ proto_test_() ->
 		{ "can send via ssl",
 			fun() ->
 				meck:expect(fake_transport, send, fun(_Socket, Message) ->
+					%% FIXME: update to use envelope record
 					Expected = <<"14:{\"foo\":\"Bar!\"},">>,
 					?assertEqual(Expected, Message)
 				end),
