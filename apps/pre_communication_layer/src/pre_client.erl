@@ -195,7 +195,7 @@ handle_cast({send_event, ssl, Channel, Content}, State) ->
 
 
 handle_cast({send_event, tcp, Channel, Content}, State) ->
-	Envelope = #envelope{channel = Channel, contents = Content},
+	Envelope = #envelope{type = event, channel = Channel, contents = Content},
 	TcpProto = State#client_state.tcp_proto,
 
 	% Send a message over TCP
@@ -204,7 +204,7 @@ handle_cast({send_event, tcp, Channel, Content}, State) ->
 	{noreply, State};
 
 handle_cast({send_response, ssl, Channel, ID, Content}, State) ->
-	Envelope = #envelope{channel = Channel, id = ID, contents = Content},
+	Envelope = #envelope{type = response, channel = Channel, id = ID, contents = Content},
 	SslProto = State#client_state.ssl_proto,
 
 	% Send a message over SSL
