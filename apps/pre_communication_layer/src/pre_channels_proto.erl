@@ -47,8 +47,8 @@ start_link(Ref, Socket, Transport, Opts) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-send_envelope(ProtoPid, envelope) ->
-	gen_server:cast(ProtoPid, {send, envelope}).
+send_envelope(ProtoPid, Envelope) ->
+	gen_server:cast(ProtoPid, {send, Envelope}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
@@ -82,7 +82,7 @@ handle_cast({send, Envelope}, State) ->
 	% If we have an aes key, we assume we need to aes encrypt the message.
 	Data = case State#state.aes_key of
 		undefined ->
-			pre_json:to_json(Envelope);
+			pre_json:to_json(envelope_to_json(Envelope));
 		_ ->
 			% Encrypt the envelope
 			aes_encrypt(pre_json:to_json(Envelope), State#state.aes_key, State#state.aes_vector)
@@ -233,6 +233,24 @@ aes_decrypt(CipherText, #state{aes_key = AESKey, aes_vector = AESVector}) ->
 % Decode JSON message
 aes_decrypt_envelope(Packet, State) ->
 	json_to_envelope(aes_decrypt(Packet, State)).
+
+% Extract the json message from an envelope record
+envelope_to_json(Envelope) ->
+	#envelope{
+		type = Type,
+		channel = Channel,
+		contents = Contents,
+		id = MessageID
+	} = Envelope,
+	Props = [
+		{type, if is_binary(Type) -> Type; is_atom(Type) -> list_to_binary(atom_to_list(Type)) end},
+		{channel, Channel},
+		{contents, Contents}
+	],
+	case MessageID of
+		undefined -> Props;
+		MessageID -> [{id, MessageID} | Props]
+	end.
 
 % Pull the json message into an envelope record
 json_to_envelope(Json) when is_binary(Json) ->
