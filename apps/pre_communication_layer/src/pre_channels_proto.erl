@@ -43,7 +43,7 @@
 %% @doc Starts the server
 
 start_link(Ref, Socket, Transport, Opts) ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [Ref, Socket, Transport], Opts).
+	gen_server:start_link(?MODULE, [Ref, Socket, Transport], Opts).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
