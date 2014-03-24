@@ -40,7 +40,7 @@
 % We are always started in response to an SSL connection. Our supervisor is also in charge of generating the cookie used
 % to identify the incoming TCP connection as this client.
 start_link(SslProto, Cookie) ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [SslProto, Cookie], []).
+	gen_server:start_link(?MODULE, [SslProto, Cookie], []).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 

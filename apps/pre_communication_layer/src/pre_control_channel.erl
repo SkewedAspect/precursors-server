@@ -35,7 +35,7 @@ handle_request(<<"login">>, ID, Request, State) ->
 			{[
 				{confirm, true},
 				{cookie, State#client_state.cookie},
-				{tcpport, 6007}
+				{tcpPort, 6007}
 			],
 				State#client_state{
 					aes_key = AESKey,
