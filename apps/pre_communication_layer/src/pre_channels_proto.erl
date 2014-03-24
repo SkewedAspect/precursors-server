@@ -105,7 +105,8 @@ handle_cast(Request, State) ->
 
 %% @hidden Handles incoming SSL data
 handle_info({ssl, _Socket, Data}, State) ->
-	lager:debug("SSL: ~p", [Data]),
+	lager:debug("SSL Message: ~p", [Data]),
+
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -118,7 +119,8 @@ handle_info({ssl, _Socket, Data}, State) ->
 
 %% @hidden Handles incoming TCP data
 handle_info({tcp, _Socket, Data}, State) ->
-	lager:debug("TCP: ~p", [Data]),
+	lager:debug("TCP Message: ~p", [Data]),
+
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -188,7 +190,7 @@ check_for_cookie([Message | Rest], State) ->
 check_for_cookie(Message, State) ->
 	Decoded = json_to_envelope(Message),
 	State1 = case Decoded of
-		#envelope{type = request, channel = <<"control">>, contents = Request} when is_list(Request) ->
+		#envelope{type = request, id = ID, channel = <<"control">>, contents = Request} when is_list(Request) ->
 			case proplists:get_value(cookie, Request) of
 				undefined ->
 					lager:warning("Non-cookie message received: ~p, ~p, ~p",
@@ -196,7 +198,8 @@ check_for_cookie(Message, State) ->
 					exit(non_cookie_message),
 					State;
 				Cookie ->
-					ClientPid = pre_client:connect_tcp(self(), Cookie),
+					ClientPid = pre_client:connect_tcp(self(), Cookie, ID),
+
 					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
 					State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }
 			end;

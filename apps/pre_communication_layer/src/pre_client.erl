@@ -9,7 +9,7 @@
 
 % API
 -export([start_link/2,
-	connect_tcp/2,
+	connect_tcp/3,
 	ensure_ets/0,
 	get_aes/ 1,
 	handle_messages/3,
@@ -54,9 +54,9 @@ ensure_ets() ->
 
 %% @doc Looks up the client pid by Cookie, and informs that pid of the `TcpProto` pid. Then deletes the entry in the ets
 %% table. (This helps keep the table nice and small.)
--spec connect_tcp(TcpProto :: pid(), Cookie :: binary()) -> ClientPid :: pid().
+-spec connect_tcp(TcpProto :: pid(), Cookie :: binary(), RequestID :: binary()) -> ClientPid :: pid().
 
-connect_tcp(TcpProto, Cookie) ->
+connect_tcp(TcpProto, Cookie, RequestID) ->
 	ClientPid = case ets:lookup(client_ets, Cookie) of
 		[{_, Pid}] ->
 			Pid;
@@ -64,7 +64,7 @@ connect_tcp(TcpProto, Cookie) ->
 			lager:error("Failed to look up TCP cookie, disconnecting client."),
 			exit(tcp_cookie_error)
 	end,
-	gen_server:cast(ClientPid, {tcp_connect, TcpProto}),
+	gen_server:cast(ClientPid, {tcp_connect, TcpProto, RequestID}),
 
 	% Clean ourselves up.
 	ets:delete(client_ets, Cookie),
@@ -223,7 +223,12 @@ handle_cast({send_response, tcp, Channel, ID, Content}, State) ->
 	{noreply, State};
 
 
-handle_cast({tcp_connect, TcpProto}, State) ->
+handle_cast({tcp_connect, TcpProto, RequestID}, State) ->
+
+	% Send response to the client
+	send_response(self(), ssl, <<"control">>, RequestID, [{confirm, true}]),
+
+	% Set the TCP Proto
 	State1 = State#client_state{tcp_proto = TcpProto},
 	{noreply, State1};
 

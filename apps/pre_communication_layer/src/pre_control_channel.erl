@@ -23,25 +23,35 @@ handle_request(<<"login">>, ID, Request, State) ->
 
 	{LoginRep, State1} = case pre_account:authenticate(User, Password) of
 		{error, Error} ->
-			{[
-				{confirm, false},
-				{reason, Error}
-			], State};
+			lager:info("Failed to authenticate user ~p", [User]),
+			{
+				[
+					{confirm, false},
+					{reason, Error}
+				],
+				State
+			};
 		ok ->
+			lager:info("Successfully authenticated user ~p", [User]),
+
 			% Record login information in client_state
 			AESKey = base64:decode(proplists:get_value(key, Request)),
 			AESVector = base64:decode(proplists:get_value(vector, Request)),
 			{ok, Account} = pre_account:get_by_email(User),
-			{[
-				{confirm, true},
-				{cookie, State#client_state.cookie},
-				{tcpPort, 6007}
-			],
+
+			% Build response object for the client
+			{
+				[
+					{confirm, true},
+					{cookie, State#client_state.cookie},
+					{tcpPort, 6007}
+				],
 				State#client_state{
 					aes_key = AESKey,
 					aes_vector = AESVector,
 					account = Account
-				}}
+				}
+			}
 	end,
 
 	% Send login response
