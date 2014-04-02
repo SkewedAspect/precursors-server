@@ -104,7 +104,7 @@ handle_cast(Request, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @hidden Handles incoming SSL data
-handle_info({ssl, _Socket, Data}, State) ->
+handle_info({ssl, Socket, Data}, State) ->
 	lager:debug("SSL Message: ~p", [Data]),
 
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
@@ -115,10 +115,14 @@ handle_info({ssl, _Socket, Data}, State) ->
 	% Send the messages to the client connection pid.
 	pre_client:handle_messages(State#state.client, ssl, DecodedMessages),
 
+	% Tell the transport to get the next message
+	Transport = State1#state.transport,
+	ok = Transport:setopts(Socket, [{active, once}]),
+
 	{noreply, State1};
 
 %% @hidden Handles incoming TCP data
-handle_info({tcp, _Socket, Data}, State) ->
+handle_info({tcp, Socket, Data}, State) ->
 	lager:debug("TCP Message: ~p", [Data]),
 
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
@@ -135,6 +139,10 @@ handle_info({tcp, _Socket, Data}, State) ->
 			% Send the messages to the client connection pid.
 			pre_client:handle_messages(State1#state.client, tcp, DecryptedMessages)
 	end,
+
+	% Tell the transport to get the next message
+	Transport = State2#state.transport,
+	ok = Transport:setopts(Socket, [{active, once}]),
 
 	{noreply, State2};
 
