@@ -70,7 +70,8 @@ add_entity(WorkerPid, EntityID, EntityController, EntityState) ->
 						[] ->
 							{error, worker_not_found};
 						[{WorkerPid, WorkerUpdatesTable}] ->
-							ets:insert(pre_sim_entity_table, {EntityID, WorkerPid, WorkerUpdatesTable})
+							ets:insert(pre_sim_entity_table, {EntityID, WorkerPid, WorkerUpdatesTable}),
+							ok
 					end
 			end;
 		Error -> Error
@@ -389,17 +390,10 @@ simulate(Start, State) ->
 
 %% @hidden
 
-apply_updates(_EntityID, [], Entity) ->
-	Entity;
-
-apply_updates(EntityID, [{EntityID, Update} | Rest], Entity) ->
-	NewEntity = entity_controller:apply_updates(lists:flatten(Update), Entity),
-	apply_updates(EntityID, Rest, NewEntity);
-
-apply_updates(EntityID, IncomingUpdatesTable, Entity) when is_atom(IncomingUpdatesTable) ->
+get_pending_updates(EntityID, IncomingUpdatesTable, Entity) when not is_list(IncomingUpdatesTable) ->
 	EntityUpdates = ets:lookup(IncomingUpdatesTable, EntityID),
 	ets:delete(IncomingUpdatesTable, EntityID),
-	apply_updates(EntityID, EntityUpdates, Entity).
+	EntityUpdates.
 
 %% @hidden
 
@@ -410,14 +404,14 @@ simulate_entities(State) ->
 	} = State,
 
 	{EntityStates2, OutgoingUpdates3} = lists:foldl(
-		fun({EntityID, Entity1}, {EntityStates1, OutgoingUpdates1}) ->
+		fun({EntityID, {EntityController, Entity1}}, {EntityStates1, OutgoingUpdates1}) ->
 			% First, apply any incoming updates.
-			Entity2 = apply_updates(EntityID, IncomingUpdatesTable, Entity1),
+			Updates = get_pending_updates(EntityID, IncomingUpdatesTable, Entity1),
 
 			% Then, call simulate.
-			{Entity3, OutgoingUpdates2} = entity_controller:call(Entity2, simulate, [Entity2, State]),
+			{OutgoingUpdates2, Entity2} = EntityController:simulate(Updates, Entity1),
 
-			{[{EntityID, Entity3} | EntityStates1], lists:append(OutgoingUpdates1, OutgoingUpdates2)}
+			{[{EntityID, {EntityController, Entity2}} | EntityStates1], lists:append(OutgoingUpdates1, OutgoingUpdates2)}
 		end,
 		{[], []},
 		PreviousEntityStates
