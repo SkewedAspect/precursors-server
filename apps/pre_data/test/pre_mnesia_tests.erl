@@ -34,9 +34,41 @@ setup_test_() -> [
 		?assert(lists:member(node(), DiscCopies))
 	end},
 
+	{"persist through mnesia restart", fun() ->
+		mnesia:stop(),
+		mnesia:start(),
+		DiscCopies = mnesia:table_info(pre_rec_account, disc_copies),
+		?assert(lists:member(node(), DiscCopies))
+	end},
+
 	{"teardown", fun() ->
 		mnesia:stop(),
 		mnesia:delete_schema([node()])
+	end}
+
+	].
+
+non_persist_setup_test_() -> [
+
+	{"able to start", fun() ->
+		mnesia:start(),
+		Got = pre_mnesia:check_setup(false),
+		?assertEqual(ok, Got)
+	end},
+
+	{"counter update", fun() ->
+		Got = mnesia:dirty_update_counter(pre_counters, goober, 1),
+		?assertEqual(1, Got)
+	end},
+
+	{"no persistence through mneisa restart", fun() ->
+		mnesia:stop(),
+		mnesia:start(),
+		?assertExit({aborted, {combine_error, pre_counters, update_counter}}, mnesia:dirty_update_counter(pre_counters, goober, 1))
+	end},
+
+	{"teardown", fun() ->
+		mnesia:stop()
 	end}
 
 	].
