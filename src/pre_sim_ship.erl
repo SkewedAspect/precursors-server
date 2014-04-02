@@ -5,7 +5,7 @@
 
 -behaviour(pre_gen_simulated).
 
-% entity_controller
+% pre_gen_simulated
 -export([init/2, simulate/2]).
 
 -record(state, {
@@ -25,7 +25,7 @@
 }).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% API
+%% pre_gen_simulated
 %% --------------------------------------------------------------------------------------------------------------------
 
 init(EntityID, InitData) ->
@@ -65,7 +65,7 @@ init(EntityID, InitData) ->
 	% Set up default model def, and default physical state with random position/orientation
 	InitDataWithDefaults = lists:ukeymerge(1, InitData, Defaults),
 
-	Physical = entity_physical:init(EntityID, InitDataWithDefaults),
+	Physical = pre_sim_physical:init(EntityID, InitDataWithDefaults),
 
 	#state{
 		target_linear_velocity = proplists:get_value(target_linear_velocity, InitData),
@@ -98,7 +98,7 @@ simulate(Updates, State) ->
 
 	{ShipUpdate, State1} = do_flight_control(State),
 
-	{PhysicalUpdate, NewPhysical} = entity_physical:simulate(PhysicalUpdates, State1#state.physical),
+	{PhysicalUpdate, NewPhysical} = pre_sim_physical:simulate(PhysicalUpdates, State1#state.physical),
 
 	{ShipUpdate ++ PhysicalUpdate, State1#state { physical = NewPhysical }}.
 
@@ -137,11 +137,11 @@ apply_update(Key, Value, {Unhandled, State}) ->
 
 do_flight_control(State) ->
 	Physical = State#state.physical,
-	Orientation = entity_physical:get_orientation(Physical),
-	PositionVelAbs = entity_physical:get_linear_velocity(Physical),
-	AngularVelAbs = entity_physical:get_angular_velocity(Physical),
-	OldForce = entity_physical:get_force_relative(Physical),
-	OldTorque = entity_physical:get_torque_relative(Physical),
+	Orientation = pre_sim_physical:get_orientation(Physical),
+	PositionVelAbs = pre_sim_physical:get_linear_velocity(Physical),
+	AngularVelAbs = pre_sim_physical:get_angular_velocity(Physical),
+	OldForce = pre_sim_physical:get_force_relative(Physical),
+	OldTorque = pre_sim_physical:get_torque_relative(Physical),
 
 	{TX, TY, TZ} = State#state.target_linear_velocity,
 	{TPitch, THeading, TRoll} = State#state.target_angular_velocity,
@@ -186,7 +186,7 @@ do_flight_control(State) ->
 			{[], State};
 		_ ->
 			% Update physical state
-			NewPhysical = entity_physical:apply_update(physical, PhysicalUpdates, Physical#state.physical),
+			NewPhysical = pre_sim_physical:apply_update(physical, PhysicalUpdates, Physical#state.physical),
 
 			% Update entity state
 			State1 = State#state{

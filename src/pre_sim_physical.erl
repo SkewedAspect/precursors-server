@@ -8,7 +8,7 @@
 % API
 -export([get_orientation/1, get_linear_velocity/1, get_angular_velocity/1, get_force_relative/1, get_torque_relative/1]).
 
-% entity_controller
+% pre_gen_simulated
 -export([init/2, simulate/2]).
 
 -record(state, {
@@ -44,7 +44,7 @@ get_torque_relative(State) ->
 	pre_physics_rk4:get_prop(torque_relative, State#state.physical).
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% entity_controller
+%% pre_gen_simulated
 %% --------------------------------------------------------------------------------------------------------------------
 
 -spec init(EntityID, InitData) -> State when
