@@ -121,7 +121,7 @@ send_event(ClientPid, Transport, Channel, Content) ->
 -spec send_response(ClientPid :: pid(), Channel :: binary(), ID :: any(), Content :: term()) -> ok.
 
 send_response(ClientPid, Channel, ID, Content) ->
-	gen_server:cast(ClientPid, { send_response, Channel, ID, Content }).
+	gen_server:cast(ClientPid, { send_response, tcp, Channel, ID, Content }).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -185,7 +185,7 @@ handle_call(Request, _From, State) ->
 %% @hidden
 
 handle_cast({send_event, ssl, Channel, Content}, State) ->
-	Envelope = #envelope{channel = Channel, contents = Content},
+	Envelope = #envelope{type = event, channel = Channel, contents = Content},
 	SslProto = State#client_state.ssl_proto,
 
 	% Send a message over SSL
@@ -214,7 +214,7 @@ handle_cast({send_response, ssl, Channel, ID, Content}, State) ->
 
 
 handle_cast({send_response, tcp, Channel, ID, Content}, State) ->
-	Envelope = #envelope{channel = Channel, id = ID, contents = Content},
+	Envelope = #envelope{type = response, channel = Channel, id = ID, contents = Content},
 	TcpProto = State#client_state.tcp_proto,
 
 	% Send a message over TCP

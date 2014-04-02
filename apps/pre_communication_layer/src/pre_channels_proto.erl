@@ -47,6 +47,9 @@ start_link(Ref, Socket, Transport, Opts) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @doc Sends an envelope'd message to the client, over the network.
+-spec send_envelope(ProtoPid :: pid(), Envelope :: #envelope{}) -> ok.
+
 send_envelope(ProtoPid, Envelope) ->
 	gen_server:cast(ProtoPid, {send, Envelope}).
 
@@ -84,8 +87,10 @@ handle_cast({send, Envelope}, State) ->
 		undefined ->
 			pre_json:to_json(envelope_to_json(Envelope));
 		_ ->
+			EnvelopeJson = envelope_to_json(Envelope),
+
 			% Encrypt the envelope
-			aes_encrypt(pre_json:to_json(Envelope), State#state.aes_key, State#state.aes_vector)
+			aes_encrypt(pre_json:to_json(EnvelopeJson), State#state.aes_key, State#state.aes_vector)
 	end,
 
 	Packet = netstring:encode(Data),
@@ -95,6 +100,7 @@ handle_cast({send, Envelope}, State) ->
 	Transport:send(Socket, Packet),
 
 	{noreply, State};
+
 
 %% @hidden
 handle_cast(Request, State) ->
@@ -137,7 +143,8 @@ handle_info({tcp, Socket, Data}, State) ->
 			DecryptedMessages = [aes_decrypt_envelope(Message, State1) || Message <- Messages],
 
 			% Send the messages to the client connection pid.
-			pre_client:handle_messages(State1#state.client, tcp, DecryptedMessages)
+			pre_client:handle_messages(State1#state.client, tcp, DecryptedMessages),
+			State1
 	end,
 
 	% Tell the transport to get the next message
@@ -188,7 +195,6 @@ check_for_cookie([], State) ->
 check_for_cookie([Message | Rest], State) ->
 	State1 = case check_for_cookie(Message, State) of
 		{true, State2} ->
-			pre_client:handle_message(State#state.client, tcp, Rest),
 			State2;
 		{false, _} ->
 			check_for_cookie(Rest, State)
@@ -197,30 +203,27 @@ check_for_cookie([Message | Rest], State) ->
 
 check_for_cookie(Message, State) ->
 	Decoded = json_to_envelope(Message),
-	State1 = case Decoded of
+	case Decoded of
 		#envelope{type = request, id = ID, channel = <<"control">>, contents = Request} when is_list(Request) ->
 			case proplists:get_value(cookie, Request) of
 				undefined ->
 					lager:warning("Non-cookie message received: ~p, ~p, ~p",
 						[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
 					exit(non_cookie_message),
-					State;
+					{false, State};
 				Cookie ->
 					ClientPid = pre_client:connect_tcp(self(), Cookie, ID),
 
 					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
-					State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }
+					{true, State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }}
 			end;
 
 		_ ->
 			lager:warning("Non-cookie message received: ~p, ~p, ~p",
 				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
 			exit(non_cookie_message),
-			State
-
-	end,
-
-	{false, State1}.
+			{false, State}
+	end.
 
 get_pkcs5_padding(Packet) ->
 	PacketLength = byte_size(Packet),
