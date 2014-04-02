@@ -98,7 +98,11 @@ devrel: rel/$(DEVRELDIR) $(SSL_CERT)
 
 # Testing
 eunit test: clean-test compile
+ifneq ($(suites),)
+	./rebar eunit skip_deps=true suites=$(suites)
+else
 	./rebar eunit skip_deps=true
+endif
 
 
 # Cleanup
