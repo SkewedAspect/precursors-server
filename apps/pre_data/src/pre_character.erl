@@ -6,7 +6,7 @@
 -define(t(Thing), pre_data:transaction(fun() -> Thing end)).
 
 % API
--export([get_by_id/1, get_by_name/1, get_by_account/1, create/5, delete/1]).
+-export([get_by_id/1, get_by_name/1, get_by_account/1, create/5, create/6, delete/1]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 %% API
@@ -41,7 +41,7 @@ get_by_account(AccountID) ->
 
 %% @doc Creates a new level 1 character. Returns the newly created character.
 -spec create(Name :: binary(), Account :: binary(), Race :: atom(), Faction :: atom(), Ship :: binary()) -> {'ok', tuple()} | {error, term()}.
-create(Name, Account, Race, Faction, Ship, Level) ->
+create(Name, Account, Race, Faction, Ship) ->
 	create(Name, Account, Race, Faction, Ship, 1).
 
 %% FIXME: De-duplicate before creating!
