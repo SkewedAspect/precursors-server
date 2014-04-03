@@ -8,23 +8,31 @@
 -define(COUNTERS_TABLE, pre_counters).
 -define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE, pre_rec_account]).
 
--export([check_setup/0]).
+-export([check_setup/0, check_setup/1]).
 -export([transaction/1, save/1, get_by_id/2, delete/2, search/2]).
 
 %% -----------------------------------------------------------------------
 %% API
 %% -----------------------------------------------------------------------
 
-%% @doc Ensure the mnesia schema and tables exist. This may stop mnesia to
-%% create a schema.
+%% @doc Same as {@link check_setup/1} passed 'true'.
+%% @see check_setup/1
 -spec check_setup() -> 'ok' | {'error', any()}.
 check_setup() ->
-	maybe_recreate_schema(),
+	check_setup(true).
+
+%% @doc Ensure the mnesia schema and tables exist. This may stop mnesia to
+%% create a schema on disk if 'true' is passed. Any other value and mnesia
+%% does not perist the data, meaning once mnesia is stopped, it will be
+%% lost
+-spec check_setup(Persist :: bool()) -> 'ok' | {'error', any()}.
+check_setup(Persist) ->
+	maybe_recreate_schema(Persist),
 	Tables = mnesia:system_info(tables),
 	Expected = lists:sort(?EXPECTED_TABLES),
 	Got = lists:sort(Tables),
 	Needed = Expected -- Got,
-	create_tables(Needed).
+	create_tables(Needed, Persist).
 
 %% -----------------------------------------------------------------------
 %% Callbacks
@@ -83,7 +91,7 @@ maybe_fix_id(RecName, undefined, Record) ->
 maybe_fix_id(_RecName, _Id, Record) ->
 	Record.
 
-maybe_recreate_schema() ->
+maybe_recreate_schema(true) ->
 	Node = node(),
 	case mnesia:table_info(schema, disc_copies) of
 		[] ->
@@ -98,23 +106,30 @@ maybe_recreate_schema() ->
 					{ok, _} = mnesia:change_config(extra_db_nodes, DiscNodes),
 					{atomic, ok} = mnesia:change_table_copy_type(schema, disc_copies)
 			end
-	end.
+	end;
 
-create_tables(TableNames) ->
+maybe_recreate_schema(_) ->
+	'ok'.
+
+create_tables(TableNames, Persist) ->
+	DiscNodes = case Persist of
+		true -> [node() | nodes()];
+		_ -> []
+	end,
 	lists:foreach(fun(TableName) ->
-		{atomic, ok} = create_table(TableName)
+		{atomic, ok} = create_table(TableName, DiscNodes)
 	end, TableNames).
 
-create_table(?COUNTERS_TABLE) ->
+create_table(?COUNTERS_TABLE, DiscNodes) ->
 	TableOpts = [
-		{disc_copies, [node() | nodes()]}
+		{disc_copies, DiscNodes}
 	],
 	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, TableOpts);
 
-create_table(pre_rec_account) ->
+create_table(pre_rec_account, DiscNodes) ->
 	{atomic, ok} = mnesia:create_table(pre_rec_account, [
 		{attributes, pre_rec_account:field_names()},
-		{disc_copies, [node() | nodes()]}
+		{disc_copies, DiscNodes}
 	]).
 
 make_matchspec(Table, Params) ->
