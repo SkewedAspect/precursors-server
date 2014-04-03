@@ -43,12 +43,15 @@
 %% @doc Starts the server
 
 start_link(Ref, Socket, Transport, Opts) ->
-	gen_server:start_link({local, ?MODULE}, ?MODULE, [Ref, Socket, Transport], Opts).
+	gen_server:start_link(?MODULE, [Ref, Socket, Transport], Opts).
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-send_envelope(ProtoPid, envelope) ->
-	gen_server:cast(ProtoPid, {send, envelope}).
+%% @doc Sends an envelope'd message to the client, over the network.
+-spec send_envelope(ProtoPid :: pid(), Envelope :: #envelope{}) -> ok.
+
+send_envelope(ProtoPid, Envelope) ->
+	gen_server:cast(ProtoPid, {send, Envelope}).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% gen_server
@@ -62,7 +65,7 @@ init([Ref, Socket, Transport]) ->
 	% If you return a timeout value of 0 then the `gen_server' will call `handle_info(timeout, _, _)' right away.
 	% We do this to work around issues with `gen_server' and ranch's protocols. See the ranch docs:
 	%   http://ninenines.eu/docs/en/ranch/HEAD/guide/protocols/#using_gen_server
-	{ok, {state, Ref, Socket, Transport}, 0}.
+	{ok, #state{ref = Ref, socket = Socket, transport = Transport}, 0}.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
@@ -82,10 +85,12 @@ handle_cast({send, Envelope}, State) ->
 	% If we have an aes key, we assume we need to aes encrypt the message.
 	Data = case State#state.aes_key of
 		undefined ->
-			pre_json:to_json(Envelope);
+			pre_json:to_json(envelope_to_json(Envelope));
 		_ ->
+			EnvelopeJson = envelope_to_json(Envelope),
+
 			% Encrypt the envelope
-			aes_encrypt(pre_json:to_json(Envelope), State#state.aes_key, State#state.aes_vector)
+			aes_encrypt(pre_json:to_json(EnvelopeJson), State#state.aes_key, State#state.aes_vector)
 	end,
 
 	Packet = netstring:encode(Data),
@@ -96,6 +101,7 @@ handle_cast({send, Envelope}, State) ->
 
 	{noreply, State};
 
+
 %% @hidden
 handle_cast(Request, State) ->
 	lager:debug("Unhandled cast:  ~p", [Request]),
@@ -104,7 +110,9 @@ handle_cast(Request, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @hidden Handles incoming SSL data
-handle_info({ssl, _Socket, Data}, State) ->
+handle_info({ssl, Socket, Data}, State) ->
+	lager:debug("SSL Message: ~p", [Data]),
+
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -113,10 +121,16 @@ handle_info({ssl, _Socket, Data}, State) ->
 	% Send the messages to the client connection pid.
 	pre_client:handle_messages(State#state.client, ssl, DecodedMessages),
 
+	% Tell the transport to get the next message
+	Transport = State1#state.transport,
+	ok = Transport:setopts(Socket, [{active, once}]),
+
 	{noreply, State1};
 
 %% @hidden Handles incoming TCP data
-handle_info({tcp, _Socket, Data}, State) ->
+handle_info({tcp, Socket, Data}, State) ->
+	lager:debug("TCP Message: ~p", [Data]),
+
 	{Messages, Cont} = netstring:decode(Data, State#state.netstring_cont),
 	State1 = State#state{netstring_cont = Cont},
 
@@ -129,8 +143,13 @@ handle_info({tcp, _Socket, Data}, State) ->
 			DecryptedMessages = [aes_decrypt_envelope(Message, State1) || Message <- Messages],
 
 			% Send the messages to the client connection pid.
-			pre_client:handle_messages(State1#state.client, tcp, DecryptedMessages)
+			pre_client:handle_messages(State1#state.client, tcp, DecryptedMessages),
+			State1
 	end,
+
+	% Tell the transport to get the next message
+	Transport = State2#state.transport,
+	ok = Transport:setopts(Socket, [{active, once}]),
 
 	{noreply, State2};
 
@@ -139,15 +158,12 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 	ok = ranch:accept_ack(Ref),
 	ok = Transport:setopts(Socket, [{active, once}]),
 
-	State1 = case Socket of
-		ssl ->
+	State1 = case Transport of
+		ranch_ssl ->
 			% Spawn a new client pid
-			pre_client_sup:start_child(self()),
-			State;
-		tcp ->
-			State;
-		Sock ->
-			lager:warning("Unknown Socket Type: ~p", [Sock]),
+			{ok, ClientPid} = pre_client_sup:start_child(self()),
+			State#state{client = ClientPid};
+		ranch_tcp ->
 			State
 	end,
 
@@ -179,7 +195,6 @@ check_for_cookie([], State) ->
 check_for_cookie([Message | Rest], State) ->
 	State1 = case check_for_cookie(Message, State) of
 		{true, State2} ->
-			pre_client:handle_message(State#state.client, tcp, Rest),
 			State2;
 		{false, _} ->
 			check_for_cookie(Rest, State)
@@ -188,29 +203,27 @@ check_for_cookie([Message | Rest], State) ->
 
 check_for_cookie(Message, State) ->
 	Decoded = json_to_envelope(Message),
-	State1 = case Decoded of
-		#envelope{type = request, channel = <<"control">>, contents = Request} when is_list(Request) ->
+	case Decoded of
+		#envelope{type = request, id = ID, channel = <<"control">>, contents = Request} when is_list(Request) ->
 			case proplists:get_value(cookie, Request) of
 				undefined ->
 					lager:warning("Non-cookie message received: ~p, ~p, ~p",
 						[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
 					exit(non_cookie_message),
-					State;
+					{false, State};
 				Cookie ->
-					ClientPid = pre_client:connect_tcp(self(), Cookie),
+					ClientPid = pre_client:connect_tcp(self(), Cookie, ID),
+
 					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
-					State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }
+					{true, State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }}
 			end;
 
 		_ ->
 			lager:warning("Non-cookie message received: ~p, ~p, ~p",
 				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
 			exit(non_cookie_message),
-			State
-
-	end,
-
-	{false, State1}.
+			{false, State}
+	end.
 
 get_pkcs5_padding(Packet) ->
 	PacketLength = byte_size(Packet),
@@ -234,6 +247,24 @@ aes_decrypt(CipherText, #state{aes_key = AESKey, aes_vector = AESVector}) ->
 % Decode JSON message
 aes_decrypt_envelope(Packet, State) ->
 	json_to_envelope(aes_decrypt(Packet, State)).
+
+% Extract the json message from an envelope record
+envelope_to_json(Envelope) ->
+	#envelope{
+		type = Type,
+		channel = Channel,
+		contents = Contents,
+		id = MessageID
+	} = Envelope,
+	Props = [
+		{type, if is_binary(Type) -> Type; is_atom(Type) -> list_to_binary(atom_to_list(Type)) end},
+		{channel, Channel},
+		{contents, Contents}
+	],
+	case MessageID of
+		undefined -> Props;
+		MessageID -> [{id, MessageID} | Props]
+	end.
 
 % Pull the json message into an envelope record
 json_to_envelope(Json) when is_binary(Json) ->

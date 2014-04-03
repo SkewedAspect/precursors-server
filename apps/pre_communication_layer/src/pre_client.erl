@@ -9,7 +9,7 @@
 
 % API
 -export([start_link/2,
-	connect_tcp/2,
+	connect_tcp/3,
 	ensure_ets/0,
 	get_aes/ 1,
 	handle_messages/3,
@@ -40,7 +40,7 @@
 % We are always started in response to an SSL connection. Our supervisor is also in charge of generating the cookie used
 % to identify the incoming TCP connection as this client.
 start_link(SslProto, Cookie) ->
-	gen_server:start_link({local, ?SERVER}, ?MODULE, [SslProto, Cookie], []).
+	gen_server:start_link(?MODULE, [SslProto, Cookie], []).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -54,9 +54,9 @@ ensure_ets() ->
 
 %% @doc Looks up the client pid by Cookie, and informs that pid of the `TcpProto` pid. Then deletes the entry in the ets
 %% table. (This helps keep the table nice and small.)
--spec connect_tcp(TcpProto :: pid(), Cookie :: binary()) -> ClientPid :: pid().
+-spec connect_tcp(TcpProto :: pid(), Cookie :: binary(), RequestID :: binary()) -> ClientPid :: pid().
 
-connect_tcp(TcpProto, Cookie) ->
+connect_tcp(TcpProto, Cookie, RequestID) ->
 	ClientPid = case ets:lookup(client_ets, Cookie) of
 		[{_, Pid}] ->
 			Pid;
@@ -64,7 +64,7 @@ connect_tcp(TcpProto, Cookie) ->
 			lager:error("Failed to look up TCP cookie, disconnecting client."),
 			exit(tcp_cookie_error)
 	end,
-	gen_server:cast(ClientPid, {tcp_connect, TcpProto}),
+	gen_server:cast(ClientPid, {tcp_connect, TcpProto, RequestID}),
 
 	% Clean ourselves up.
 	ets:delete(client_ets, Cookie),
@@ -121,7 +121,7 @@ send_event(ClientPid, Transport, Channel, Content) ->
 -spec send_response(ClientPid :: pid(), Channel :: binary(), ID :: any(), Content :: term()) -> ok.
 
 send_response(ClientPid, Channel, ID, Content) ->
-	gen_server:cast(ClientPid, { send_response, Channel, ID, Content }).
+	gen_server:cast(ClientPid, { send_response, tcp, Channel, ID, Content }).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -185,7 +185,7 @@ handle_call(Request, _From, State) ->
 %% @hidden
 
 handle_cast({send_event, ssl, Channel, Content}, State) ->
-	Envelope = #envelope{channel = Channel, contents = Content},
+	Envelope = #envelope{type = event, channel = Channel, contents = Content},
 	SslProto = State#client_state.ssl_proto,
 
 	% Send a message over SSL
@@ -195,7 +195,7 @@ handle_cast({send_event, ssl, Channel, Content}, State) ->
 
 
 handle_cast({send_event, tcp, Channel, Content}, State) ->
-	Envelope = #envelope{channel = Channel, contents = Content},
+	Envelope = #envelope{type = event, channel = Channel, contents = Content},
 	TcpProto = State#client_state.tcp_proto,
 
 	% Send a message over TCP
@@ -204,7 +204,7 @@ handle_cast({send_event, tcp, Channel, Content}, State) ->
 	{noreply, State};
 
 handle_cast({send_response, ssl, Channel, ID, Content}, State) ->
-	Envelope = #envelope{channel = Channel, id = ID, contents = Content},
+	Envelope = #envelope{type = response, channel = Channel, id = ID, contents = Content},
 	SslProto = State#client_state.ssl_proto,
 
 	% Send a message over SSL
@@ -214,7 +214,7 @@ handle_cast({send_response, ssl, Channel, ID, Content}, State) ->
 
 
 handle_cast({send_response, tcp, Channel, ID, Content}, State) ->
-	Envelope = #envelope{channel = Channel, id = ID, contents = Content},
+	Envelope = #envelope{type = response, channel = Channel, id = ID, contents = Content},
 	TcpProto = State#client_state.tcp_proto,
 
 	% Send a message over TCP
@@ -223,7 +223,12 @@ handle_cast({send_response, tcp, Channel, ID, Content}, State) ->
 	{noreply, State};
 
 
-handle_cast({tcp_connect, TcpProto}, State) ->
+handle_cast({tcp_connect, TcpProto, RequestID}, State) ->
+
+	% Send response to the client
+	send_response(self(), ssl, <<"control">>, RequestID, [{confirm, true}]),
+
+	% Set the TCP Proto
 	State1 = State#client_state{tcp_proto = TcpProto},
 	{noreply, State1};
 
@@ -327,14 +332,14 @@ process_channel(ChannelModule, Message, State) ->
 	ReqType = proplists:get_value(type, Contents),
 
 	case Message#envelope.type of
-		 <<"event">> ->
+		 event ->
 			 ChannelModule:handle_event(ReqType, Message#envelope.id, Contents, State);
-		 <<"request">> ->
+		 request ->
 			 ChannelModule:handle_request(ReqType, Message#envelope.id, Contents, State);
-		 <<"response">> ->
+		 response ->
 			 ChannelModule:handle_response(ReqType, Message#envelope.id, Contents, State);
 		 _ ->
-			 lager:warning("Unknown Message Type: ~p", [Message])
+			 lager:warning("Unknown Message Type: ~p", [Message#envelope.type])
 	end.
 
 

@@ -7,6 +7,11 @@
 }).
 
 setup_test_() -> [
+	{"clean from previous runs", fun() ->
+		mnesia:stop(),
+		mnesia:delete_schema([node()])
+	end},
+
 	{"able to start", fun() ->
 		mnesia:start(),
 		Got = pre_mnesia:check_setup(),
@@ -24,6 +29,11 @@ setup_test_() -> [
 		?assertEqual(Fields, GotFields)
 	end},
 
+	{"pre_rec_account table is a disc available copy", fun() ->
+		DiscCopies = mnesia:table_info(pre_rec_account, disc_copies),
+		?assert(lists:member(node(), DiscCopies))
+	end},
+
 	{"teardown", fun() ->
 		mnesia:stop(),
 		mnesia:delete_schema([node()])
@@ -34,7 +44,7 @@ setup_test_() -> [
 data_access_test_() ->
 	% yes I know all these tests are order dependant. I don't care right now.
 	{setup, fun() ->
-		mnesia:create_schema([node()]),
+		%mnesia:create_schema([node()]),
 		mnesia:start(),
 		pre_mnesia:check_setup(),
 		mnesia:create_table(pre_thing, [

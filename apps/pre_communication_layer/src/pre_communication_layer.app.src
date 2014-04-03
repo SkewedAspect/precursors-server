@@ -5,7 +5,8 @@
 	{applications, [
 		kernel,
 		stdlib,
-		pre_entity_layer
+		pre_entity_layer,
+		pre_data
 	]},
 	{mod, {pre_communication_layer_app, []}},
 	{env, []}

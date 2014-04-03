@@ -15,10 +15,11 @@
 %% API
 %% -----------------------------------------------------------------------
 
-%% @doc Ensure the mnesia schema and tables exist. Assumes a schema already
-%% exists.
+%% @doc Ensure the mnesia schema and tables exist. This may stop mnesia to
+%% create a schema.
 -spec check_setup() -> 'ok' | {'error', any()}.
 check_setup() ->
+	maybe_recreate_schema(),
 	Tables = mnesia:system_info(tables),
 	Expected = lists:sort(?EXPECTED_TABLES),
 	Got = lists:sort(Tables),
@@ -82,17 +83,38 @@ maybe_fix_id(RecName, undefined, Record) ->
 maybe_fix_id(_RecName, _Id, Record) ->
 	Record.
 
+maybe_recreate_schema() ->
+	Node = node(),
+	case mnesia:table_info(schema, disc_copies) of
+		[] ->
+			{atomic, ok} = mnesia:change_table_copy_type(schema, Node, disc_copies);
+		[Node] ->
+			ok;
+		DiscNodes ->
+			case lists:member(Node, DiscNodes) of
+				true ->
+					ok;
+				false ->
+					{ok, _} = mnesia:change_config(extra_db_nodes, DiscNodes),
+					{atomic, ok} = mnesia:change_table_copy_type(schema, disc_copies)
+			end
+	end.
+
 create_tables(TableNames) ->
 	lists:foreach(fun(TableName) ->
 		{atomic, ok} = create_table(TableName)
 	end, TableNames).
 
 create_table(?COUNTERS_TABLE) ->
-	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, []);
+	TableOpts = [
+		{disc_copies, [node() | nodes()]}
+	],
+	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, TableOpts);
 
 create_table(pre_rec_account) ->
 	{atomic, ok} = mnesia:create_table(pre_rec_account, [
-		{attributes, pre_rec_account:field_names()}
+		{attributes, pre_rec_account:field_names()},
+		{disc_copies, [node() | nodes()]}
 	]).
 
 make_matchspec(Table, Params) ->

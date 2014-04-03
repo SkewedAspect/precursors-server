@@ -46,7 +46,7 @@ init(_) ->
 	% Build an ets table to handle the TCP Cookie lookup.
 	pre_client:ensure_ets(),
 
-	ChildSpec = {undefined, {pre_client, start_link, []}, transient, 5, worker, dynamic},
+	ChildSpec = {undefined, {pre_client, start_link, []}, temporary, 5, worker, dynamic},
 	{ok, {{simple_one_for_one, 5, 10}, [ChildSpec]}}.
 
 % Make a ref and then wrap it in a bin
