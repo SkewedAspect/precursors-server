@@ -6,7 +6,8 @@
 		kernel,
 		stdlib,
 		pre_entity_layer,
-		pre_data
+		pre_data,
+		ranch
 	]},
 	{mod, {pre_communication_layer_app, []}},
 	{env, []}
