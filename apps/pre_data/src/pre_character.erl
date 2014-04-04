@@ -15,11 +15,7 @@
 %% @doc Gets an character by id. Returns an character.
 -spec get_by_id(CharacterID :: binary()) -> {'ok', tuple()}.
 get_by_id(CharacterID) ->
-	Got = ?t(pre_data:get_by_id(pre_rec_character, CharacterID)),
-	case Got of
-		{error, notfound} -> {error, character_not_found};
-		_ -> Got
-	end.
+	?t(pre_data:get_by_id(pre_rec_character, CharacterID)).
 
 
 %% @doc Gets an character by name. Returns an character.
@@ -27,16 +23,15 @@ get_by_id(CharacterID) ->
 get_by_name(CharacterName) ->
 	Got = ?t(pre_data:search(pre_rec_character, [{name, CharacterName}])),
 	case Got of
-		{ok, []} -> {error, account_not_found};
-		{ok, [R | _]} ->
-			{ok, R}
+		{ok, []} -> {error, notfound};
+		{ok, [Char]} -> {ok, Char};
+		{ok, [_ | _]} -> {error, duplicates}
 	end.
 
 %% @doc Gets characters by account name. Returns a list of characters.
 -spec get_by_account(AccountID :: binary()) -> {'ok', list()}.
 get_by_account(AccountID) ->
-	Got = ?t(pre_data:search(pre_rec_character, [{account, AccountID}])),
-	{ok, Got}.
+	?t(pre_data:search(pre_rec_character, [{account, AccountID}])).
 
 
 %% @doc Creates a new level 1 character. Returns the newly created character.

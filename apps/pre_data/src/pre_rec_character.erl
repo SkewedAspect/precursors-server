@@ -5,7 +5,10 @@
 
 -compile([{parse_transform, rec2json}]).
 
--record(character, {
+% API
+-export([new/6]).
+
+-record(pre_rec_character, {
 	id :: any(),            % auto generated id
 	name :: binary(),       % beginning and trailing spaces stripped; primary key
 	account :: binary(),    % ID of the account record this character belongs to.
@@ -17,13 +20,10 @@
 	updated
 }).
 
-% API
--export([new/6]).
-
 %% ---------------------------------------------------------------------------------------------------------------------
 
 new(Name, Account, Race, Faction, Ship, Level) ->
-	#character{
+	#pre_rec_character{
 		name = Name,
 		account = Account,
 		race = Race,
