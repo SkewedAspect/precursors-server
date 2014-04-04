@@ -11,10 +11,10 @@
 -record(pre_rec_character, {
 	id :: any(),            % auto generated id
 	name :: binary(),       % beginning and trailing spaces stripped; primary key
-	account :: binary(),    % ID of the account record this character belongs to.
+	account :: any(),       % ID of the account record this character belongs to.
 	race :: atom(),         % limited choices, ex: [human, gikdaa, norael]
 	faction :: atom(),      % limited choices, ex: [league, terran, freelance]
-	ship :: binary(),       % ID of ship record
+	ship :: any(),          % ID of ship record
 	level :: integer(),     % the level of the character, range 1 to MaxLevel
 	created,
 	updated
