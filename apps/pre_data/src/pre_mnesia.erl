@@ -25,7 +25,7 @@ check_setup() ->
 %% create a schema on disk if 'true' is passed. Any other value and mnesia
 %% does not perist the data, meaning once mnesia is stopped, it will be
 %% lost
--spec check_setup(Persist :: bool()) -> 'ok' | {'error', any()}.
+-spec check_setup(Persist :: boolean()) -> 'ok' | {'error', any()}.
 check_setup(Persist) ->
 	maybe_recreate_schema(Persist),
 	Tables = mnesia:system_info(tables),
