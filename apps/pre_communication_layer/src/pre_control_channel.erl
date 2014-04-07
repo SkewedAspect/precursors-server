@@ -70,12 +70,12 @@ handle_request(<<"getCharacters">>, ID, _Request, State) ->
 			];
 		Account ->
 			% Get list of characters
-			{ok, Characters} = pre_character:get_by_account(pre_rec_account:id(Account)),
+			{ok, Characters} = pre_character:get_by_account(Account:id()),
 
 			% Response object
 			[
 				{confirm, true},
-				{characters, [character_to_json(Character) || Character <- Characters]}
+				{characters, [Character:to_json() || Character <- Characters]}
 			]
 	end,
 
@@ -150,15 +150,3 @@ handle_event(Type, ID, Request, State) ->
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-
-%% @hidden
-character_to_json(Character) ->
-	[
-		{id, pre_rec_character:id(Character)},
-		{name, pre_rec_character:name(Character)},
-		{account, pre_rec_character:account(Character)},
-		{race, pre_rec_character:race(Character)},
-		{faction, pre_rec_character:faction(Character)},
-		{ship, pre_rec_character:ship(Character)},
-		{level, pre_rec_character:level(Character)}
-	].

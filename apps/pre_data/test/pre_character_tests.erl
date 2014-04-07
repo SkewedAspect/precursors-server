@@ -21,7 +21,7 @@ character_test_() ->
 		fun(_) -> [
 			{"create character", fun() ->
 				% Name, Account, Race, Faction, Ship, Level
-				Got = pre_character:create(<<"Test Char">>, <<"1">>, human, league, <<"1">>, 10),
+				Got = pre_character:create(<<"Test Char">>, 1, human, league, <<"1">>, 10),
 				?assertMatch({ok, _}, Got)
 			end
 			},

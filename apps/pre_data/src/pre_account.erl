@@ -7,7 +7,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--define(t(Thing), pre_data:transaction(fun() -> Thing end)).
+-define(transact(Thing), pre_data:transaction(fun() -> Thing end)).
 
 % API
 -export([authenticate/2, get_by_email/1, get_by_id/1, create/4, delete/1]).
@@ -22,18 +22,17 @@
 authenticate(AccountName, Password) ->
 	Result = get_by_email(AccountName),
 	case Result of
-		account_not_found ->
-			{error, account_not_found};
 		{ok, Account} ->
 			lager:debug("Auth success: ~p", [Account]),
-			{TestHash, _} = pre_hash:hash(Password, pre_rec_account:hash_data(Account)),
-			DbHash = pre_rec_account:password(Account),
+			{TestHash, _} = pre_hash:hash(Password, Account:hash_data()),
+			DbHash = Account:password(),
 			if
 				TestHash =:= DbHash ->
 					ok;
 				true ->
 					{error, not_matched}
-			end
+			end;
+		Else -> Else
 	end.
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -41,18 +40,18 @@ authenticate(AccountName, Password) ->
 %% @doc Gets an account by email address. Returns an account.
 -spec get_by_email(EmailAddress :: binary()) -> {'ok', tuple()}.
 get_by_email(EmailAddress) ->
-	Got = ?t(pre_data:search(pre_rec_account, [{email, EmailAddress}])),
+	Got = ?transact(pre_data:search(pre_rec_account, [{email, EmailAddress}])),
 	case Got of
 		{ok, []} -> {error, account_not_found};
-		{ok, [R | _]} ->
-			{ok, R}
+		{ok, [R | _]} -> {ok, R};
+		Else -> Else
 	end.
 
 
 %% @doc Gets an account by id. Returns an account.
 -spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
 get_by_id(AccountID) ->
-	Got = ?t(pre_data:get_by_id(pre_rec_account, AccountID)),
+	Got = ?transact(pre_data:get_by_id(pre_rec_account, AccountID)),
 	case Got of
 		{error, notfound} -> {error, account_not_found};
 		_ -> Got
@@ -64,11 +63,11 @@ get_by_id(AccountID) ->
 create(Email, RealName, NickName, Password) ->
 	{HashedPassword, Credential} = pre_hash:hash(Password),
 	New = pre_rec_account:new(Email, RealName, NickName, HashedPassword, Credential),
-	?t(pre_data:save(New)).
+	?transact(pre_data:save(New)).
 
 
 %% @doc Removed an account.
 -spec delete(AccountID :: any()) -> 'ok'.
 delete(AccountID) ->
-	?t(pre_data:delete(pre_rec_account, AccountID)).
+	?transact(pre_data:delete(pre_rec_account, AccountID)).
 
