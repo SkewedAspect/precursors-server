@@ -21,12 +21,12 @@ character_test_() ->
 		fun(_) -> [
 			{"create character", fun() ->
 				% Name, Account, Race, Faction, Ship, Level
-				Got = pre_character:create(<<"Test Char">>, 1, human, league, <<"1">>, 10),
+				Got = pre_character:create(<<"Test Char">>, 1, human, league, 1, 10),
 				?assertMatch({ok, _}, Got)
 			end
 			},
 			{"look up character by account", fun() ->
-				Got = pre_character:get_by_account(<<"1">>),
+				Got = pre_character:get_by_account(1),
 				?assertMatch({ok, [_]}, Got),
 				{ok, Results} = Got,
 				?assertEqual(1, length(Results))
@@ -43,8 +43,8 @@ character_test_() ->
 			end
 			},
 			{"look up duplicate character by name", fun() ->
-				pre_character:create(<<"dupe">>, <<"1">>, human, league, <<"1">>, 10),
-				pre_character:create(<<"dupe">>, <<"1">>, human, league, <<"1">>, 10),
+				pre_character:create(<<"dupe">>, 1, human, league, 1, 10),
+				pre_character:create(<<"dupe">>, 1, human, league, 1, 10),
 
 				Got = pre_character:get_by_name(<<"dupe">>),
 				?assertMatch({error, duplicates}, Got)
