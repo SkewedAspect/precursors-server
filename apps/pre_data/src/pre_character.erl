@@ -40,12 +40,17 @@ get_by_account(AccountID) ->
 create(Name, Account, Race, Faction, Ship) ->
 	create(Name, Account, Race, Faction, Ship, 1).
 
-%% FIXME: De-duplicate before creating!
+
 %% @doc Creates a new character. Returns the newly created character.
 -spec create(Name :: binary(), Account :: binary(), Race :: atom(), Faction :: atom(), Ship :: binary(), Level :: integer()) -> {'ok', tuple()} | {error, term()}.
 create(Name, Account, Race, Faction, Ship, Level) ->
-	New = pre_rec_character:new(Name, Account, Race, Faction, Ship, Level),
-	?transact(pre_data:save(New)).
+	case get_by_name(Name) of
+		{error, notfound} ->
+			New = pre_rec_character:new(Name, Account, Race, Faction, Ship, Level),
+			?transact(pre_data:save(New));
+		{ok, _Char} ->
+			{error, already_exists}
+	end.
 
 
 %% @doc Removed an character.

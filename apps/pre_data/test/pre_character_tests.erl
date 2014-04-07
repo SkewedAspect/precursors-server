@@ -25,6 +25,13 @@ character_test_() ->
 				?assertMatch({ok, _}, Got)
 			end
 			},
+			{"can't create duplicate character", fun() ->
+				Got1 = pre_character:create(<<"dupe">>, 2, human, league, 1, 10),
+				Got2 = pre_character:create(<<"dupe">>, 2, human, league, 1, 10),
+				?assertMatch({ok, _}, Got1),
+				?assertMatch({error, already_exists}, Got2)
+			end
+			},
 			{"look up character by account", fun() ->
 				Got = pre_character:get_by_account(1),
 				?assertMatch({ok, [_]}, Got),
@@ -43,8 +50,11 @@ character_test_() ->
 			end
 			},
 			{"look up duplicate character by name", fun() ->
-				pre_character:create(<<"dupe">>, 1, human, league, 1, 10),
-				pre_character:create(<<"dupe">>, 1, human, league, 1, 10),
+				pre_character:create(<<"dupe">>, 2, human, league, 1, 10),
+
+				% Create by hand, to test the duplicate error state.
+				New = pre_rec_character:new(<<"dupe">>, 2, human, league, 1, 10),
+				pre_data:transaction(fun() -> pre_data:save(New) end),
 
 				Got = pre_character:get_by_name(<<"dupe">>),
 				?assertMatch({error, duplicates}, Got)
