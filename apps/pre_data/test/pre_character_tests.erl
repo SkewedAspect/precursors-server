@@ -1,10 +1,3 @@
-%%%-------------------------------------------------------------------
-%%% @author travis
-%%% @doc
-%%% Tests for pre_character
-%%% @end
-%%% Created : 04. Mar 2014 7:37 PM
-%%%-------------------------------------------------------------------
 -module(pre_character_tests).
 
 -include_lib("eunit/include/eunit.hrl").
