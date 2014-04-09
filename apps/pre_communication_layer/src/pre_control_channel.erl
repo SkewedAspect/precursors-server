@@ -120,7 +120,8 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
 	% If we have a ship id, look it up. Otherwise, create a new one.
 	Got = case SelectedChar:ship() of
 		undefined ->
-			%TODO: We should figure out where to start the player's ship. For now, leave it up to the Entity Engine.
+			%TODO: The player should create their ship when they don't have one, but this involves work on the client.
+			% for now, we can simply make a new ship for them, with an arbitrary name.
 			Name = SelectedChar:name(),
 			pre_player_ship:create(<<Name/binary, "'s Ship">>, <<"Test Ship">>);
 		ID ->
@@ -137,9 +138,8 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
 	    {ok, Ship1} -> Ship1
 	end,
 
-	lager:info("Ship's name is: ~p", [Ship:name()]),
-
-	%TODO: load the ship into the entity event engine!
+	%TODO: pull the callback module from ship's template.
+	pre_entity_balancer:add_entity(pre_ship_controller, Ship:id(), [Ship]),
 
 	State#client_state{
 		character = SelectedChar,
