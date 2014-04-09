@@ -106,8 +106,45 @@ behavior_test_() ->
 			end),
 			pre_gen_entity:add_entity(GE, 65, callback, []),
 			receive continue -> ok end
+		end},
+
+		{"initial simulate tick has valid args", fun() ->
+			Self = self(),
+			meck:expect(callback, simulate, fun(_, state) ->
+				Self ! continue,
+				{ok, state}
+			end),
+			pre_gen_entity:run_simulations(GE),
+			timer:sleep(pre_gen_entity:simulate_interval()),
+			pre_gen_entity:run_simulations(GE),
+			C = count_continues(500),
+			?assertEqual(1, C)
+		end},
+
+		{"callback module can return 'remove_entity' from simulate", fun() ->
+			Self = self(),
+			meck:expect(callback, simulate, fun(_, state) ->
+				remove_entity
+			end),
+			meck:expect(callback, removed, fun(_,_) ->
+				Self ! continue
+			end),
+			pre_gen_entity:run_simulations(GE),
+			receive continue -> ok end,
+			?assert(meck:called(callback, removed, [remove_entity, newstate], '_'))
 		end}
 
 	] end}.
+
+count_continues(Timeout) ->
+	count_continues(0, Timeout).
+
+count_continues(N, Timeout) ->
+	receive
+		continue ->
+			count_continues(N + 1, Timeout)
+	after Timeout ->
+		N
+	end.
 
 -endif.
