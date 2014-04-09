@@ -23,21 +23,21 @@ setup_test_() -> [
 		?assertEqual(1, Got2)
 	end},
 
-	{"has pre_rec_account table", fun() ->
-		Fields = pre_rec_account:field_names(),
-		GotFields = mnesia:table_info(pre_rec_account, attributes),
+	{"has pre_account table", fun() ->
+		Fields = pre_account:field_names(),
+		GotFields = mnesia:table_info(pre_account, attributes),
 		?assertEqual(Fields, GotFields)
 	end},
 
-	{"pre_rec_account table is a disc available copy", fun() ->
-		DiscCopies = mnesia:table_info(pre_rec_account, disc_copies),
+	{"pre_account table is a disc available copy", fun() ->
+		DiscCopies = mnesia:table_info(pre_account, disc_copies),
 		?assert(lists:member(node(), DiscCopies))
 	end},
 
 	{"persist through mnesia restart", fun() ->
 		mnesia:stop(),
 		mnesia:start(),
-		DiscCopies = mnesia:table_info(pre_rec_account, disc_copies),
+		DiscCopies = mnesia:table_info(pre_account, disc_copies),
 		?assert(lists:member(node(), DiscCopies))
 	end},
 
