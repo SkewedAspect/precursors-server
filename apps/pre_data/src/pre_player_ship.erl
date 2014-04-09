@@ -8,11 +8,11 @@
 -define(transact(Thing), pre_data:transaction(fun() -> Thing end)).
 
 -record(pre_player_ship, {
-	id :: any(),            % auto generated id
-	name :: binary(),       % beginning and trailing spaces stripped
-	position :: tuple(),    % last known position in the world
-	orientation :: tuple(), % last known orientation in the world
-	template :: binary(),   % the base ship template for this ship
+	id :: any(),                        % auto generated id
+	name :: binary(),                   % beginning and trailing spaces stripped
+	position :: vector:vec(),           % last known position in the world
+	orientation :: quaternion:quat(),   % last known orientation in the world
+	template :: binary(),               % the base ship template for this ship
 	created :: erlang:timestamp(),
 	updated :: erlang:timestamp()
 }).
