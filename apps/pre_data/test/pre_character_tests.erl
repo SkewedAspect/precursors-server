@@ -50,13 +50,13 @@ character_test_() ->
 			end
 			},
 			{"look up duplicate character by name", fun() ->
-				pre_character:create(<<"dupe">>, 2, human, league, 1, 10),
+				{ok, Dupe} = pre_character:create(<<"dupe2">>, 2, human, league, 1, 10),
 
-				% Create by hand, to test the duplicate error state.
-				New = pre_rec_character:new(<<"dupe">>, 2, human, league, 1, 10),
-				pre_data:transaction(fun() -> pre_data:save(New) end),
+				% remove the id and save, to test the duplicate error state.
+				Dupe1 = Dupe:id(undefined),
+				pre_data:transaction(fun() -> pre_data:save(Dupe1) end),
 
-				Got = pre_character:get_by_name(<<"dupe">>),
+				Got = pre_character:get_by_name(<<"dupe2">>),
 				?assertMatch({error, duplicates}, Got)
 			end
 			},

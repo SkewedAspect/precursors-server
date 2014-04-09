@@ -6,7 +6,7 @@
 -behavior(pre_data).
 
 -define(COUNTERS_TABLE, pre_counters).
--define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE, pre_account, pre_rec_character]).
+-define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE, pre_account, pre_character]).
 
 -export([check_setup/0, check_setup/1]).
 -export([transaction/1, save/1, get_by_id/2, delete/2, search/2]).
@@ -126,9 +126,9 @@ create_table(?COUNTERS_TABLE, DiscNodes) ->
 	],
 	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, TableOpts);
 
-create_table(pre_rec_character, DiscNodes) ->
-	{atomic, ok} = mnesia:create_table(pre_rec_character, [
-		{attributes, pre_rec_character:field_names()},
+create_table(pre_character, DiscNodes) ->
+	{atomic, ok} = mnesia:create_table(pre_character, [
+		{attributes, pre_character:field_names()},
 		{disc_copies, DiscNodes}
 	]);
 
