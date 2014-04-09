@@ -20,7 +20,7 @@
 }).
 
 % API
--export([get_by_id/1, get_by_name/1, get_by_account/1, create/5, create/6, delete/1]).
+-export([get_by_id/1, get_by_name/1, get_by_account/1, create/5, create/6, delete/1, save/1]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 %% API
@@ -73,6 +73,12 @@ create(Name, Account, Race, Faction, Ship, Level) ->
 		{ok, _Char} ->
 			{error, already_exists}
 	end.
+
+
+%% @doc Saves a character. Returns the character.
+-spec save(Character :: #pre_character{}) -> {ok, #pre_character{}} | {error, term()}.
+save(Character) ->
+	?transact(pre_data:save(Character)).
 
 
 %% @doc Removed an character.
