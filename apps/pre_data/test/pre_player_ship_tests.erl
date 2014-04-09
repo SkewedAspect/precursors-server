@@ -40,6 +40,15 @@ player_ship_test_() ->
 				?assertMatch({ok, _}, Got)
 			end
 			},
+			{"save player_ship", fun() ->
+				{ok, Ship} = pre_player_ship:get_by_name(<<"Mistake Not...">>),
+
+				Ship1 = Ship:template(<<"Other Test Ship">>),
+				{ok, ShipSaved} = Ship1:save(),
+
+				?assertMatch(<<"Other Test Ship">>, ShipSaved:template())
+			end
+			},
 			{"delete player_ship", fun() ->
 				ok = pre_player_ship:delete(1),
 				?assertMatch({error, notfound}, pre_player_ship:get_by_id(1))

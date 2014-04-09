@@ -18,7 +18,7 @@
 }).
 
 % API
--export([get_by_id/1, get_by_name/1, get_character/1, create/2, create/4, delete/1]).
+-export([get_by_id/1, get_by_name/1, get_character/1, create/2, create/4, delete/1, save/1]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -38,6 +38,7 @@ get_by_name(ShipName) ->
 		Else -> Else
 	end.
 
+
 %% @doc Gets the character that owns this ship. Returns a character.
 -spec get_character(Ship :: #pre_player_ship{}) -> {ok, term()} | {error, term()}.
 get_character(Ship) ->
@@ -49,10 +50,12 @@ get_character(Ship) ->
 		Else -> Else
 	end.
 
+
 %% @doc Creates a new player. Returns the newly created ship.
 -spec create(Name :: binary(), Template :: binary()) -> {'ok', tuple()} | {error, term()}.
 create(Name, Template) ->
 	create(Name, undefined, undefined, Template).
+
 
 %% @doc Creates a new player ship. Returns the newly created ship.
 -spec create(Name :: binary(), Position :: tuple(), Orientation :: tuple(), Template :: binary()) -> {'ok', tuple()} | {error, term()}.
@@ -66,7 +69,14 @@ create(Name, Position, Orientation, Template) ->
 
 	?transact(pre_data:save(New)).
 
-%% @doc Removed an character.
+
+%% @doc Saves a player ship. Returns the ship.
+-spec save(Ship :: #pre_player_ship{}) -> {ok, #pre_player_ship{}} | {error, term()}.
+save(Ship) ->
+	?transact(pre_data:save(Ship)).
+
+
+%% @doc Removes a player ship.
 -spec delete(ShipID :: any()) -> 'ok'.
 delete(ShipID) ->
 	?transact(pre_data:delete(pre_player_ship, ShipID)).
