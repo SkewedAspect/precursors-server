@@ -21,7 +21,7 @@
 }).
 
 % API
--export([authenticate/2, get_by_email/1, get_by_id/1, create/4, delete/1]).
+-export([authenticate/2, get_by_email/1, get_by_id/1, create/4, delete/1, save/1]).
 
 %% --------------------------------------------------------------------------------------------------------------------
 %% API
@@ -84,6 +84,12 @@ create(Email, RealName, NickName, Password) ->
 		{ok, _Char} ->
 			{error, already_exists}
 	end.
+
+
+%% @doc Saves a account. Returns the account.
+-spec save(Account :: #pre_account{}) -> {ok, #pre_account{}} | {error, term()}.
+save(Account) ->
+	?transact(pre_data:save(Account)).
 
 
 %% @doc Removed an account.
