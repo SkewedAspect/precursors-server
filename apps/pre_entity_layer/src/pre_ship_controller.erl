@@ -5,28 +5,43 @@
 
 -behaviour(pre_gen_entity).
 
-% API
--export([init/1, handle_info/4, removed/2, stopping/1]).
-
--record(pre_ship_state, {
+-record(state, {
 	ship :: any()
 }).
+
+% API
+-export([init/1, handle_event/5, removed/2, stopping/1]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 %% pre_gen_entity
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @doc Called when the entity is added the the entity engine.
 init([Ship]) ->
 	State = { ship = Ship },
 	{ok, State}.
 
-handle_info(Name, From, To, State) ->
-	erlang:error(not_implemented).
+%% ---------------------------------------------------------------------------------------------------------------------
 
+%% @doc Handles incoming events
+handle_event(Name, From, To, Data, State) ->
+	lager:warning("Unhandled event: ~p ~p ~p ~p", [Name, From, To, Data]),
+	{ok, State}.
+
+%% ---------------------------------------------------------------------------------------------------------------------
+
+%% @doc Called when the ship is removed from the entity engine.
 removed(Why, State) ->
-	erlang:error(not_implemented).
+	Ship = State#state.ship,
+	lager:debug("Removing ship: ~p because: ~p", [Ship:id(), Why]),
+	{ok, State}.
 
+%% ---------------------------------------------------------------------------------------------------------------------
+
+%% @doc ???
 stopping(State) ->
-	erlang:error(not_implemented).
+	Ship = State#state.ship,
+	lager:debug("Stopping ship", [Ship:id()]),
+	{ok, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
