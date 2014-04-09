@@ -16,8 +16,8 @@
 	nickname :: binary(),       % unique constraint
 	password :: binary(),       % hash of the password
 	hash_data :: any(),         % the hash algorthm used and any args needed.
-	created :: os:timestamp(),
-	updated :: os:timestamp()
+	created :: erlang:timestamp(),
+	updated :: erlang:timestamp()
 }).
 
 % API
@@ -53,7 +53,7 @@ authenticate(AccountName, Password) ->
 get_by_email(EmailAddress) ->
 	Got = ?transact(pre_data:search(pre_account, [{email, EmailAddress}])),
 	case Got of
-		{ok, []} -> {error, account_not_found};
+		{ok, []} -> {error, notfound};
 		{ok, [R | _]} -> {ok, R};
 		Else -> Else
 	end.
@@ -62,27 +62,28 @@ get_by_email(EmailAddress) ->
 %% @doc Gets an account by id. Returns an account.
 -spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
 get_by_id(AccountID) ->
-	Got = ?transact(pre_data:get_by_id(pre_account, AccountID)),
-	case Got of
-		{error, notfound} -> {error, account_not_found};
-		_ -> Got
-	end.
+	?transact(pre_data:get_by_id(pre_account, AccountID)).
 
-%% FIXME: De-duplicate before creating!
 %% @doc Creates a new account. Returns the newly created account.
 -spec create(Email :: binary(), RealName :: binary(), NickName :: binary(), Password :: binary()) -> {'ok', tuple()} | {error, term()}.
 create(Email, RealName, NickName, Password) ->
-	{HashedPassword, Credential} = pre_hash:hash(Password),
+	case get_by_email(Email) of
+		{error, notfound} ->
+			{HashedPassword, Credential} = pre_hash:hash(Password),
 
-	New = #pre_account{
-		email = Email,
-		real_name = RealName,
-		nickname = NickName,
-		password = HashedPassword,
-		hash_data = Credential
-	},
+			New = #pre_account{
+				email = Email,
+				real_name = RealName,
+				nickname = NickName,
+				password = HashedPassword,
+				hash_data = Credential
+			},
 
-	?transact(pre_data:save(New)).
+			?transact(pre_data:save(New));
+
+		{ok, _Char} ->
+			{error, already_exists}
+	end.
 
 
 %% @doc Removed an account.
