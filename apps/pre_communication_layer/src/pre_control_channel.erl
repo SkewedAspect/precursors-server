@@ -117,12 +117,33 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
 	% Send the response.
 	pre_client:send_response(self(), ssl, <<"control">>, ID, CharSelResp),
 
-	%TODO: Look up the entity from cold storage, and load that into the entity event engine.
-	Entity = {entity, {}},
+	% If we have a ship id, look it up. Otherwise, create a new one.
+	Got = case SelectedChar:ship() of
+		undefined ->
+			%TODO: We should figure out where to start the player's ship. For now, leave it up to the Entity Engine.
+			Name = SelectedChar:name(),
+			pre_player_ship:create(<<Name/binary, "'s Ship">>, <<"Test Ship">>);
+		ID ->
+			% Look up the entity from cold storage
+			pre_player_ship:get_by_id(ID)
+	end,
+
+	% Make some note of possible errors.
+	Ship = case Got of
+		{error, Reason} ->
+			%TODO: We should be handling this!
+			lager:error("Error encountered looking up (or creating) the ship! Reason: \"~p\" Character: ~p", [Reason, SelectedChar]),
+			undefined;
+	    {ok, Ship1} -> Ship1
+	end,
+
+	lager:info("Ship's name is: ~p", [Ship:name()]),
+
+	%TODO: load the ship into the entity event engine!
 
 	State#client_state{
 		character = SelectedChar,
-		entity = Entity
+		entity = Ship
 	};
 
 
