@@ -69,13 +69,13 @@ handle_request(<<"getCharacters">>, ID, _Request, State) ->
 				{reason, "Not logged in."}
 			];
 		Account ->
-			%TODO: Get list of characters!
-			Characters = [],
+			% Get list of characters
+			{ok, Characters} = pre_character:get_by_account(Account:id()),
 
 			% Response object
 			[
 				{confirm, true},
-				{characters, Characters}
+				{characters, [Character:to_json() || Character <- Characters]}
 			]
 	end,
 
@@ -94,9 +94,9 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
 				 {confirm, false},
 				 {reason, "Not logged in."}
 			 ]};
-		 Account ->
-			 %TODO: Look up the Character!
-			 Character = {character, {}},
+		 _Account ->
+			 % Look up the Character
+			 {ok, Character} = pre_character:get_by_id(CharId),
 
 			 %TODO: Look up the correct level the character is located in. (For now, there's only one level.)
 			 LevelUrl = <<"zones/test/TestArea.json">>,
@@ -148,3 +148,5 @@ handle_event(<<"logout">>, _ID, _Request, _State) ->
 handle_event(Type, ID, Request, State) ->
 	lager:warning("[Control] Unknown Event: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
+
+%% ---------------------------------------------------------------------------------------------------------------------

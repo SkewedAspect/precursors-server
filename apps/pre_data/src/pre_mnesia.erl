@@ -6,7 +6,7 @@
 -behavior(pre_data).
 
 -define(COUNTERS_TABLE, pre_counters).
--define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE, pre_rec_account]).
+-define(EXPECTED_TABLES, [schema, ?COUNTERS_TABLE, pre_rec_account, pre_rec_character]).
 
 -export([check_setup/0, check_setup/1]).
 -export([transaction/1, save/1, get_by_id/2, delete/2, search/2]).
@@ -25,7 +25,7 @@ check_setup() ->
 %% create a schema on disk if 'true' is passed. Any other value and mnesia
 %% does not perist the data, meaning once mnesia is stopped, it will be
 %% lost
--spec check_setup(Persist :: bool()) -> 'ok' | {'error', any()}.
+-spec check_setup(Persist :: boolean()) -> 'ok' | {'error', any()}.
 check_setup(Persist) ->
 	maybe_recreate_schema(Persist),
 	Tables = mnesia:system_info(tables),
@@ -125,6 +125,12 @@ create_table(?COUNTERS_TABLE, DiscNodes) ->
 		{disc_copies, DiscNodes}
 	],
 	{atomic, ok} = mnesia:create_table(?COUNTERS_TABLE, TableOpts);
+
+create_table(pre_rec_character, DiscNodes) ->
+	{atomic, ok} = mnesia:create_table(pre_rec_character, [
+		{attributes, pre_rec_character:field_names()},
+		{disc_copies, DiscNodes}
+	]);
 
 create_table(pre_rec_account, DiscNodes) ->
 	{atomic, ok} = mnesia:create_table(pre_rec_account, [
