@@ -50,12 +50,7 @@ client_event(Client, Event, undefined) ->
 				_ -> player
 			end,
 			room_call(create_room, RoomId, Client, [Mode, Password]);
-			Targeted when
-					Targeted =:= <<"kick">>;
-					Targeted =:= <<"mute">>;
-					Targeted =:= <<"unmute">>;
-					Targeted =:= <<"promote">>;
-					Targeted =:= <<"demote">> ->
+		Targeted when Targeted =:= <<"kick">>; Targeted =:= <<"mute">>; Targeted =:= <<"unmute">>; Targeted =:= <<"promote">>; Targeted =:= <<"demote">> ->
 			Target = proplists:get_value(name, Event),
 			Verb = case Targeted of
 				<<"kick">> -> kick;
