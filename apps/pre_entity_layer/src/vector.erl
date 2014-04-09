@@ -8,7 +8,8 @@
 % -------------------------------------------------------------------------
 
 % external api
--export([vec_to_list/1, to_vec/1, dot/2, cross/2, multiply/2, divide/2, squared_norm/1, norm/1, length/1]).
+-export([vec/1]).
+-export([zero/0, vec_to_list/1, to_vec/1, dot/2, cross/2, multiply/2, divide/2, squared_norm/1, norm/1, length/1]).
 -export([unit/1, hpr_to/1, add/2, add/3, subtract/2, is_zero/1]).
 
 -export_type([vec/0]).
@@ -59,10 +60,28 @@ init() ->
 	end.
 
 
+%% --------------------------------------------------------------------------------------------------------------------
+%% rec2json custom type support
+%% --------------------------------------------------------------------------------------------------------------------
+
+vec({X, Y, Z}) ->
+	[X, Y, Z];
+
+vec([X, Y, Z]) ->
+	{X, Y, Z};
+
+vec(_) ->
+	error.
+
 
 %% ------------------------------------------------------------------------
 %% External API
 %% ------------------------------------------------------------------------
+
+%% @doc Construct a zero vector.
+zero() ->
+	{0, 0, 0}.
+
 
 %% @doc Convert from a vector to a list.
 vec_to_list({X, Y, Z}) ->

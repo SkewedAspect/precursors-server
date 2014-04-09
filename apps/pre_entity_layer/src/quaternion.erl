@@ -8,11 +8,12 @@
 % ---------------------------------------------------------------------------------------------------------------------
 
 % external api
--export([quat_to_list/1, to_quat/1, add/2, subtract/2, multiply/2, divide/2, reorient/2]).
+-export([init/0]).
+-export([quat/1]).
+-export([identity/0, quat_to_list/1, to_quat/1, add/2, subtract/2, multiply/2, divide/2, reorient/2]).
 -export([scale_rotation/2, norm/1, length/1, unit/1, conjugate/1, inverse/1, reciprocal/1]).
 -export([compose/2, relative_to/2, rotate/2, from_axis_angle/2, from_axis_angle/3]).
 -export([from_body_rates/1, from_body_rates/2, from_euler/1, from_euler/2, rad2deg/1, deg2rad/1, is_zero/1]).
--export([init/0]).
 
 -export_type([quat/0]).
 
@@ -43,9 +44,29 @@ init() ->
 		ok -> ok
 	end.
 
+
+%% --------------------------------------------------------------------------------------------------------------------
+%% rec2json custom type support
+%% --------------------------------------------------------------------------------------------------------------------
+
+quat({W, X, Y, Z}) ->
+	[W, X, Y, Z];
+
+quat([W, X, Y, Z]) ->
+	{W, X, Y, Z};
+
+quat(_) ->
+	error.
+
+
 %% --------------------------------------------------------------------------------------------------------------------
 %% External API
 %% --------------------------------------------------------------------------------------------------------------------
+
+%% @doc Construct an identity quaternion.
+identity() ->
+	?IDENTITY.
+
 
 %% @doc Convert from a quaternion to a list
 quat_to_list({W, X, Y, Z}) ->
@@ -148,7 +169,9 @@ unit(QLS, {_, _, _, _} = Quat) ->
 	Norm = abs(QLS - 1.0),
 	case Norm < ?NORMALIZED_TOLERANCE of
 		true ->
-			Quat;
+			%FIXME: Should this return Quat, or ?IDENTITY ?
+			%Quat;
+			?IDENTITY;
 		_ ->
 			divide(Quat, math:sqrt(QLS))
 	end.
