@@ -17,23 +17,29 @@
 
 % api
 
+%% @doc Ye Olde "Start Link".
+-spec start_link() -> {'ok', pid()}.
 start_link() ->
 	gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
 % gen_server callbacks.
 
+%% @hidden
 init(_) ->
 	Interval = pre_gen_entity:simulate_interval(),
 	Timer = create_timer(Interval),
 	State = #state{timer = Timer, interval = Interval},
 	{ok, State}.
 
+%% @hidden
 handle_call(_Msg, _From, State) ->
 	{reply, {error, invalid}, State}.
 
+%% @hidden
 handle_cast(_Msg, State) ->
 	{noreply, State}.
 
+%% @hidden
 handle_info(run_simulations, State) ->
 	_ = cancel_timer(State#state.timer),
 	GenEvents = pre_ge_sup:running_children(),
@@ -42,9 +48,11 @@ handle_info(run_simulations, State) ->
 	State2 = State#state{timer = Timer},
 	{noreply, State2}.
 
+%% @hidden
 terminate(_Why, _State) ->
 	ok.
 
+%% @hidden
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
