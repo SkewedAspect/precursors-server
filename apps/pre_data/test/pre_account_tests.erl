@@ -1,10 +1,3 @@
-%%%-------------------------------------------------------------------
-%%% @author travis
-%%% @doc
-%%% Tests for pre_account
-%%% @end
-%%% Created : 04. Mar 2014 7:37 PM
-%%%-------------------------------------------------------------------
 -module(pre_account_tests).
 
 -include_lib("eunit/include/eunit.hrl").
@@ -25,6 +18,13 @@ account_access_test_() ->
 				?assertMatch({ok, _}, Got)
 			end
 			},
+			{"can't create duplicate account", fun() ->
+				Got1 = pre_account:create(<<"dupe@test.com">>, <<"Aeon">>, <<"LizardMan">>, <<"12345">>),
+				Got2 = pre_account:create(<<"dupe@test.com">>, <<"Aeon">>, <<"LizardMan">>, <<"12345">>),
+				?assertMatch({ok, _}, Got1),
+				?assertMatch({error, already_exists}, Got2)
+			end
+			},
 			{"look up account by email", fun() ->
 				Got = pre_account:get_by_email(<<"test@test.com">>),
 				?assertMatch({ok, _}, Got)
@@ -42,7 +42,7 @@ account_access_test_() ->
 			},
 			{"delete account", fun() ->
 				ok = pre_account:delete(1),
-				?assertMatch({error, account_not_found}, pre_account:get_by_id(1))
+				?assertMatch({error, notfound}, pre_account:get_by_id(1))
 			end
 			}
 		] end }.

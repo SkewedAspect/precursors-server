@@ -5,9 +5,20 @@
 
 -module(pre_account).
 
--include_lib("eunit/include/eunit.hrl").
-
+-compile([{parse_transform, rec2json}]).
+
 -define(transact(Thing), pre_data:transaction(fun() -> Thing end)).
+
+-record(pre_account, {
+	id :: any(),                % auto generated id
+	email :: binary(),          % der email, secondary index
+	real_name :: binary(),      % optional
+	nickname :: binary(),       % unique constraint
+	password :: binary(),       % hash of the password
+	hash_data :: any(),         % the hash algorthm used and any args needed.
+	created :: erlang:timestamp(),
+	updated :: erlang:timestamp()
+}).
 
 % API
 -export([authenticate/2, get_by_email/1, get_by_id/1, create/4, delete/1]).
@@ -40,9 +51,9 @@ authenticate(AccountName, Password) ->
 %% @doc Gets an account by email address. Returns an account.
 -spec get_by_email(EmailAddress :: binary()) -> {'ok', tuple()}.
 get_by_email(EmailAddress) ->
-	Got = ?transact(pre_data:search(pre_rec_account, [{email, EmailAddress}])),
+	Got = ?transact(pre_data:search(pre_account, [{email, EmailAddress}])),
 	case Got of
-		{ok, []} -> {error, account_not_found};
+		{ok, []} -> {error, notfound};
 		{ok, [R | _]} -> {ok, R};
 		Else -> Else
 	end.
@@ -51,23 +62,32 @@ get_by_email(EmailAddress) ->
 %% @doc Gets an account by id. Returns an account.
 -spec get_by_id(AccountID :: binary()) -> {'ok', tuple()}.
 get_by_id(AccountID) ->
-	Got = ?transact(pre_data:get_by_id(pre_rec_account, AccountID)),
-	case Got of
-		{error, notfound} -> {error, account_not_found};
-		_ -> Got
-	end.
+	?transact(pre_data:get_by_id(pre_account, AccountID)).
 
-%% FIXME: De-duplicate before creating!
 %% @doc Creates a new account. Returns the newly created account.
 -spec create(Email :: binary(), RealName :: binary(), NickName :: binary(), Password :: binary()) -> {'ok', tuple()} | {error, term()}.
 create(Email, RealName, NickName, Password) ->
-	{HashedPassword, Credential} = pre_hash:hash(Password),
-	New = pre_rec_account:new(Email, RealName, NickName, HashedPassword, Credential),
-	?transact(pre_data:save(New)).
+	case get_by_email(Email) of
+		{error, notfound} ->
+			{HashedPassword, Credential} = pre_hash:hash(Password),
+
+			New = #pre_account{
+				email = Email,
+				real_name = RealName,
+				nickname = NickName,
+				password = HashedPassword,
+				hash_data = Credential
+			},
+
+			?transact(pre_data:save(New));
+
+		{ok, _Char} ->
+			{error, already_exists}
+	end.
 
 
 %% @doc Removed an account.
 -spec delete(AccountID :: any()) -> 'ok'.
 delete(AccountID) ->
-	?transact(pre_data:delete(pre_rec_account, AccountID)).
+	?transact(pre_data:delete(pre_account, AccountID)).
 
