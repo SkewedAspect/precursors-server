@@ -12,7 +12,7 @@
 
 -callback init(Args :: list(any())) -> {'ok', any()}.
 -callback simulate(Delta :: integer(), State :: any()) -> {'ok', any()}.
--callback handle_event(Name :: atom(), From :: 'undefined' | any(), To :: 'undefined' | any(), Data :: any(), State :: any()) -> {'ok', any()}.
+-callback handle_event(Name :: atom(), From :: 'undefined' | any(), To :: 'undefined' | any(), Data :: any(), State :: any()) -> {'ok', any()} | 'remove_entity'.
 -callback removed(Why :: any(), State :: any()) -> any().
 -callback stopping(State :: any()) -> 'persist' | {'persist', any()} | 'ok'.
 
