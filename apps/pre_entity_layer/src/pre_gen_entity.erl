@@ -11,6 +11,7 @@
 -module(pre_gen_entity).
 
 -callback init(Args :: list(any())) -> {'ok', any()}.
+-callback simulate(Delta :: integer(), State :: any()) -> {'ok', any()}.
 -callback handle_info(Name :: atom(), From :: 'undefined' | any(), To :: 'undefined' | any(), State :: any()) -> {'ok', any()}.
 -callback removed(Why :: any(), State :: any()) -> any().
 -callback stopping(State :: any()) -> 'persist' | {'persist', any()} | 'ok'.
@@ -23,6 +24,10 @@
 
 -behavior(gen_event).
 
+-ifndef(SIMULATE_INTERVAL).
+-define(SIMULATE_INTERVAL, 33). % about 1/30 of a second
+-endif.
+
 % API
 -export([
 	add_entity/4,
@@ -30,7 +35,9 @@
 	retrieve_ids_by_manager/1,
 	notify/5,
 	notify_after/5,
-	cancel_notify/1
+	cancel_notify/1,
+	run_simulations/1,
+	simulate_interval/0
 ]).
 
 % gen_event
@@ -44,7 +51,7 @@
 ]).
 
 -record(state, {
-	sup, module, id, state
+	sup, module, id, target_sim_time, state
 }).
 
 -record(?MODULE, {
@@ -133,6 +140,21 @@ cancel_notify({Msg, Tref}) ->
 	receive Msg -> ok after 0 -> ok end,
 	Out.
 
+%% @doc Returns the interval used for calculating simulation intervals
+%% when {@link run_simulaions/0} is called.
+-spec simulate_interval() -> ?SIMULATE_INTERVAL.
+simulate_interval() ->
+	?SIMULATE_INTERVAL.
+
+%% @doc For each registered entity, run thier simulate callbacks. This
+%% should be called at at interval at least as large as what is returned by
+%% {@link simulate_interval/0}. There is no timer set up by this module,
+%% something else must do the timing. It does calculate the correct time
+%% deltas and may call the simulate callback multiple times to catch it up.
+-spec run_simulations(GenEventRef :: event_mgr_ref()) -> 'ok'.
+run_simulations(GenEventRef) ->
+	gen_event:notify(GenEventRef, '$pre_gen_entity_simulate').
+
 %% ---------------------------------------------------------------------------------------------------------------------
 %% gen_event callbacks
 %% ---------------------------------------------------------------------------------------------------------------------
@@ -152,6 +174,16 @@ init({EntityId, SupPid, Module, Args}) ->
 %% @private
 handle_event({'$pre_gen_entity_event', EventName, FromId, ToId, Data}, State) ->
 	callback_event(EventName, FromId, ToId, Data, State);
+
+handle_event('$pre_gen_entity_simulate', #state{target_sim_time = undefined} = State) ->
+	Now = os:timestamp(),
+	Expected = now_to_number(Now) + micro_interval(),
+	{ok, State#state{target_sim_time = Expected}};
+
+handle_event('$pre_gen_entity_simulate', State) ->
+	{Ticks, NextExpected} = get_ticks(State#state.target_sim_time),
+	Interval = micro_interval(),
+	callback_simulate(Ticks, Interval, NextExpected, State);
 
 handle_event(Event, State) ->
 	lager:info("Some unhandled event: ~p", [Event]),
@@ -208,4 +240,35 @@ callback_event(EventName, FromId, ToId, Data, State) ->
 		remove_entity ->
 			remove_handler
 	end.
+
+callback_simulate(0, _Interval, NextExpected, State) ->
+	{ok, State#state{target_sim_time = NextExpected}};
+
+callback_simulate(Ticks, Interval, NextExpected, State) ->
+	#state{module = Module, state = SubState} = State,
+	case Module:simulate(Interval, SubState) of
+		{ok, NewSubState} ->
+			callback_simulate(Ticks - 1, Interval, NextExpected, State#state{state = NewSubState});
+		remove_entity ->
+			remove_handler
+	end.
+
+now_to_number({Mega, Sec, Micro}) ->
+	( (Mega * 1000000) * 1000000) + (Sec * 1000000) + Micro.
+
+get_ticks(NextExpected) ->
+	NowTuple = os:timestamp(),
+	Now = now_to_number(NowTuple),
+	Interval = micro_interval(),
+	get_ticks(Now, NextExpected, Interval, 0).
+
+get_ticks(Now, NextExpected, _Interval, Ticks) when Now < NextExpected ->
+	{Ticks, NextExpected};
+
+get_ticks(Now, OldExpected, Interval, Ticks) ->
+	NextExpected = OldExpected + Interval,
+	get_ticks(Now, NextExpected, Interval, Ticks + 1).
+
+micro_interval() ->
+	simulate_interval() * 1000.
 

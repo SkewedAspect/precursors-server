@@ -27,5 +27,6 @@ start_link(N) when is_integer(N), N > 0 ->
 init(N) ->
 	PreGESup = {pre_ge_sup, {pre_ge_sup, start_link, [N]}, permanent, 5, supervisor, [?MODULE]},
 	Balancer = {pre_entity_balancer, {pre_entity_balancer, start_link, [[]]}, permanent, 5, worker, [?MODULE]},
-	{ok, {{one_for_one, 5, 10}, [PreGESup, Balancer]}}.
+	SimTimer = {pre_entity_sim_timer, {pre_entity_sim_timer, start_link, []}, permanent, 5, worker, [?MODULE]},
+	{ok, {{one_for_one, 5, 10}, [PreGESup, Balancer, SimTimer]}}.
 
