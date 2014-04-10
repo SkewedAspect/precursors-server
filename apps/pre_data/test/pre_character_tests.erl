@@ -58,6 +58,14 @@ character_test_() ->
 				?assertMatch({ok, _}, Got)
 			end
 			},
+			{"save character", fun() ->
+				{ok, Char} = pre_character:get_by_name(<<"Test Char">>),
+
+				Char1 = Char:level(50),
+				{ok, CharSaved} = Char1:save(),
+				?assertMatch(50, CharSaved:level())
+			end
+			},
 			{"delete character", fun() ->
 				ok = pre_character:delete(1),
 				?assertMatch({error, notfound}, pre_character:get_by_id(1))

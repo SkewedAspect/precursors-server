@@ -40,6 +40,14 @@ account_access_test_() ->
 				?assertMatch(ok, Got)
 			end
 			},
+			{"save account", fun() ->
+				{ok, Acc} = pre_account:get_by_email(<<"test@test.com">>),
+
+				Acc1 = Acc:nickname(<<"Godlike Fuzzydice">>),
+				{ok, AccSaved} = Acc1:save(),
+				?assertMatch(<<"Godlike Fuzzydice">>, AccSaved:nickname())
+			end
+			},
 			{"delete account", fun() ->
 				ok = pre_account:delete(1),
 				?assertMatch({error, notfound}, pre_account:get_by_id(1))
