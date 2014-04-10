@@ -1,4 +1,10 @@
-%%% @doc pre_ship_controller
+%%% @doc This is a base controller for all ships in the game.
+%%%
+%%% It is not intended to be tied to a player; NPC ships should also be able to use this controller as a base.
+%%%
+%%% The intention is for this to implement all of the low-level details of a ship, like movement (and associated input
+%%% events), etc. More specific modules (for each of the ship 'classes') will simply handle the specific events they
+%% care about, and then use this module as their fallback case. (Alternatively, they can call this module directly.)
 %%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_ship_controller).
