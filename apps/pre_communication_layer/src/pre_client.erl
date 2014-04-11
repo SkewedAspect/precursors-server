@@ -62,7 +62,7 @@ connect_tcp(TcpProto, Cookie, RequestID) ->
 			Pid;
 		_ ->
 			lager:error("Failed to look up TCP cookie, disconnecting client."),
-			exit(tcp_cookie_error)
+			gen_server:call(self(), {stop_client, tcp_cookie_error})
 	end,
 	gen_server:cast(ClientPid, {tcp_connect, TcpProto, RequestID}),
 
@@ -177,6 +177,11 @@ handle_call(get_aes, _From, State) ->
 	{reply, { State#client_state.aes_key, State#client_state.aes_vector }, State};
 
 
+handle_call({stop_client, Reason}, _From, State) ->
+	lager:debug("Client process ~p exiting for reason: ~p.", [self(), Reason]),
+	{stop, normal, ok, State};
+
+
 handle_call(Request, _From, State) ->
 	lager:debug("Unhandled call:  ~p", [Request]),
 	{reply, unknown, State}.
@@ -242,7 +247,7 @@ handle_cast({tcp, #envelope{channel = <<"control">>} = Message}, State) ->
 	lager:error("Control message received over TCP! Someone's doing something bad! Message: ~p", [Message]),
 
 	% Drop the client! It's either trying to do something bad, or there's a bug in it's code. Either way, die in a fire.
-	exit(control_msg_over_tcp),
+	gen_server:call(self(), {stop_client, control_msg_over_tcp}),
 	{noreply, State};
 
 
@@ -261,8 +266,14 @@ handle_cast(Request, State) ->
 handle_info(check_tcp, State) ->
 	case State#client_state.tcp_proto of
 		undefined ->
-			%TODO: Inform the client, somehow, of the reason.
-			exit(tcp_timeout);
+			% Inform the client of the error.
+			send_event(self(), ssl, <<"control">>, [
+				{type, <<"error">>},
+				{message, <<"TCP fails to connect in a timely manner.">>}
+			]),
+
+			% Stop the client process
+			gen_server:call(self(), {stop_client, tcp_timeout});
 		_ ->
 			ok
 	end,
@@ -288,12 +299,20 @@ terminate(Reason, State) ->
 	% Log the exit
 	case Reason of
 		normal ->
-			lager:info("Client disconnected.");
+			lager:debug("Client disconnected.");
 		_ ->
 			lager:warning("Client disconnected unexpectedly! Reason: ~p", [Reason])
 	end,
 
-	ok.
+	% Cleanup our entity
+	Entity = State#client_state.entity,
+	case Entity of
+		undefined ->
+			ok;
+		_ ->
+			pre_entity_balancer:notify(remove, self(), Entity:id(), client_exit),
+			ok
+	end.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 

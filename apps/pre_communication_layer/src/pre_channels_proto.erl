@@ -153,6 +153,21 @@ handle_info({tcp, Socket, Data}, State) ->
 
 	{noreply, State2};
 
+
+%% @hidden Handles the TCP socket closing.
+handle_info({tcp_closed, _Socket}, State) ->
+	%TODO: Wait for a reconnect, maybe?
+	lager:debug("TCP socket closed."),
+	{noreply, State};
+
+
+%% @hidden Handles the SSL socket closing.
+handle_info({ssl_closed, _Socket}, State) ->
+	Client = State#state.client,
+	gen_server:call(Client, {stop_client, ssl_closed}),
+	{noreply, State};
+
+
 %% @hidden Sets up the ranch protocol.
 handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transport}) ->
 	ok = ranch:accept_ack(Ref),
