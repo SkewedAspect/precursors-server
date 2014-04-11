@@ -333,7 +333,7 @@ process_channel(ChannelModule, Message, State) ->
 
 	case Message#envelope.type of
 		 event ->
-			 ChannelModule:handle_event(ReqType, Message#envelope.id, Contents, State);
+			 ChannelModule:handle_event(ReqType, Contents, State);
 		 request ->
 			 ChannelModule:handle_request(ReqType, Message#envelope.id, Contents, State);
 		 response ->

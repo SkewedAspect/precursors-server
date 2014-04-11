@@ -8,7 +8,7 @@
 -include("pre_client.hrl").
 
 % API
--export([handle_request/4, handle_response/4, handle_event/4]).
+-export([handle_request/4, handle_response/4, handle_event/3]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -159,15 +159,16 @@ handle_response(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_event(<<"logout">>, _ID, _Request, _State) ->
+handle_event(<<"logout">>, _Request, _State) ->
 	lager:info("Got logout event from client."),
 
 	%TODO: We should probably let something know about the exit?
+	lager:debug("Client exiting."),
 
 	exit(normal);
 
-handle_event(Type, ID, Request, State) ->
-	lager:warning("[Control] Unknown Event: ~p, ~p, ~p", [Type, ID, Request]),
+handle_event(Type, Request, State) ->
+	lager:warning("[Control] Unknown Event: ~p, ~p, ~p", [Type, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
