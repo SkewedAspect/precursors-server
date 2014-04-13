@@ -25,7 +25,7 @@ player_ship_test_() ->
 			},
 			{"look up non-existant player_ship by name", fun() ->
 				Got = pre_player_ship:get_by_name(<<"Mistake Not...">>),
-				?assertMatch({error, notfound}, Got)
+				?assertMatch({ok, []}, Got)
 			end
 			},
 			{"look up duplicate player_ship by name", fun() ->
@@ -41,7 +41,7 @@ player_ship_test_() ->
 			end
 			},
 			{"save player_ship", fun() ->
-				{ok, Ship} = pre_player_ship:get_by_name(<<"U.S.S Enterprise">>),
+				{ok, [Ship]} = pre_player_ship:get_by_name(<<"U.S.S Enterprise">>),
 
 				Ship1 = Ship:template(<<"Other Test Ship">>),
 				{ok, ShipSaved} = Ship1:save(),

@@ -31,12 +31,7 @@ get_by_id(ShipID) ->
 %% @doc Gets a player ship by name. Returns a player ship.
 -spec get_by_name(ShipName :: binary()) -> {'ok', tuple()} | {error, term()}.
 get_by_name(ShipName) ->
-	Got = ?transact(pre_data:search(pre_player_ship, [{name, ShipName}])),
-	case Got of
-		{ok, []} -> {error, notfound};
-		{ok, [Ship]} -> {ok, Ship};
-		Else -> Else
-	end.
+	?transact(pre_data:search(pre_player_ship, [{name, ShipName}])).
 
 
 %% @doc Gets the character that owns this ship. Returns a character.
