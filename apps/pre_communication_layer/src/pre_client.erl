@@ -310,7 +310,7 @@ terminate(Reason, State) ->
 		undefined ->
 			ok;
 		_ ->
-			pre_entity_balancer:notify(remove, self(), Entity:id(), client_exit),
+			pre_entity_balancer:notify(remove, Entity:id(), client_exit),
 			ok
 	end.
 

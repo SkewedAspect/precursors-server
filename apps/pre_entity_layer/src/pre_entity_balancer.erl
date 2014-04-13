@@ -26,7 +26,7 @@
 
 % API
 -export([start_link/0, start_link/1, stats/0,
-	add_entity/3, recover_entity/2, notify/4]).
+	add_entity/3, recover_entity/2, notify/3, notify/4]).
 
 % gen_server
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -77,6 +77,15 @@ add_entity(Module, Id, Args) ->
 
 recover_entity(Module, Id) ->
 	gen_server:call(?MODULE, {recover_entity, Module, Id}, infinity).
+
+%% ---------------------------------------------------------------------------------------------------------------------
+
+%% @doc Sends the same event to all gen_event managers monitored.
+%% @see pre_entity_balancer:notify/4
+-spec notify(EventName :: any(), To :: any(), Data :: any()) -> ['ok'].
+
+notify(EventName, To, Data) ->
+	notify(EventName, undefined, To, Data).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
