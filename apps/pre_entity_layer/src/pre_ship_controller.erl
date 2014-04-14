@@ -58,7 +58,7 @@ removed(Why, State) ->
 %% @doc ???
 stopping(State) ->
 	Ship = State#state.ship,
-	lager:debug("Stopping ship", [Ship:id()]),
+	lager:debug("Stopping ship ~p", [Ship:id()]),
 	{ok, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------

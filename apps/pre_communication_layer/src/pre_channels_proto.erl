@@ -77,10 +77,6 @@ handle_call(Request, _From, State) ->
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @hidden
-handle_cast(stop, State) ->
-	{stop, normal, State};
-
-%% @hidden
 handle_cast({send, Envelope}, State) ->
 	% If we have an aes key, we assume we need to aes encrypt the message.
 	Data = case State#state.aes_key of
@@ -157,15 +153,14 @@ handle_info({tcp, Socket, Data}, State) ->
 %% @hidden Handles the TCP socket closing.
 handle_info({tcp_closed, _Socket}, State) ->
 	%TODO: Wait for a reconnect, maybe?
-	lager:debug("TCP socket closed."),
+	lager:debug("[~p] TCP socket closed.", [self()]),
 	{noreply, State};
 
 
 %% @hidden Handles the SSL socket closing.
 handle_info({ssl_closed, _Socket}, State) ->
-	Client = State#state.client,
-	gen_server:call(Client, {stop_client, ssl_closed}),
-	{noreply, State};
+	lager:debug("[~p] SSL socket closed.", [self()]),
+	{stop, ssl_closed, State};
 
 
 %% @hidden Sets up the ranch protocol.
@@ -227,7 +222,13 @@ check_for_cookie(Message, State) ->
 					exit(non_cookie_message),
 					{false, State};
 				Cookie ->
-					ClientPid = pre_client:connect_tcp(self(), Cookie, ID),
+					ClientPid = case pre_client:connect_tcp(self(), Cookie, ID) of
+						{stop, Reason} ->
+							%FIXME: Refact so we don't use exit anymore!
+							exit(Reason);
+						Pid ->
+							Pid
+					end,
 
 					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
 					{true, State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }}
@@ -236,6 +237,7 @@ check_for_cookie(Message, State) ->
 		_ ->
 			lager:warning("Non-cookie message received: ~p, ~p, ~p",
 				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
+			%FIXME: Refact so we don't use exit anymore!
 			exit(non_cookie_message),
 			{false, State}
 	end.

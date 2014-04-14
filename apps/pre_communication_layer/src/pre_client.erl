@@ -54,21 +54,20 @@ ensure_ets() ->
 
 %% @doc Looks up the client pid by Cookie, and informs that pid of the `TcpProto` pid. Then deletes the entry in the ets
 %% table. (This helps keep the table nice and small.)
--spec connect_tcp(TcpProto :: pid(), Cookie :: binary(), RequestID :: binary()) -> ClientPid :: pid().
+-spec connect_tcp(TcpProto :: pid(), Cookie :: binary(), RequestID :: binary()) -> ClientPid :: pid() | {stop, Reason :: atom()}.
 
 connect_tcp(TcpProto, Cookie, RequestID) ->
-	ClientPid = case ets:lookup(client_ets, Cookie) of
+	case ets:lookup(client_ets, Cookie) of
 		[{_, Pid}] ->
+			% Clean ourselves up.
+			ets:delete(client_ets, Cookie),
+
+			gen_server:cast(Pid, {tcp_connect, TcpProto, RequestID}),
 			Pid;
 		_ ->
 			lager:error("Failed to look up TCP cookie, disconnecting client."),
-			gen_server:call(self(), {stop_client, tcp_cookie_error})
-	end,
-	gen_server:cast(ClientPid, {tcp_connect, TcpProto, RequestID}),
-
-	% Clean ourselves up.
-	ets:delete(client_ets, Cookie),
-	ClientPid.
+			{stop, tcp_cookie_error}
+	end.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -167,28 +166,27 @@ init([SslProto, Cookie]) ->
 	% Wait a maximum of 30 seconds for the tcp connection.
 	erlang:send_after(30000, self(), check_tcp),
 
+	% Monitor the ssl proto
+	erlang:monitor(process, SslProto),
+
 	{ok, #client_state{ssl_proto = SslProto, cookie = Cookie}}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-%% @hidden
 
+%% @hidden Inform the client of what our AES key/vec is.
 handle_call(get_aes, _From, State) ->
 	%TODO: Check `From' and make sure it's our TCPProto?
 	{reply, { State#client_state.aes_key, State#client_state.aes_vector }, State};
 
 
-handle_call({stop_client, Reason}, _From, State) ->
-	lager:debug("Client process ~p exiting for reason: ~p.", [self(), Reason]),
-	{stop, normal, ok, State};
-
-
+%% @hidden
 handle_call(Request, _From, State) ->
 	lager:debug("Unhandled call:  ~p", [Request]),
 	{reply, unknown, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-%% @hidden
 
+%% @hidden
 handle_cast({send_event, ssl, Channel, Content}, State) ->
 	Envelope = #envelope{type = event, channel = Channel, contents = Content},
 	SslProto = State#client_state.ssl_proto,
@@ -199,6 +197,7 @@ handle_cast({send_event, ssl, Channel, Content}, State) ->
 	{noreply, State};
 
 
+%% @hidden
 handle_cast({send_event, tcp, Channel, Content}, State) ->
 	Envelope = #envelope{type = event, channel = Channel, contents = Content},
 	TcpProto = State#client_state.tcp_proto,
@@ -208,6 +207,7 @@ handle_cast({send_event, tcp, Channel, Content}, State) ->
 
 	{noreply, State};
 
+%% @hidden
 handle_cast({send_response, ssl, Channel, ID, Content}, State) ->
 	Envelope = #envelope{type = response, channel = Channel, id = ID, contents = Content},
 	SslProto = State#client_state.ssl_proto,
@@ -218,6 +218,7 @@ handle_cast({send_response, ssl, Channel, ID, Content}, State) ->
 	{noreply, State};
 
 
+%% @hidden
 handle_cast({send_response, tcp, Channel, ID, Content}, State) ->
 	Envelope = #envelope{type = response, channel = Channel, id = ID, contents = Content},
 	TcpProto = State#client_state.tcp_proto,
@@ -228,6 +229,7 @@ handle_cast({send_response, tcp, Channel, ID, Content}, State) ->
 	{noreply, State};
 
 
+%% @hidden
 handle_cast({tcp_connect, TcpProto, RequestID}, State) ->
 
 	% Send response to the client
@@ -238,31 +240,34 @@ handle_cast({tcp_connect, TcpProto, RequestID}, State) ->
 	{noreply, State1};
 
 
+%% @hidden
 handle_cast({ssl, Message}, State) ->
 	State1 = process_channel(Message, State),
 	{noreply, State1};
 
 
+%% @hidden
 handle_cast({tcp, #envelope{channel = <<"control">>} = Message}, State) ->
 	lager:error("Control message received over TCP! Someone's doing something bad! Message: ~p", [Message]),
 
 	% Drop the client! It's either trying to do something bad, or there's a bug in it's code. Either way, die in a fire.
-	gen_server:call(self(), {stop_client, control_msg_over_tcp}),
-	{noreply, State};
+	{stop, control_msg_over_tcp, State};
 
 
+%% @hidden
 handle_cast({tcp, Message}, State) ->
 	State1 = process_channel(Message, State),
 	{noreply, State1};
 
 
+%% @hidden
 handle_cast(Request, State) ->
 	lager:debug("Unhandled cast:  ~p", [Request]),
 	{noreply, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-%% @hidden
 
+%% @hidden
 handle_info(check_tcp, State) ->
 	case State#client_state.tcp_proto of
 		undefined ->
@@ -273,20 +278,25 @@ handle_info(check_tcp, State) ->
 			]),
 
 			% Stop the client process
-			gen_server:call(self(), {stop_client, tcp_timeout});
+			{stop, tcp_timeout, State};
 		_ ->
-			ok
-	end,
-	{noreply, State};
+			{noreply, State}
+	end;
 
 
+%% @hidden If the ssl connection closes, the client connection needs to close as well.
+handle_info({'DOWN', _MonitorRef, _Type, _Object, _Info}, State) ->
+	{stop, ssl_closed, State};
+
+
+%% @hidden
 handle_info(Info, State) ->
 	lager:warning("Unhandled message: ~p", [Info]),
 	{noreply, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
-%% @hidden
 
+%% @hidden
 terminate(Reason, State) ->
 	% In the event that we are exiting before TCP has connected, clean up after ourselves.
 	case State#client_state.tcp_proto of
@@ -316,6 +326,7 @@ terminate(Reason, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @hidden
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
@@ -323,29 +334,33 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @hidden
-
-% Send the message off to a callback module.
+%% @hidden Send the message off to a callback module.
 process_channel(#envelope{channel = <<"control">>} = Message, State) ->
 	process_channel(pre_control_channel, Message, State);
 
+%% @hidden
 process_channel(#envelope{channel = <<"entity">>} = Message, State) ->
 	process_channel(pre_entity_channel, Message, State);
 
+%% @hidden
 process_channel(#envelope{channel = <<"input">>} = Message, State) ->
 	process_channel(pre_input_channel, Message, State);
 
+%% @hidden
 process_channel(#envelope{channel = <<"ping">>} = Message, State) ->
 	process_channel(pre_ping_channel, Message, State);
 
+%% @hidden
 process_channel(#envelope{channel = <<"chat">>} = Message, State) ->
 	process_channel(pre_ping_chat, Message, State);
 
+%% @hidden
 process_channel(Message, State) ->
 	lager:warning("Got message for unknown channel: ~p", [Message]),
 	State.
 
 
+%% @hidden
 process_channel(ChannelModule, Message, State) ->
 	Contents = Message#envelope.contents,
 	ReqType = proplists:get_value(type, Contents),
