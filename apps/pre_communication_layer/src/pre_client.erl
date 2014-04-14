@@ -274,11 +274,11 @@ handle_info(check_tcp, State) ->
 			% Inform the client of the error.
 			send_event(self(), ssl, <<"control">>, [
 				{type, <<"error">>},
-				{message, <<"TCP fails to connect in a timely manner.">>}
+				{message, <<"TCP failed to connect in a timely manner.">>}
 			]),
 
-			% Stop the client process
-			{stop, tcp_timeout, State};
+			% Gracefully exit
+			{stop, normal, State};
 		_ ->
 			{noreply, State}
 	end;
@@ -286,7 +286,9 @@ handle_info(check_tcp, State) ->
 
 %% @hidden If the ssl connection closes, the client connection needs to close as well.
 handle_info({'DOWN', _MonitorRef, _Type, _Object, _Info}, State) ->
-	{stop, ssl_closed, State};
+	SslProto = State#client_state.ssl_proto,
+	lager:warning("SslProto ~p exited. Gracefully shutting down client connection process.", [SslProto]),
+	{stop, normal, State};
 
 
 %% @hidden

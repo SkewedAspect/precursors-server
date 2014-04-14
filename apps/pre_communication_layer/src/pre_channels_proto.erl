@@ -31,6 +31,7 @@
 	socket :: any(),
 	transport :: atom(),
 	client :: pid(),
+	clientmon :: reference(),
 	aes_key :: binary(),
 	aes_vector :: binary(),
 	netstring_cont = 10 :: integer() | term()
@@ -152,15 +153,34 @@ handle_info({tcp, Socket, Data}, State) ->
 
 %% @hidden Handles the TCP socket closing.
 handle_info({tcp_closed, _Socket}, State) ->
+	lager:debug("TCP socket closed."),
+
+	% Stop monitoring the client pid
+	Mon = State#state.clientmon,
+	erlang:demonitor(Mon),
+
 	%TODO: Wait for a reconnect, maybe?
-	lager:debug("[~p] TCP socket closed.", [self()]),
-	{noreply, State};
+	% Gracefully exit.
+	{stop, normal, State};
 
 
 %% @hidden Handles the SSL socket closing.
 handle_info({ssl_closed, _Socket}, State) ->
-	lager:debug("[~p] SSL socket closed.", [self()]),
-	{stop, ssl_closed, State};
+	lager:debug("SSL socket closed."),
+
+	% Stop monitoring the client pid
+	Mon = State#state.clientmon,
+	erlang:demonitor(Mon),
+
+	% Gracefully exit.
+	{stop, normal, State};
+
+
+%% @hidden If the client pid dies, we need to die too.
+handle_info({'DOWN', _MonitorRef, _Type, _Object, _Info}, State) ->
+	ClientPid = State#state.client,
+	lager:warning("Client ~p exited. Killing proto.", [ClientPid]),
+	{stop, normal, State};
 
 
 %% @hidden Sets up the ranch protocol.
@@ -172,7 +192,11 @@ handle_info(timeout, State=#state{ref = Ref, socket = Socket, transport = Transp
 		ranch_ssl ->
 			% Spawn a new client pid
 			{ok, ClientPid} = pre_client_sup:start_child(self()),
-			State#state{client = ClientPid};
+
+			% Monitor the client connection process
+			Mon = erlang:monitor(process, ClientPid),
+
+			State#state{client = ClientPid, clientmon = Mon};
 		ranch_tcp ->
 			State
 	end,
@@ -224,20 +248,23 @@ check_for_cookie(Message, State) ->
 				Cookie ->
 					ClientPid = case pre_client:connect_tcp(self(), Cookie, ID) of
 						{stop, Reason} ->
-							%FIXME: Refact so we don't use exit anymore!
+							%FIXME: Refactor so we don't use exit anymore!
 							exit(Reason);
 						Pid ->
 							Pid
 					end,
 
+					% Monitor the client connection process
+					Mon = erlang:monitor(process, ClientPid),
+
 					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
-					{true, State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec }}
+					{true, State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec, clientmon = Mon }}
 			end;
 
 		_ ->
 			lager:warning("Non-cookie message received: ~p, ~p, ~p",
 				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
-			%FIXME: Refact so we don't use exit anymore!
+			%FIXME: Refactor so we don't use exit anymore!
 			exit(non_cookie_message),
 			{false, State}
 	end.
