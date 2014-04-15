@@ -155,10 +155,6 @@ handle_info({tcp, Socket, Data}, State) ->
 handle_info({tcp_closed, _Socket}, State) ->
 	lager:debug("TCP socket closed."),
 
-	% Stop monitoring the client pid
-	Mon = State#state.clientmon,
-	erlang:demonitor(Mon),
-
 	%TODO: Wait for a reconnect, maybe?
 	% Gracefully exit.
 	{stop, normal, State};
@@ -167,10 +163,6 @@ handle_info({tcp_closed, _Socket}, State) ->
 %% @hidden Handles the SSL socket closing.
 handle_info({ssl_closed, _Socket}, State) ->
 	lager:debug("SSL socket closed."),
-
-	% Stop monitoring the client pid
-	Mon = State#state.clientmon,
-	erlang:demonitor(Mon),
 
 	% Gracefully exit.
 	{stop, normal, State};
