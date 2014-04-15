@@ -32,7 +32,7 @@ init([Ship]) ->
 %% @doc Handles the remove event
 handle_event(remove, _From, _To, Reason, State) ->
 	Ship = State#state.ship,
-	lager:debug("Removing ship \"~p\" for reason: \"~p\".", [Ship:id(), Reason]),
+	lager:debug("Removing ship ~p for reason: ~p", [Ship:id(), Reason]),
 	remove_entity;
 
 %% @doc Handles incoming events
@@ -45,7 +45,7 @@ handle_event(Name, From, To, Data, State) ->
 %% @doc Called when the ship is removed from the entity engine.
 removed(Why, State) ->
 	Ship = State#state.ship,
-	lager:debug("Removed ship \"~p\"; reason: \"~p\"", [Ship:id(), Why]),
+	lager:debug("Removed ship ~p; reason: ~p", [Ship:id(), Why]),
 
 	% Save the latest state of the ship
 	Ship = State#state.ship,
