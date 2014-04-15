@@ -132,23 +132,26 @@ handle_info({tcp, Socket, Data}, State) ->
 	State1 = State#state{netstring_cont = Cont},
 
 	% Check to see if we have our client yet. If not, we look through the messages for a cookie. (Om nom nom.)
-	State2 = case State1#state.client of
+	Return = case State1#state.client of
 		undefined ->
-			check_for_cookie(Messages, State1);
+			case check_for_cookie(Messages, State1) of
+				{stop, Reason} -> {stop, Reason, State1};
+				State2 -> {noreply, State2}
+			end;
 		_ ->
 			% Messages are only encrypted if we have found our client pid.
 			DecryptedMessages = [aes_decrypt_envelope(Message, State1) || Message <- Messages],
 
 			% Send the messages to the client connection pid.
 			pre_client:handle_messages(State1#state.client, tcp, DecryptedMessages),
-			State1
+			{noreply, State1}
 	end,
 
 	% Tell the transport to get the next message
-	Transport = State2#state.transport,
+	Transport = State1#state.transport,
 	ok = Transport:setopts(Socket, [{active, once}]),
 
-	{noreply, State2};
+	Return;
 
 
 %% @hidden Handles the TCP socket closing.
@@ -218,48 +221,56 @@ code_change(_OldVsn, State, _Extra) ->
 check_for_cookie([], State) ->
 	State;
 
+
 check_for_cookie([Message | Rest], State) ->
-	State1 = case check_for_cookie(Message, State) of
-		{true, State2} ->
-			State2;
-		{false, _} ->
-			check_for_cookie(Rest, State)
-	end,
-	State1;
+	case check_for_cookie(Message, State) of
+		{stop, Reason} ->
+			% Tell the proto to stop; we've encountered an unrecoverable error.
+			{stop, Reason};
+
+		false ->
+			% We didn't find a cookie; move on to the next message.
+			check_for_cookie(Rest, State);
+
+		State1 ->
+			% We found a cookie, and modified the state.
+			State1
+	end;
+
 
 check_for_cookie(Message, State) ->
-	Decoded = json_to_envelope(Message),
-	case Decoded of
-		#envelope{type = request, id = ID, channel = <<"control">>, contents = Request} when is_list(Request) ->
-			case proplists:get_value(cookie, Request) of
-				undefined ->
-					lager:warning("Non-cookie message received: ~p, ~p, ~p",
-						[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
-					exit(non_cookie_message),
-					{false, State};
-				Cookie ->
-					ClientPid = case pre_client:connect_tcp(self(), Cookie, ID) of
-						{stop, Reason} ->
-							%FIXME: Refactor so we don't use exit anymore!
-							exit(Reason);
-						Pid ->
-							Pid
-					end,
-
-					% Monitor the client connection process
-					Mon = erlang:monitor(process, ClientPid),
-
-					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
-					{true, State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec, clientmon = Mon }}
-			end;
+	case json_to_envelope(Message) of
+		Envelope = #envelope{type = request, channel = <<"control">>, contents = Request} when is_list(Request) ->
+			process_cookie_message(Envelope, State);
 
 		_ ->
 			lager:warning("Non-cookie message received: ~p, ~p, ~p",
 				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
-			%FIXME: Refactor so we don't use exit anymore!
-			exit(non_cookie_message),
-			{false, State}
+			false
 	end.
+
+% Process the message, ensuring it's a cookie message.
+process_cookie_message(#envelope{id = ID, channel = <<"control">>, contents = Request} = Message, State) ->
+	case proplists:get_value(cookie, Request) of
+		undefined ->
+			lager:warning("Non-cookie message received: ~p, ~p, ~p",
+				[Message#envelope.channel, Message#envelope.type, Message#envelope.contents]),
+			false;
+
+		Cookie ->
+			case pre_client:connect_tcp(self(), Cookie, ID) of
+				{stop, Reason} ->
+					{stop, Reason};
+
+				ClientPid ->
+					% Monitor the client connection process
+					Mon = erlang:monitor(process, ClientPid),
+
+					{AESKey, AESVec} = pre_client:get_aes(ClientPid),
+					State#state{ client = ClientPid, aes_key = AESKey, aes_vector = AESVec, clientmon = Mon }
+			end
+	end.
+
 
 get_pkcs5_padding(Packet) ->
 	PacketLength = byte_size(Packet),
