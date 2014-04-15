@@ -1,7 +1,7 @@
 %%% @doc Behavior for entities to use when added to a gen_event manager,
 %%% and associated functions to fire events into a gen_event manager so
 %%% a callback module can be used.
-%%% 
+%%%
 %%% The callback module detemines if a given entity_event is valuable or
 %%% not. It is expected that most events will simple end up being a no-op.
 %%%
@@ -12,7 +12,7 @@
 
 -callback init(Args :: list(any())) -> {'ok', any()}.
 -callback simulate(Delta :: integer(), State :: any()) -> {'ok', any()}.
--callback handle_info(Name :: atom(), From :: 'undefined' | any(), To :: 'undefined' | any(), State :: any()) -> {'ok', any()}.
+-callback handle_event(Name :: atom(), From :: 'undefined' | any(), To :: 'undefined' | any(), Data :: any(), State :: any()) -> {'ok', any()} | 'remove_entity'.
 -callback removed(Why :: any(), State :: any()) -> any().
 -callback stopping(State :: any()) -> 'persist' | {'persist', any()} | 'ok'.
 
@@ -56,7 +56,7 @@
 
 -record(?MODULE, {
 	% the '_' make it easy to build a matchspec.
-	id = '_', state = '_', gen_event = '_' 
+	id = '_', state = '_', gen_event = '_'
 }).
 
 %% ---------------------------------------------------------------------------------------------------------------------
