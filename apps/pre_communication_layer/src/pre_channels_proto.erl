@@ -169,10 +169,10 @@ handle_info({ssl_closed, _Socket}, State) ->
 
 
 %% @hidden If the client pid dies, we need to die too.
-handle_info({'DOWN', _MonitorRef, _Type, _Object, _Info}, State) ->
+handle_info({'DOWN', _MonitorRef, _Type, _Object, Info}, State) ->
 	ClientPid = State#state.client,
 	lager:warning("Client ~p exited. Killing proto.", [ClientPid]),
-	{stop, normal, State};
+	{stop, Info, State};
 
 
 %% @hidden Sets up the ranch protocol.
