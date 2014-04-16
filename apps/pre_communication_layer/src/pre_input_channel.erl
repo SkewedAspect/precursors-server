@@ -1,5 +1,4 @@
 %%% @doc Callbacks for the "entity" channel.
-%%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_input_channel).
 
@@ -12,6 +11,7 @@
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_request(Type, ID, Request, State) ->
 	%TODO: forward requests on to the entity event engine.
 	lager:warning("[Input] Unknown Request: ~p, ~p, ~p", [Type, ID, Request]),
@@ -19,12 +19,14 @@ handle_request(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_response(Type, ID, Request, State) ->
 	lager:warning("[Input] Unknown Response: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_event(<<"command">>, Request, State) ->
 	Entity = State#client_state.entity,
 

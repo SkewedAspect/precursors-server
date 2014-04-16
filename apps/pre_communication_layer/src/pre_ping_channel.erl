@@ -1,5 +1,4 @@
 %%% @doc Callbacks for the "entity" channel.
-%%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_ping_channel).
 
@@ -12,6 +11,7 @@
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_request(<<"ping">>, ID, _Request, State) ->
 	Timestamp = generate_timestamp(),
 
@@ -31,12 +31,14 @@ handle_request(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_response(Type, ID, Request, State) ->
 	lager:warning("[Ping] Unknown Response: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_event(Type, Request, State) ->
 	lager:warning("[Ping] Unknown Event: ~p, ~p", [Type, Request]),
 	State.

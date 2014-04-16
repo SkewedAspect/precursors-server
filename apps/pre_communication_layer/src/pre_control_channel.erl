@@ -1,5 +1,5 @@
-%%% @doc Callbacks for the "control" channel.
-%%% --------------------------------------------------------------------------------------------------------------------
+%%% @doc Callbacks for the "control" channel. Handles login and
+%%% character selection.
 
 -module(pre_control_channel).
 
@@ -12,6 +12,7 @@
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_request(<<"login">>, ID, Request, State) ->
 	lager:info("Starting authentication"),
 
@@ -153,12 +154,14 @@ handle_request(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_response(Type, ID, Request, State) ->
 	lager:warning("[Control] Unknown Response: ~p, ~p, ~p", [Type, ID, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_event(<<"logout">>, _Request, _State) ->
 	lager:info("Got logout event from client."),
 

@@ -2,7 +2,6 @@
 %%%
 %%% @copyright 2013 David H. Bronke
 %%% Licensed under the MIT license; see the LICENSE file for details.
-%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_json).
 
