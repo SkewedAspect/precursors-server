@@ -1,5 +1,5 @@
-%%% @doc pre_player_ship
-%%% --------------------------------------------------------------------------------------------------------------------
+%%% @doc An instance of a player's ship as it existed in the game world
+%%% at some point.
 
 -module(pre_player_ship).
 

@@ -15,7 +15,6 @@
 %%% one. On a save, check for created and updated timestamps and update
 %%% those.
 %%%
-%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_data).
 -behaviour(gen_server).
@@ -23,7 +22,7 @@
 -type error_return() :: {'error', any()}.
 -type comparison_op() :: '>' | '>=' | '<' | '=<' | '==' | '=:='.
 -type search_parameter() :: {any(), any()} | {any(), comparison_op(), any()}.
-% behavior definition
+
 -callback get_by_id(Type :: atom(), Id :: any()) -> {'ok', tuple()} | {'error', notfound} | error_return().
 -callback save(Record :: tuple()) -> {'ok', tuple()} | error_return().
 -callback delete(Type :: atom(), Id :: any()) -> 'ok' | error_return().
@@ -136,6 +135,7 @@ import(Wildcard) ->
 %% gen_server
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @hidden
 init(CallbackModule) ->
     {ok, #state{callback_mod = CallbackModule}}.
 
@@ -164,6 +164,7 @@ handle_call(_, _From, State) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @hidden
 handle_cast(stop, State) ->
     {stop, normal, State};
 
@@ -172,6 +173,7 @@ handle_cast(_, State) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @hidden
 handle_info({'DOWN', Mon, process, Pid, Why}, State) ->
     #state{workers = Workers} = State,
     Workers2 = dict:erase({Mon, Pid}, Workers),
@@ -192,10 +194,12 @@ handle_info(_, State) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @hidden
 terminate(Reason, _State) ->
     lager:info("Terminating due to ~p.", [Reason]),
     ok.
 
+%% @hidden
 code_change(_OldVersion, State, _Extra) ->
     {reply, State}.
 
