@@ -8,7 +8,7 @@
 -include("pre_client.hrl").
 
 % API
--export([handle_request/4, handle_response/4, handle_event/4]).
+-export([handle_request/4, handle_response/4, handle_event/3]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -45,6 +45,6 @@ handle_response(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_event(Type, ID, Request, State) ->
+handle_event(Type, Request, State) ->
 	%TODO: Forward to the entity event engine.
 	State.

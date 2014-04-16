@@ -8,7 +8,7 @@
 -include("pre_client.hrl").
 
 % API
--export([handle_request/4, handle_response/4, handle_event/4]).
+-export([handle_request/4, handle_response/4, handle_event/3]).
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
@@ -117,12 +117,33 @@ handle_request(<<"selectCharacter">>, ID, Request, State) ->
 	% Send the response.
 	pre_client:send_response(self(), ssl, <<"control">>, ID, CharSelResp),
 
-	%TODO: Look up the entity from cold storage, and load that into the entity event engine.
-	Entity = {entity, {}},
+	% If we have a ship id, look it up. Otherwise, create a new one.
+	Got = case SelectedChar:ship() of
+		undefined ->
+			%TODO: The player should create their ship when they don't have one, but this involves work on the client.
+			% for now, we can simply make a new ship for them, with an arbitrary name.
+			Name = SelectedChar:name(),
+			pre_player_ship:create(<<Name/binary, "'s Ship">>, <<"Test Ship">>);
+		ID ->
+			% Look up the entity from cold storage
+			pre_player_ship:get_by_id(ID)
+	end,
+
+	% Make some note of possible errors.
+	Ship = case Got of
+		{error, Reason} ->
+			%TODO: We should be handling this!
+			lager:error("Error encountered looking up (or creating) the ship! Reason: \"~p\" Character: ~p", [Reason, SelectedChar]),
+			undefined;
+	    {ok, Ship1} -> Ship1
+	end,
+
+	%TODO: pull the callback module from ship's template.
+	pre_entity_balancer:add_entity(pre_ship_controller, Ship:id(), [Ship]),
 
 	State#client_state{
 		character = SelectedChar,
-		entity = Entity
+		entity = Ship
 	};
 
 
@@ -138,15 +159,16 @@ handle_response(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-handle_event(<<"logout">>, _ID, _Request, _State) ->
+handle_event(<<"logout">>, _Request, _State) ->
 	lager:info("Got logout event from client."),
 
 	%TODO: We should probably let something know about the exit?
+	lager:debug("Client exiting."),
 
 	exit(normal);
 
-handle_event(Type, ID, Request, State) ->
-	lager:warning("[Control] Unknown Event: ~p, ~p, ~p", [Type, ID, Request]),
+handle_event(Type, Request, State) ->
+	lager:warning("[Control] Unknown Event: ~p, ~p, ~p", [Type, Request]),
 	State.
 
 %% ---------------------------------------------------------------------------------------------------------------------
