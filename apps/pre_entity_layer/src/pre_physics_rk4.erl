@@ -59,8 +59,8 @@ simulate(InitialPhysical) ->
 		last_update = ThisUpdate
 	}.
 
-%% @doc Simulate physical movement of the 'physical' object represented by `InitialPhysical`, over the given
-%% `TimeDelta`.
+%% @doc Simulate physical movement of the 'physical' object represented by
+%% `InitialPhysical', over the given `TimeDelta'.
 simulate(TimeDelta, InitialPhysical) ->
 	simulate_internal(TimeDelta, InitialPhysical).
 
