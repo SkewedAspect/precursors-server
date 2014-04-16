@@ -1,13 +1,13 @@
-%% ------------------------------------------------------------------------
 %% @doc Physics: 4th-order Runge-Kutta integration
 %%
-%% @copyright 2012 David H. Bronke
-%% Licensed under the MIT license; see the LICENSE file for details.
-%% ------------------------------------------------------------------------
 %% This module is loosely based on concepts from the following articles:
-%% * http://gafferongames.com/game-physics/integration-basics/
-%% * http://gafferongames.com/game-physics/physics-in-3d/
-%% ------------------------------------------------------------------------
+%% <ul>
+%%     <li>[http://gafferongames.com/game-physics/integration-basics/]</li>
+%%     <li>[http://gafferongames.com/game-physics/physics-in-3d/]</li>
+%% </ul>
+
+% @copyright 2012 David H. Bronke
+% Licensed under the MIT license; see the LICENSE file for details.
 
 -module(pre_physics_rk4).
 

@@ -1,6 +1,5 @@
 %%% @doc Supervisor for gen_event managers. This is a named supervisor,
 %%% so only one can be running at a time.
-%%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_ge_sup).
 

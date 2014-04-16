@@ -1,9 +1,7 @@
-%% --------------------------------------------------------------------------------------------------------------------
 %% @doc Quaternion module - simplifies working with and perfoming math on quaternions.
 %%
 %% @copyright 2012 Christopher S. Case
 %% Licensed under the MIT license; see the LICENSE file for details.
-%% --------------------------------------------------------------------------------------------------------------------
 
 -module(quaternion).
 

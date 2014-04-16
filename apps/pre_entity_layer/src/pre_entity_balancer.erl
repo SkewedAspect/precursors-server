@@ -9,7 +9,6 @@
 %%% is chosen arbitrarily.
 %%%
 %%% Also allows sending the same event to all gen_event managers.
-%%% --------------------------------------------------------------------------------------------------------------------
 
 % The way this works out, it will always end up doing a round-robin in the
 % event entities are added, but not removed. That's because entities

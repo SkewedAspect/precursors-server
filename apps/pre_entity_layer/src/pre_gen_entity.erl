@@ -6,7 +6,6 @@
 %%% not. It is expected that most events will simple end up being a no-op.
 %%%
 %%% The state of an entity is persisted, and can be recovered.
-%%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_gen_entity).
 
