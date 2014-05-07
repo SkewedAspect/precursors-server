@@ -1,7 +1,8 @@
-%%% @doc Handles authentication requests. Primarily implements different hashing algorithms. If an account uses an out-
-%%% dated hashing algorithm, it's this module's job to update the record when that account next authenticates.
+%%% @doc Handles authentication requests. Primarily implements different
+%%% hashing algorithms. If an account uses an outdated hashing algorithm,
+%%% it's this module's job to update the record when that account next
+%%% authenticates.
 %%%
-%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_hash).
 -include_lib("eunit/include/eunit.hrl").
@@ -26,11 +27,13 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Hash passwords for authentication
+-spec hash(Password :: binary()) -> {binary(), #credential{}} | {'error', 'not_supported'}.
 hash(Password) ->
 	Credential = new_credential(),
 	hash(Password, Credential).
 
 %% @doc Hash passwords for new accounts or authentication
+-spec hash(Password :: binary(), Credential :: #credential{}) -> {binary(), #credential{}} | {'error', 'not_supported'}.
 hash(Password, Credential) ->
 	Iterations = Credential#credential.iterations,
 	PseudoRandomFunction = Credential#credential.prf,

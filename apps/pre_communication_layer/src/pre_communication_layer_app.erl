@@ -1,6 +1,5 @@
-%%% @doc The Precursors communication layer application.
+%%% @doc The Precursors communication layer application callback module.
 %%%
-%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_communication_layer_app).
 
@@ -13,8 +12,10 @@
 %% Application callbacks
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @private
 start(_StartType, _StartArgs) ->
     pre_communication_layer_sup:start_link().
 
+%% @private
 stop(_State) ->
     ok.

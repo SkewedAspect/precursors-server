@@ -1,6 +1,6 @@
-%%% @doc Supervise the processes needed to allow clients to connect and log in.
+%%% @doc Supervise the processes needed to allow clients to connect and
+%%% log in.
 %%%
-%%% -------------------------------------------------------------------------------------------------------------------
 
 -module(pre_communication_layer_sup).
 

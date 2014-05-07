@@ -4,7 +4,6 @@
 %%% define the number of gen_event managers the pre_entity_event_sup
 %%% will start.
 %%%
-%%% -------------------------------------------------------------------
 
 -module(pre_entity_engine_sup).
 -behaviour(supervisor).
@@ -27,6 +26,7 @@
 %% @doc Starts the top level supervisor. Uses 'event_workers' application
 %% env to define the number of gen_event managers to start for the
 %% {@link pre_entity_event_sup}.
+-spec start_link() -> {'ok', pid()}.
 start_link() ->
 	supervisor:start_link({local, ?MODULE}, ?MODULE, []).
 
@@ -34,7 +34,7 @@ start_link() ->
 %% Supervisor
 %% --------------------------------------------------------------------
 
-%% @doc private
+%% @private
 init(_) ->
 
 	Workers = case application:get_env(pre_entity_layer, event_workers) of

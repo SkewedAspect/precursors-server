@@ -1,5 +1,4 @@
 %%% @doc Callbacks for the "entity" channel.
-%%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_chat_channel).
 
@@ -12,6 +11,7 @@
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_request(Type, ID, Request, State) ->
 	lager:warning("[Chat] Unknown Request: ~p, ~p, ~p", [Type, ID, Request]),
 	%TODO: Forward to the chat system.
@@ -19,6 +19,7 @@ handle_request(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_response(Type, ID, Request, State) ->
 	lager:warning("[Chat] Unknown Response: ~p, ~p, ~p", [Type, ID, Request]),
 	%TODO: Forward to the chat system.
@@ -26,6 +27,7 @@ handle_response(Type, ID, Request, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 handle_event(Type, Request, State) ->
 	lager:warning("[Chat] Unknown Event: ~p, ~p", [Type, Request]),
 	%TODO: Forward to the chat system.

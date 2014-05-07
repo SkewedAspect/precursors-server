@@ -1,5 +1,4 @@
 %%% @doc The client's connection process.
-%%% --------------------------------------------------------------------------------------------------------------------
 
 -module(pre_client).
 
@@ -37,9 +36,13 @@
 %% API
 %% ---------------------------------------------------------------------------------------------------------------------
 
-% We are always started in response to an SSL connection. Our supervisor is also in charge of generating the cookie used
-% to identify the incoming TCP connection as this client.
+%% @doc Start a new client process with the given
+%% {@link pre_channels_proto} pid and cookie.
+-spec start_link(SslProto :: pid(), Cookie :: binary()) -> {'ok', pid()}.
 start_link(SslProto, Cookie) ->
+	% We are always started in response to an SSL connection. Our supervisor
+	% is also in charge of generating the cookie used to identify the
+	% incoming TCP connection as this client.
 	gen_server:start_link(?MODULE, [SslProto, Cookie], []).
 
 %% ---------------------------------------------------------------------------------------------------------------------
@@ -52,8 +55,9 @@ ensure_ets() ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Looks up the client pid by Cookie, and informs that pid of the `TcpProto` pid. Then deletes the entry in the ets
-%% table. (This helps keep the table nice and small.)
+%% @doc Looks up the client pid by Cookie, and informs that pid of the
+%% `TcpProto' pid. Then deletes the entry in the ets table. (This helps
+%% keep the table nice and small.)
 -spec connect_tcp(TcpProto :: pid(), Cookie :: binary(), RequestID :: binary()) -> ClientPid :: pid() | {stop, Reason :: atom()}.
 
 connect_tcp(TcpProto, Cookie, RequestID) ->
@@ -159,6 +163,7 @@ send_request(ClientPid, Transport, Channel, ID, Content) ->
 %% gen_server
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 init([SslProto, Cookie]) ->
 	% Add ourselves to the ets table, by cookie
 	ets:insert(client_ets, {Cookie, self()}),

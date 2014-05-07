@@ -1,12 +1,15 @@
 %%% @doc This is a base controller for all ships in the game.
 %%%
-%%% It is not intended to be tied to a player; NPC ships should also be able to use this controller as a base.
+%%% It is not intended to be tied to a player; NPC ships should also be
+%%% able to use this controller as a base.
 %%%
-%%% The intention is for this to implement all of the low-level details of a ship, like movement (and associated input
-%%% events), etc. More specific modules (for each of the ship 'classes') will simply handle the specific events they
-%% care about, and then use this module as their fallback case. (Alternatively, they can call this module directly.)
-%%% --------------------------------------------------------------------------------------------------------------------
-
+%%% The intention is for this to implement all of the low-level details of
+%%% a ship, like movement (and associated input events), etc. More specific 
+%%% modules (for each of the ship 'classes') will simply handle the
+%%% specific events they care about, and then use this module as their
+%%% fallback case. (Alternatively, they can call this module directly.)
+%%%
+%%% Currently the onty event handled is remove. Does not fire any events.
 -module(pre_ship_controller).
 
 -behaviour(pre_gen_entity).
@@ -22,14 +25,14 @@
 %% pre_gen_entity
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Called when the entity is added the the entity engine.
+%% @private
 init([Ship]) ->
 	State = #state{ ship = Ship },
 	{ok, State}.
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Handles the remove event
+%% @private
 handle_event(remove, _From, _To, Reason, State) ->
 	Ship = State#state.ship,
 	lager:debug("Removing ship ~p for reason: ~p", [Ship:id(), Reason]),
@@ -42,7 +45,7 @@ handle_event(Name, From, To, Data, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Called when the ship is removed from the entity engine.
+%% @private
 removed(Why, State) ->
 	Ship = State#state.ship,
 	lager:debug("Removed ship ~p; reason: ~p", [Ship:id(), Why]),
@@ -55,7 +58,7 @@ removed(Why, State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc ???
+%% @private
 stopping(State) ->
 	Ship = State#state.ship,
 	lager:debug("Stopping ship ~p", [Ship:id()]),
@@ -63,6 +66,7 @@ stopping(State) ->
 
 %% ---------------------------------------------------------------------------------------------------------------------
 
+%% @private
 simulate(Delta, State) ->
 	%TODO: Simulate movement!
 	{ok, State}.

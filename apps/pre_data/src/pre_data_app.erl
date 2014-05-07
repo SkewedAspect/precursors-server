@@ -1,3 +1,4 @@
+%% @doc Application callback module for pre_data. Is it not nifty?
 -module(pre_data_app).
 
 -behaviour(application).
@@ -9,8 +10,10 @@
 %% Application callbacks
 %% ===================================================================
 
+%% @hidden
 start(_StartType, _StartArgs) ->
     pre_data_sup:start_link().
 
+%% @hidden
 stop(_State) ->
     ok.

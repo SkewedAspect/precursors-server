@@ -1,9 +1,7 @@
-%% --------------------------------------------------------------------------------------------------------------------
 %% @doc Quaternion module - simplifies working with and perfoming math on quaternions.
 %%
 %% @copyright 2012 Christopher S. Case
 %% Licensed under the MIT license; see the LICENSE file for details.
-%% --------------------------------------------------------------------------------------------------------------------
 
 -module(quaternion).
 
@@ -172,13 +170,15 @@ inverse({_, _, _, _} = Quat) ->
 reciprocal({_, _, _, _} = Quat) ->
 	divide(conjugate(Quat), squared_norm(Quat)).
 
-%% @doc Get the quaternion which results from composing the rotations represented by `first` and `second`.
+%% @doc Get the quaternion which results from composing the rotations
+%% represented by `First' and `Second'.
 compose({_, _, _, _} = First, {_, _, _, _} = Second) ->
 	multiply(First, Second).
 
 % ---------------------------------------------------------------------------------------------------------------------
 
-%% @doc Get the quaternion representing the orientation of `target` relative to `reference`.
+%% @doc Get the quaternion representing the orientation of `Target'
+%% relative to `Reference'.
 relative_to({_, _, _, _} = Target, {_, _, _, _} = Reference) ->
 	multiply(multiply(Reference, Target), conjugate(Reference)).
 

@@ -1,9 +1,7 @@
-%% ------------------------------------------------------------------------
-%% @doc Vector module - simplifies working with and perfoming math on vectors.
+%% @doc Simplifies working with and perfoming math on vectors.
 %%
 %% @copyright 2012 Christopher S. Case
 %% Licensed under the MIT license; see the LICENSE file for details.
-%% ------------------------------------------------------------------------
 
 -module(vector).
 

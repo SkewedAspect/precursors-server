@@ -10,7 +10,7 @@ all: deps compile devrel
 
 
 # Targets that don't correspond to the name of a file
-.PHONY: all help compile script cert rel deps update-deps
+.PHONY: all help compile script cert rel deps update-deps doc
 .PHONY: clean-deps clean-cert clean-rel clean-test clean distclean
 
 
@@ -30,6 +30,7 @@ help:
 	@echo "    rel            generate a production release"
 	@echo "    devrel         generate a development release, and a ./devrel runner script"
 	@echo "    test           run unit tests"
+	@echo "    doc            generate code documentation"
 	@echo
 	@echo "    clean          clean up after 'compile' and 'test'"
 	@echo "    clean-deps     clean up after 'deps'"
@@ -50,6 +51,8 @@ update-deps:
 compile: deps
 	./rebar compile
 
+doc:
+	./rebar doc skip_deps=true
 
 # SSL certificates
 SSL_CERT ?= $(PRIVDIR)/precursors.crt

@@ -1,7 +1,8 @@
-%%% @doc This is the Ranch protocol that decodes the messages from TCP/SSL, and turns them into something the server can
-%%% understand. This module is in charge of handling the decoding of the netstrings, and the AES encryption, as well as
-%%% starting the client connection pid when an SSL connection happens.
-%%% -------------------------------------------------------------------------------------------------------------------
+%%% @doc This is the Ranch protocol that decodes the messages from
+%%% TCP/SSL, and turns them into something the server can understand. This
+%%% module is in charge of handling the decoding of the netstrings, and
+%%% the AES encryption, as well as starting the client connection pid when
+%%% an SSL connection happens.
 
 -module(pre_channels_proto).
 
@@ -42,6 +43,7 @@
 %% --------------------------------------------------------------------------------------------------------------------
 
 %% @doc Starts the server
+-spec start_link(Ref :: any(), Socket :: any(), Transport :: atom(), Opts :: any()) -> {'ok', pid()}.
 
 start_link(Ref, Socket, Transport, Opts) ->
 	gen_server:start_link(?MODULE, [Ref, Socket, Transport], Opts).
@@ -58,6 +60,7 @@ send_envelope(ProtoPid, Envelope) ->
 %% gen_server
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @private
 init([]) ->
 	lager:debug("Wrong init: not called from ranch?"),
 	{ok, #state{}};
@@ -205,11 +208,13 @@ handle_info(Info, State) ->
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @private
 terminate(_Reason, _State) ->
 	ok.
 
 %% --------------------------------------------------------------------------------------------------------------------
 
+%% @private
 code_change(_OldVsn, State, _Extra) ->
 	{ok, State}.
 
