@@ -1,5 +1,6 @@
 -module(pre_channels_proto_tests).
 
+-include("pre_client.hrl").
 -include_lib("eunit/include/eunit.hrl").
 
 -record(state, {
@@ -7,6 +8,7 @@
 	socket :: any(),
 	transport :: atom(),
 	client :: pid(),
+	clientmon :: reference(),
 	aes_key :: binary(),
 	aes_vector :: binary(),
 	netstring_cont = 10 :: integer() | term()
@@ -16,15 +18,17 @@
 
 %% --------------------------------------------------------------------------------------------------------------------
 
-simple_start_test() ->
+simple_start_test_d() ->
 	Got = pre_channels_proto:start_link(fake_ref, fake_socket, fake_transport, []),
 	?assertMatch({ok, _}, Got),
 	{ok, Pid} = Got,
 	?assert(is_pid(Pid)),
 
 	% Teardown
-	gen_server:cast(Pid, stop),
 	Mon = erlang:monitor(process, Pid),
+	gen_server:cast(Pid, stop),
+
+	% Wait for the pid to exit
 	receive
 		{'DOWN', Mon, process, Pid, _} ->
 			ok
@@ -34,6 +38,7 @@ proto_test_() ->
 	% Setup
 	{setup, fun() ->
 		meck:new(fake_transport, [non_strict]),
+		meck:expect(fake_transport, setopts, fun(_, _) -> ok end),
 		meck:new(pre_client)
 	end,
 
@@ -47,12 +52,11 @@ proto_test_() ->
 		{ "can send via ssl",
 			fun() ->
 				meck:expect(fake_transport, send, fun(_Socket, Message) ->
-					%% FIXME: update to use envelope record
-					Expected = <<"14:{\"foo\":\"Bar!\"},">>,
+					Expected = <<"46:{\"type\":\"undefined\",\"contents\":{\"foo\":\"Bar!\"}},">>,
 					?assertEqual(Expected, Message)
 				end),
 				State = #state{ socket = fake_socket, transport = fake_transport},
-				pre_channels_proto:handle_cast({send, [{foo, <<"Bar!">>}]}, State),
+				pre_channels_proto:handle_cast({send, #envelope{contents = [{foo, <<"Bar!">>}]}}, State),
 				?assert(meck:validate(fake_transport))
 			end
 		},
@@ -62,7 +66,7 @@ proto_test_() ->
 				IV = crypto:rand_bytes(16),
 
 				meck:expect(fake_transport, send, fun(_Socket, Message) ->
-					Expected = netstring:encode(aes_encrypt(<<"{\"foo\":\"Bar!\"}">>, Key, IV)),
+					Expected = netstring:encode(aes_encrypt(<<"{\"type\":\"undefined\",\"contents\":{\"foo\":\"Bar!\"}}">>, Key, IV)),
 					?assertEqual(Expected, Message)
 				end),
 				State = #state{
@@ -71,7 +75,7 @@ proto_test_() ->
 					aes_key = Key,
 					aes_vector = IV
 				},
-				pre_channels_proto:handle_cast({send, [{foo, <<"Bar!">>}]}, State),
+				pre_channels_proto:handle_cast({send, #envelope{contents = [{foo, <<"Bar!">>}]}}, State),
 				?assert(meck:validate(fake_transport))
 			end
 		},
@@ -81,7 +85,7 @@ proto_test_() ->
 					Expected = [{envelope,event,undefined,<<"ping">>,<<"foobar">>}],
 					?assertEqual(Expected, Messages)
 				end),
-				State = #state{ client = fake_client },
+				State = #state{ client = fake_client, transport = fake_transport },
 				Data = netstring:encode(<<"{\"channel\":\"ping\",\"type\":\"event\",\"contents\":\"foobar\"}">>),
 				pre_channels_proto:handle_info({ssl, fake_socket, Data}, State),
 				?assert(meck:validate(pre_client))
@@ -110,7 +114,7 @@ proto_test_() ->
 		},
 		{ "looks up cookie from initial tcp message",
 			fun() ->
-				meck:expect(pre_client, connect_tcp, fun(_Pid, Cookie) ->
+				meck:expect(pre_client, connect_tcp, fun(_Pid, Cookie, _RequestID) ->
 					Expected = <<"foobar">>,
 					?assertEqual(Expected, Cookie)
 				end),
@@ -119,48 +123,10 @@ proto_test_() ->
 					IV = crypto:rand_bytes(16),
 					{Key, IV}
 				end),
-				State = #state{},
+				State = #state{ transport = fake_transport },
 				Data = netstring:encode(<<"{\"channel\":\"control\",\"type\":\"request\",\"contents\":{\"cookie\":\"foobar\"}}">>),
 				pre_channels_proto:handle_info({tcp, fake_socket, Data}, State),
 				?assert(meck:validate(pre_client))
-			end
-		},
-		{ "rejects the client if the first tcp message does not have a cookie",
-			fun() ->
-				meck:expect(pre_client, get_aes, fun(_Pid) ->
-					Key = <<"770A8A65DA156D24EE2A093277530142">>,
-					IV = crypto:rand_bytes(16),
-					{Key, IV}
-				end),
-				State = #state{},
-				Data = netstring:encode(<<"{\"channel\":\"control\",\"type\":\"request\",\"contents\":{\"foo\":\"bar\"}}">>),
-
-				{exit, caught, ExitReason} = try pre_channels_proto:handle_info({tcp, fake_socket, Data}, State) of
-					_ -> ok
-				catch
-					exit:Exit -> {exit, caught, Exit}
-				end,
-				Expected = non_cookie_message,
-				?assertEqual(Expected, ExitReason)
-			end
-		},
-		{ "rejects the client if the first tcp message is invalid",
-			fun() ->
-				meck:expect(pre_client, get_aes, fun(_Pid) ->
-					Key = <<"770A8A65DA156D24EE2A093277530142">>,
-					IV = crypto:rand_bytes(16),
-					{Key, IV}
-				end),
-				State = #state{},
-				Data = netstring:encode(<<"{\"channel\":\"control\",\"type\":\"request\",\"contents\":\"foo\"}">>),
-
-				{exit, caught, ExitReason} = try pre_channels_proto:handle_info({tcp, fake_socket, Data}, State) of
-					 _ -> ok
-				 catch
-					 exit:Exit -> {exit, caught, Exit}
-				 end,
-				Expected = non_cookie_message,
-				?assertEqual(Expected, ExitReason)
 			end
 		}]
 	end
