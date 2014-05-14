@@ -108,7 +108,7 @@ apply_torque_relative(RelTorque, Physical) ->
 	}.
 
 %% --------------------------------------------------------------------------------------------------------------------
-%% Physics Simulation
+%% Physics Simulation using 4th-order Runge-Kutta integration
 %%
 %% This portion of the module is loosely based on concepts from the following articles:
 %% * http://gafferongames.com/game-physics/integration-basics/
@@ -130,7 +130,7 @@ simulate(TimestepUsec, Physical) ->
 		angular_momentum = AngularMomentum
 	} = Physical,
 
-	{Velocity1, Force1, Spin1, Torque1, Physical1} = sim_evaluate(0, vector:zero(), vector:zero(), vector:zero(), vector:zero(), Physical),
+	{Velocity1, Force1, Spin1, Torque1, Physical1} = sim_evaluate(0, vector:zero(), vector:zero(), quaternion:identity(), vector:zero(), Physical),
 	{Velocity2, Force2, Spin2, Torque2, Physical2} = sim_evaluate(TimestampSec * 0.5, Velocity1, Force1, Spin1, Torque1, Physical1),
 	{Velocity3, Force3, Spin3, Torque3, Physical3} = sim_evaluate(TimestampSec * 0.5, Velocity2, Force2, Spin2, Torque2, Physical2),
 	{Velocity4, Force4, Spin4, Torque4, Physical4} = sim_evaluate(TimestampSec, Velocity3, Force3, Spin3, Torque3, Physical3),
