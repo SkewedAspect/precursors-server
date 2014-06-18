@@ -36,10 +36,10 @@
 	torque_relative = vector:zero() :: vector:vec(),
 
 	% Intrinsic values (should NOT change during the life of an object)
-	mass = 1 :: float(),
-	inverse_mass = 1 :: float(),
-	inertia_tensor = 1 :: float(),
-	inverse_inertia_tensor = 1 :: float(),
+	mass = 1.0 :: float(),
+	inverse_mass = 1.0 :: float(),
+	inertia_tensor = 1.0 :: float(),
+	inverse_inertia_tensor = 1.0 :: float(),
 
 	% Purely calculated values (DON'T try to change these from anything other than pre_physics_rk4)
 	last_update :: erlang:timestamp(),
