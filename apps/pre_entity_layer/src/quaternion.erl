@@ -28,6 +28,7 @@
 % ---------------------------------------------------------------------------------------------------------------------
 
 -define(NORMALIZED_TOLERANCE, 0.0000001).
+-define(MACHINE_EPSILON, 1.1102230246251565e-16). % Calculated on an AMD Phenom(tm) II X4 940
 -define(IDENTITY, {1, 0, 0, 0}).
 
 %% --------------------------------------------------------------------------------------------------------------------
@@ -167,7 +168,7 @@ unit(0, {_, _, _, _} = Quat) ->
 %% @doc hidden
 unit(QLS, {_, _, _, _} = Quat) ->
 	Norm = abs(QLS - 1.0),
-	case Norm < ?NORMALIZED_TOLERANCE of
+	case Norm < ?MACHINE_EPSILON of
 		true ->
 			%FIXME: Should this return Quat, or ?IDENTITY ?
 			%Quat;
