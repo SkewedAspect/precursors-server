@@ -125,10 +125,10 @@ main([]) ->
 	baseline(),
 
 	Tests = [
-		pdict,
-		dict,
-		ets,
-		proplist
+		%pdict,
+		%dict,
+		ets%,
+		%proplist
 	],
 	Sizes = [
 		1,
@@ -198,8 +198,9 @@ ets(Size) ->
 		[
 			{new, fun() -> Size end, fun ?MODULE:ets_new/1},
 			{lookup, SetupFunc, fun ?MODULE:ets_lookup/1},
-			%{iterate_foldl, SetupFunc, fun ?MODULE:ets_iterate_foldl/1}, % HORRIBLE
-			%{iterate_match, SetupFunc, fun ?MODULE:ets_iterate_match/1}, % Not as bad, but still BAD
+			{iterate_lookup, SetupFunc, fun ?MODULE:ets_iterate_lookup/1}, % HORRIBLE?
+			{iterate_foldl, SetupFunc, fun ?MODULE:ets_iterate_foldl/1}, % HORRIBLE
+			{iterate_match, SetupFunc, fun ?MODULE:ets_iterate_match/1}, % Not as bad, but still BAD
 			{iterate_select, SetupFunc, fun ?MODULE:ets_iterate_select/1},
 			{iterate_first_next, SetupFunc, fun ?MODULE:ets_iterate_first_next/1},
 			{to_list_match, SetupFunc, fun ?MODULE:ets_to_list_match/1},
@@ -334,6 +335,9 @@ ets_new(Size) ->
 
 ets_lookup({Size, EtsTable}) ->
 	ets:lookup(EtsTable, list_to_binary(integer_to_list(random:uniform(Size)))).
+
+ets_iterate_lookup({Size, EtsTable}) ->
+	[ets:lookup(EtsTable, list_to_binary(integer_to_list(Key))) || Key <- lists:seq(1, Size)].
 
 ets_iterate_foldl({_Size, EtsTable}) ->
 	ets:foldl(fun ?MODULE:null/2, [], EtsTable).

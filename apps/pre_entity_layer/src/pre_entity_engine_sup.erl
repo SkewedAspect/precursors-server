@@ -8,7 +8,6 @@
 -module(pre_entity_engine_sup).
 -behaviour(supervisor).
 
--include("pre_entity.hrl").
 -ifdef(TEST).
 -include_lib("eunit/include/eunit.hrl").
 -endif.
@@ -37,13 +36,21 @@ start_link() ->
 %% @private
 init(_) ->
 
-	Workers = case application:get_env(pre_entity_layer, event_workers) of
+	EventWorkers = case application:get_env(pre_entity_layer, event_workers) of
 		undefined -> 5;
 		Else -> Else
 	end,
-	EventEngine = {pre_entity_event_sup, {pre_entity_event_sup, start_link, [Workers]}, permanent, 5, supervisor, [?MODULE]},
+	EventEngine = {pre_entity_event_sup, {pre_entity_event_sup, start_link, [EventWorkers]},
+		permanent, 5, supervisor, [?MODULE]},
 
-	{ok, {{one_for_one, 5, 10}, [EventEngine]}}.
+	SimulationWorkers = case application:get_env(pre_entity_layer, simulation_workers) of
+		undefined -> 5;
+		Else1 -> Else1
+	end,
+	SimulationEngine = {pre_sim_worker_sup, {pre_sim_worker_sup, start_link, [SimulationWorkers]},
+		permanent, 5, supervisor, [?MODULE]},
+
+	{ok, {{one_for_one, 5, 10}, [EventEngine, SimulationEngine]}}.
 
 %% --------------------------------------------------------------------
 %% Tests
